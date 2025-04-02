@@ -110,3 +110,67 @@ By following these steps, you can focus more on creating innovative omnichain so
 <p align="center">
   Join our <a href="https://layerzero.network/community" style="color: #a77dff">community</a>! | Follow us on <a href="https://x.com/LayerZero_Labs" style="color: #a77dff">X (formerly Twitter)</a>
 </p>
+
+# Aori Contracts
+
+Smart contracts for the Aori protocol.
+
+## Development Setup
+
+### Prerequisites
+- [Foundry](https://book.getfoundry.sh/getting-started/installation) (Forge, Cast, Anvil)
+
+### Installation
+
+1. Clone the repository with its submodules:
+```sh
+git clone --recursive https://github.com/yourusername/aori-contracts.git
+cd aori-contracts
+```
+
+2. If you've already cloned the repository without `--recursive`, initialize and update submodules:
+```sh
+git submodule update --init --recursive
+```
+
+3. Install Foundry dependencies:
+```sh
+forge install
+```
+
+### Building
+
+```sh
+forge build
+```
+
+### Testing
+
+```sh
+forge test
+```
+
+For more verbose output:
+```sh
+forge test -vvv
+```
+
+## Repository Structure
+
+- `contracts/`: The main contract files
+  - `Aori.sol`: Main Aori contract
+  - `interfaces/`: Interface definitions
+  - `lib/`: Common libraries and utilities
+- `test/`: Test files for the contracts
+
+## Submodule Dependencies
+
+This project uses Git submodules for its dependencies:
+- OpenZeppelin Contracts
+- Solady
+- LayerZero-v2
+- Forge Standard Library
+
+## License
+
+MIT
