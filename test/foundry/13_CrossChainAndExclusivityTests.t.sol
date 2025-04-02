@@ -12,6 +12,7 @@ pragma solidity 0.8.28;
  * 5. testQuoteFeeCalculation - Tests the quote function for accurate fee estimation
  * 6. testCannotCancelAfterFill - Tests that cancellation is not possible after fill but before settlement
  * 7. testCannotFillAfterCancel - Tests that filling is not possible after an order has been cancelled
+ * 8. testUnsupportedPayloadType - Tests handling of unsupported payload types in cross-chain messages
  *
  * This test file focuses on verifying cross-chain order flows and the proper enforcement of
  * solver whitelisting. It simulates cross-chain communication by using LayerZero's test helpers
@@ -215,13 +216,13 @@ contract CrossChainAndWhitelistTests is TestUtils {
     /**
      * @notice Test the quote function for accurate fee estimation
      */
-    function testQuoteFeeCalculation() public {
+    function testQuoteFeeCalculation() public view {
         // Create options for quoting
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(uint128(GAS_LIMIT), 0);
-
+        
         // Get a fee quote
         uint256 fee = localAori.quote(remoteEid, 0, options, false, localEid, solver);
-
+        
         // The fee should be non-zero
         assertGt(fee, 0, "Fee should be greater than zero");
     }
@@ -340,5 +341,36 @@ contract CrossChainAndWhitelistTests is TestUtils {
         vm.expectRevert("Order not active");
         remoteAori.fill(order);
         vm.stopPrank();
+    }
+
+    /**
+     * @notice Test handling of unsupported payload types
+     * Verifies that the contract properly rejects messages with invalid payload types
+     */
+    function testUnsupportedPayloadType() public {
+        vm.chainId(localEid);
+
+        // Create an invalid payload with an unsupported type (not 0 for settlement or 1 for cancellation)
+        bytes memory invalidPayload = new bytes(33); // Same length as a cancellation payload
+        invalidPayload[0] = 0x02; // Set unsupported payload type (2)
+        
+        // Fill the rest with some dummy data
+        bytes32 dummyOrderHash = keccak256("dummy-order-hash");
+        for (uint256 i = 0; i < 32; i++) {
+            invalidPayload[1 + i] = dummyOrderHash[i];
+        }
+
+        // Simulate LayerZero message with invalid payload type
+        bytes32 guid = keccak256("mock-guid-invalid-payload");
+        vm.prank(address(endpoints[localEid]));
+        // Use generic expectRevert without message since Solidity panics are difficult to match exactly
+        vm.expectRevert();
+        localAori.lzReceive(
+            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),
+            guid,
+            invalidPayload,
+            address(0),
+            bytes("")
+        );
     }
 }

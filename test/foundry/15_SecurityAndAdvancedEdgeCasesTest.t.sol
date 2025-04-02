@@ -9,6 +9,7 @@ pragma solidity 0.8.28;
  * 2. testMaxFillsPerSettleLimit - Tests the limit on number of fills per settlement
  * 3. testInvalidOrderParameters - Tests rejection of invalid order parameters
  * 4. testInvalidSolverData - Tests rejection of invalid solver data
+ * 5. testPauseAndUnpause - Tests pausing and unpausing functionality
  *
  * This test file verifies the security measures in the Aori contract,
  * particularly the solver whitelist enforcement, parameter validation, and rate
@@ -375,5 +376,160 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         vm.prank(solver);
         vm.expectRevert("Must provide at least the expected output amount");
         remoteAori.fill(order, dstData);
+    }
+
+    /**
+     * @notice Test pause and unpause functionality
+     * Verifies that pausing blocks operations and unpausing enables them again
+     */
+    function testPauseAndUnpause() public {
+        vm.chainId(localEid);
+
+        // Create a valid order
+        IAori.Order memory order = IAori.Order({
+            offerer: userA,
+            recipient: userA,
+            inputToken: address(inputToken),
+            outputToken: address(outputToken),
+            inputAmount: 1e18,
+            outputAmount: 2e18,
+            startTime: uint32(block.timestamp),
+            endTime: uint32(block.timestamp + 1 days),
+            srcEid: localEid,
+            dstEid: remoteEid
+        });
+
+        // Sign the order with the testLocalAori contract address
+        bytes memory signature = signOrderWithContract(order, userAPrivKey, address(testLocalAori));
+
+        vm.prank(userA);
+        inputToken.approve(address(testLocalAori), order.inputAmount);
+
+        // Pause the contract - ensure we're using the owner address
+        // Note: Since testLocalAori was deployed with address(this) as owner
+        testLocalAori.pause();
+
+        // Attempt deposit while paused - should revert
+        vm.prank(solver);
+        vm.expectRevert();
+        testLocalAori.deposit(order, signature);
+
+        // Unpause the contract
+        testLocalAori.unpause();
+
+        // Deposit should now succeed
+        vm.prank(solver);
+        testLocalAori.deposit(order, signature);
+        
+        // Create a new order for the remote chain test
+        IAori.Order memory remoteOrder = IAori.Order({
+            offerer: userA,
+            recipient: userA,
+            inputToken: address(inputToken),
+            outputToken: address(outputToken),
+            inputAmount: 1e18,
+            outputAmount: 2e18,
+            startTime: uint32(block.timestamp),
+            endTime: uint32(block.timestamp + 1 days),
+            srcEid: localEid,
+            dstEid: remoteEid
+        });
+        
+        // Sign with the remote contract as the verifying address
+        bytes memory remoteSignature = signOrderWithContract(remoteOrder, userAPrivKey, address(testRemoteAori));
+
+        // Test pause affecting fills on destination chain
+        vm.chainId(remoteEid);
+        vm.warp(remoteOrder.startTime + 10);
+
+        vm.prank(solver);
+        outputToken.approve(address(testRemoteAori), remoteOrder.outputAmount);
+
+        // Pause the remote contract - ensure we're using the owner address
+        testRemoteAori.pause();
+
+        // Attempt fill while paused - should revert
+        vm.prank(solver);
+        vm.expectRevert();
+        testRemoteAori.fill(remoteOrder);
+
+        // Unpause the remote contract
+        testRemoteAori.unpause();
+
+        // Fill should now succeed
+        vm.prank(solver);
+        testRemoteAori.fill(remoteOrder);
+
+        // Verify fill was successful
+        assertEq(outputToken.balanceOf(userA), remoteOrder.outputAmount, "User did not receive correct output amount");
+
+        // Test pause affecting settlement
+        vm.chainId(remoteEid);
+        
+        // Create options for the LayerZero message
+        bytes memory options = defaultOptions();
+
+        // Get quote for settlement and add buffer
+        uint256 msgFee = testRemoteAori.quote(localEid, uint8(PayloadType.Settlement), options, false, localEid, solver);
+        uint256 feeWithBuffer = msgFee * 15 / 10; // 50% buffer for safety
+        
+        // Give solver ETH
+        vm.deal(solver, feeWithBuffer * 2);
+
+        // Pause the contract again
+        testRemoteAori.pause();
+
+        // Attempt settle while paused - should revert
+        vm.prank(solver);
+        vm.expectRevert();
+        testRemoteAori.settle{value: feeWithBuffer}(localEid, solver, options);
+
+        // Unpause the contract
+        testRemoteAori.unpause();
+
+        // Settlement should now succeed
+        vm.prank(solver);
+        testRemoteAori.settle{value: feeWithBuffer}(localEid, solver, options);
+    }
+    
+    /**
+     * @notice Signs an order using EIP712 with a specific contract address
+     * This function is needed when testing with custom contract instances
+     */
+    function signOrderWithContract(IAori.Order memory order, uint256 privKey, address contractAddress)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        bytes32 structHash = keccak256(
+            abi.encode(
+                keccak256(
+                    "Order(uint256 inputAmount,uint256 outputAmount,address inputToken,address outputToken,uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient)"
+                ),
+                order.inputAmount,
+                order.outputAmount,
+                order.inputToken,
+                order.outputToken,
+                order.startTime,
+                order.endTime,
+                order.srcEid,
+                order.dstEid,
+                order.offerer,
+                order.recipient
+            )
+        );
+
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,address verifyingContract)"),
+                keccak256(bytes("Aori")),
+                keccak256(bytes("1")),
+                contractAddress
+            )
+        );
+
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privKey, digest);
+        return abi.encodePacked(r, s, v);
     }
 }

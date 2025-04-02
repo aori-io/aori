@@ -171,6 +171,14 @@ Wire your deployed contracts by running:
 npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
 ```
 
+## Coverage Report
+
+See code test coverage
+
+```bash
+forge coverage --report --ir-minimum
+```
+
 ## License
 
 MIT

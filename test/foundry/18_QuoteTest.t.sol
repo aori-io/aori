@@ -14,6 +14,7 @@ pragma solidity 0.8.28;
  * 2. testQuoteSettleMessage - Tests fee calculation for settlement messages with increasing number of filled orders
  * 3. testQuoteIncreasesWithPayloadSize - Tests that fees increase proportionally with payload size
  * 4. testCompareQuoteCancelAndSettle - Compares fees between cancel and settle messages to verify size-based scaling
+ * 5. testInvalidMessageTypeQuote - Tests error handling when an invalid message type is provided to quote
  *
  * Special notes:
  * - These tests focus specifically on the fee calculation aspect of cross-chain messaging
@@ -65,7 +66,7 @@ contract QuoteTest is TestUtils {
     }
 
     /// @dev Test quoting for cancel message (33 bytes)
-    function testQuoteCancelMessage() public {
+    function testQuoteCancelMessage() public view {
         // Get standard LZ options
         bytes memory options = defaultOptions();
 
@@ -254,5 +255,34 @@ contract QuoteTest is TestUtils {
         );
         // Settle fee should be greater than cancel fee because the payload is larger
         assertGt(settleFee, cancelFee, "Settle fee should be greater than cancel fee due to larger payload");
+    }
+
+    /// @dev Test the quote function error handling for invalid message types
+    function testInvalidMessageTypeQuote() public {
+        // Get standard LZ options
+        bytes memory options = defaultOptions();
+
+        // Try to get a quote with an invalid message type (2)
+        // Valid message types are only 0 (settlement) and 1 (cancellation)
+        vm.expectRevert("Invalid message type");
+        localAori.quote(
+            remoteEid, // destination endpoint
+            2, // Invalid message type (neither 0 for settlement nor 1 for cancellation)
+            options, // LZ options
+            false, // payInLzToken
+            localEid, // srcEid
+            solver // filler
+        );
+
+        // Test with another invalid message type (255)
+        vm.expectRevert("Invalid message type");
+        localAori.quote(
+            remoteEid, // destination endpoint
+            255, // Another invalid message type
+            options, // LZ options
+            false, // payInLzToken
+            localEid, // srcEid
+            solver // filler
+        );
     }
 }
