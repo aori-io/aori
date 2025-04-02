@@ -125,7 +125,7 @@ contract SettlementTests is TestUtils {
     function testBasicSettlement() public {
         // Create and deposit an order
         IAori.Order memory order = createValidOrder();
-        bytes memory signature = signOrder(order);
+        bytes memory signature = signOrderWithContract(order, userAPrivKey, address(testLocalAori));
         bytes32 orderId = keccak256(abi.encode(order));
 
         vm.prank(userA);
@@ -163,6 +163,26 @@ contract SettlementTests is TestUtils {
         
         vm.prank(solver);
         testRemoteAori.settle{value: fee}(localEid, solver, options);
+
+        // Deliver the LayerZero message to ensure settlement is processed
+        // Simulate the LayerZero message delivery to the source chain
+        vm.chainId(localEid);
+        bytes32 guid = keccak256("mock-guid");
+        bytes memory settlementPayload = abi.encodePacked(
+            uint8(0), // message type 0 for settlement
+            solver, // filler address
+            uint16(1), // fill count of 1
+            orderId // order hash
+        );
+
+        vm.prank(address(endpoints[localEid]));
+        testLocalAori.lzReceive(
+            Origin(remoteEid, bytes32(uint256(uint160(address(testRemoteAori)))), 1),
+            guid,
+            settlementPayload,
+            address(0),
+            bytes("")
+        );
 
         // Get fills length after settlement
         uint256 fillsLengthAfter = testRemoteAori.getFillsLength(localEid, solver);
@@ -275,5 +295,42 @@ contract SettlementTests is TestUtils {
         // Verify second round processed the remaining orders
         uint256 fillsLengthAfterSecond = testRemoteAori.getFillsLength(localEid, solver);
         assertEq(fillsLengthAfterSecond, 0, "Should have 0 fills after second settlement");
+    }
+
+    /**
+     * @notice Signs an order using EIP712 with a specific contract address
+     * This function is needed when testing with custom contract instances
+     */
+    function signOrderWithContract(IAori.Order memory order, uint256 privKey, address contractAddress) internal view returns (bytes memory) {
+        bytes32 structHash = keccak256(
+            abi.encode(
+                keccak256(
+                    "Order(uint256 inputAmount,uint256 outputAmount,address inputToken,address outputToken,uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient)"
+                ),
+                order.offerer,
+                order.recipient,
+                order.inputToken,
+                order.outputToken,
+                order.inputAmount,
+                order.outputAmount,
+                order.startTime,
+                order.endTime,
+                order.srcEid,
+                order.dstEid
+            )
+        );
+
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,address verifyingContract)"),
+                keccak256(bytes("Aori")),
+                keccak256(bytes("1")),
+                contractAddress
+            )
+        );
+
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privKey, digest);
+        return abi.encodePacked(r, s, v);
     }
 } 

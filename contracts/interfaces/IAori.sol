@@ -2,9 +2,9 @@
 pragma solidity 0.8.28;
 
 interface IAori {
-    //////////////////////////////////////////////////////////////*/
-    //                            ENUMS
-    //////////////////////////////////////////////////////////////*/
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                           STATUS                           */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     enum OrderStatus {
         Unknown, // Order not found
@@ -12,12 +12,11 @@ interface IAori {
         Filled, // Pending settlement
         Cancelled, // Order cancelled
         Settled // Order settled
-
     }
 
-    //////////////////////////////////////////////////////////////*/
-    //                            ORDER
-    //////////////////////////////////////////////////////////////*/
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                             ORDER                          */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     struct Order {
         uint128 inputAmount;
@@ -32,9 +31,9 @@ interface IAori {
         address recipient;
     }
 
-    //////////////////////////////////////////////////////////////*/
-    //                            HOOKS
-    //////////////////////////////////////////////////////////////*/
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                            HOOKS                           */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     struct SrcHook {
         address hookAddress;
@@ -50,45 +49,62 @@ interface IAori {
         uint256 preferedDstInputAmount;
     }
 
-    //////////////////////////////////////////////////////////////*/
-    //                     AORI SRC EVENTS                        */
-    //////////////////////////////////////////////////////////////*/
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                          SRC EVENTS                        */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     event Deposit(bytes32 indexed orderId, Order order);
-
     event Cancel(bytes32 indexed orderId, Order order);
-
     event Settle(bytes32 indexed orderId, Order order);
-
     event Withdraw(address indexed holder, address indexed token, uint256 amount);
 
-    //////////////////////////////////////////////////////////////*/
-    //                       AORI DST EVENTS
-    //////////////////////////////////////////////////////////////*/
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                          DST EVENTS                        */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     event Fill(bytes32 indexed orderId, Order order);
-
+    event CancelSent(bytes32 indexed orderId, Order order);
     event SettleSent(uint32 indexed srcEid, address indexed filler, bytes payload);
 
-    //////////////////////////////////////////////////////////////*/
-    //                       AORI SRC FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                        SRC FUNCTIONS                       */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     function deposit(Order calldata order, bytes calldata signature) external payable;
+
     function deposit(Order calldata order, bytes calldata signature, SrcHook calldata data) external payable;
 
     function withdraw(address token) external;
 
     function emergencyWithdraw(address token, uint256 amount) external;
 
-    //////////////////////////////////////////////////////////////*/
-    //                        AORI DST FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
+    function srcCancel(bytes32 orderId) external;
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                        DST FUNCTIONS                       */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     function fill(Order calldata order) external payable;
+
     function fill(Order calldata order, DstHook calldata hook) external payable;
 
     function settle(uint32 srcEid, address filler, bytes calldata extraOptions) external payable;
+
+    function dstCancel(bytes32 orderId, Order calldata orderToCancel, bytes calldata extraOptions) external payable;
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                        UTILITY FUNCTIONS                   */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    function hash(Order calldata order) external pure returns (bytes32);
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                       VIEW FUNCTIONS                       */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    function getLockedBalances(address offerer, address token) external view returns (uint256);
+
+    function getUnlockedBalances(address offerer, address token) external view returns (uint256);
 
     function quote(
         uint32 _dstEid,
@@ -98,6 +114,4 @@ interface IAori {
         uint32 _srcEid,
         address _filler
     ) external view returns (uint256 fee);
-
-    function dstCancel(bytes32 orderId, Order calldata orderToCancel, bytes calldata extraOptions) external payable;
 }

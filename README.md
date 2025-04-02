@@ -1,22 +1,8 @@
-<p align="center">
-  <a href="https://layerzero.network">
-    <img alt="LayerZero" style="width: 400px" src="https://docs.layerzero.network/img/LayerZero_Logo_White.svg"/>
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://layerzero.network" style="color: #a77dff">Homepage</a> | <a href="https://docs.layerzero.network/" style="color: #a77dff">Docs</a> | <a href="https://layerzero.network/developers" style="color: #a77dff">Developers</a>
-</p>
-
-<h1 align="center">OApp Example</h1>
-
-<p align="center">Template project for getting started with LayerZero's  <code>OApp</code> contract development.</p>
+<h1 align="center">Aori Contracts</h1>
 
 ## 1) Developing Contracts
 
 #### Installing dependencies
-
-We recommend using `pnpm` as a package manager (but you can of course use a package manager of your choice):
 
 ```bash
 pnpm install
@@ -24,50 +10,14 @@ pnpm install
 
 #### Compiling your contracts
 
-This project supports both `hardhat` and `forge` compilation. By default, the `compile` command will execute both:
-
 ```bash
-pnpm compile
-```
-
-If you prefer one over the other, you can use the tooling-specific commands:
-
-```bash
-pnpm compile:forge
-pnpm compile:hardhat
-```
-
-Or adjust the `package.json` to for example remove `forge` build:
-
-```diff
-- "compile": "$npm_execpath run compile:forge && $npm_execpath run compile:hardhat",
-- "compile:forge": "forge build",
-- "compile:hardhat": "hardhat compile",
-+ "compile": "hardhat compile"
+forge build
 ```
 
 #### Running tests
 
-Similarly to the contract compilation, we support both `hardhat` and `forge` tests. By default, the `test` command will execute both:
-
 ```bash
-pnpm test
-```
-
-If you prefer one over the other, you can use the tooling-specific commands:
-
-```bash
-pnpm test:forge
-pnpm test:hardhat
-```
-
-Or adjust the `package.json` to for example remove `hardhat` tests:
-
-```diff
-- "test": "$npm_execpath test:forge && $npm_execpath test:hardhat",
-- "test:forge": "forge test",
-- "test:hardhat": "$npm_execpath hardhat test"
-+ "test": "forge test"
+forge test
 ```
 
 ## 2) Deploying Contracts
@@ -102,74 +52,6 @@ Wire your deployed contracts by running:
 ```bash
 npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
 ```
-
-By following these steps, you can focus more on creating innovative omnichain solutions and less on the complexities of cross-chain communication.
-
-<br></br>
-
-<p align="center">
-  Join our <a href="https://layerzero.network/community" style="color: #a77dff">community</a>! | Follow us on <a href="https://x.com/LayerZero_Labs" style="color: #a77dff">X (formerly Twitter)</a>
-</p>
-
-# Aori Contracts
-
-Smart contracts for the Aori protocol.
-
-## Development Setup
-
-### Prerequisites
-- [Foundry](https://book.getfoundry.sh/getting-started/installation) (Forge, Cast, Anvil)
-
-### Installation
-
-1. Clone the repository with its submodules:
-```sh
-git clone --recursive https://github.com/yourusername/aori-contracts.git
-cd aori-contracts
-```
-
-2. If you've already cloned the repository without `--recursive`, initialize and update submodules:
-```sh
-git submodule update --init --recursive
-```
-
-3. Install Foundry dependencies:
-```sh
-forge install
-```
-
-### Building
-
-```sh
-forge build
-```
-
-### Testing
-
-```sh
-forge test
-```
-
-For more verbose output:
-```sh
-forge test -vvv
-```
-
-## Repository Structure
-
-- `contracts/`: The main contract files
-  - `Aori.sol`: Main Aori contract
-  - `interfaces/`: Interface definitions
-  - `lib/`: Common libraries and utilities
-- `test/`: Test files for the contracts
-
-## Submodule Dependencies
-
-This project uses Git submodules for its dependencies:
-- OpenZeppelin Contracts
-- Solady
-- LayerZero-v2
-- Forge Standard Library
 
 ## License
 

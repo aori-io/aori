@@ -1,71 +1,38 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {Aori, IAori} from "../../contracts/Aori.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {OApp, Origin, MessagingFee} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
-import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
-import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
-import {MockERC20} from "./Mock/MockERC20.sol";
-import {ExecutionUtils, HookUtils, PayloadPackUtils, PayloadUnpackUtils} from "../../contracts/lib/AoriUtils.sol";
-
 /**
  * @title QuoteTest
  * @notice Tests the LayerZero message fee quoting functionality in the Aori protocol
- * These tests verify that the contract properly calculates fees for different message types
- * and payload sizes while maintaining proper whitelist-based solver restrictions.
+ *
+ * This test file verifies that the Aori contract correctly calculates LayerZero message fees
+ * for different message types and payload sizes. It ensures that fees scale appropriately
+ * with increasing payload sizes, which is essential for accurate gas estimation in a cross-chain context.
+ *
+ * Tests:
+ * 1. testQuoteCancelMessage - Tests fee calculation for cancel messages (33 bytes)
+ * 2. testQuoteSettleMessage - Tests fee calculation for settlement messages with increasing number of filled orders
+ * 3. testQuoteIncreasesWithPayloadSize - Tests that fees increase proportionally with payload size
+ * 4. testCompareQuoteCancelAndSettle - Compares fees between cancel and settle messages to verify size-based scaling
+ *
+ * Special notes:
+ * - These tests focus specifically on the fee calculation aspect of cross-chain messaging
+ * - Tests verify both relative fee scaling (larger payloads = higher fees) and absolute fee values
+ * - The tests create real orders and fills to generate authentic settlement payloads of varying sizes
  */
-contract QuoteTest is TestHelperOz5 {
-    using OptionsBuilder for bytes;
 
-    Aori public localAori;
-    Aori public remoteAori;
-    MockERC20 public inputToken;
-    MockERC20 public outputToken;
+import {TestUtils} from "./TestUtils.sol";
+import {IAori} from "../../contracts/Aori.sol";
+import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 
-    // User and solver addresses
-    uint256 public userAPrivKey = 0xBEEF;
-    address public userA;
-    // The whitelisted solver address that will be used for testing operations
-    address public solver = address(0x200);
-
-    uint32 private constant localEid = 1;
-    uint32 private constant remoteEid = 2;
-    uint16 private constant MAX_FILLS_PER_SETTLE = 10;
-
+/**
+ * @notice Tests the LayerZero message fee quoting functionality in the Aori protocol
+ */
+contract QuoteTest is TestUtils {
     /// @dev Deploy endpoints, contracts, and tokens.
     function setUp() public override {
-        // Derive userA from private key
-        userA = vm.addr(userAPrivKey);
-
-        // Setup LayerZero endpoints
-        setUpEndpoints(2, LibraryType.UltraLightNode);
-
-        // Deploy Aori contracts
-        localAori = new Aori(address(endpoints[localEid]), address(this), localEid, MAX_FILLS_PER_SETTLE);
-        remoteAori = new Aori(address(endpoints[remoteEid]), address(this), remoteEid, MAX_FILLS_PER_SETTLE);
-
-        // Wire the OApps together
-        address[] memory aoriInstances = new address[](2);
-        aoriInstances[0] = address(localAori);
-        aoriInstances[1] = address(remoteAori);
-        wireOApps(aoriInstances);
-
-        // Set peers between chains
-        localAori.setPeer(remoteEid, bytes32(uint256(uint160(address(remoteAori)))));
-        remoteAori.setPeer(localEid, bytes32(uint256(uint160(address(localAori)))));
-
-        // Setup test tokens
-        inputToken = new MockERC20("Input", "IN");
-        outputToken = new MockERC20("Output", "OUT");
-
-        // Mint tokens
-        inputToken.mint(userA, 1000e18);
-        outputToken.mint(solver, 1000e18);
-
-        // Whitelist the solver in both contracts to allow it to perform operations
-        localAori.addAllowedSolver(solver);
-        remoteAori.addAllowedSolver(solver);
+        // Setup parent test environment
+        super.setUp();
     }
 
     /// @dev Helper to create and deposit orders
@@ -98,46 +65,10 @@ contract QuoteTest is TestHelperOz5 {
         orderHash = localAori.hash(order);
     }
 
-    /// @dev Helper to sign an order
-    function signOrder(IAori.Order memory order) internal view returns (bytes memory) {
-        bytes32 orderTypehash = keccak256(
-            "Order(uint256 inputAmount,uint256 outputAmount,address inputToken,address outputToken,uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient)"
-        );
-
-        bytes32 structHash = keccak256(
-            abi.encode(
-                orderTypehash,
-                order.offerer,
-                order.recipient,
-                order.inputToken,
-                order.outputToken,
-                order.inputAmount,
-                order.outputAmount,
-                order.startTime,
-                order.endTime,
-                order.srcEid,
-                order.dstEid
-            )
-        );
-
-        bytes32 domainSeparator = keccak256(
-            abi.encode(
-                keccak256("EIP712Domain(string name,string version,address verifyingContract)"),
-                keccak256(bytes("Aori")),
-                keccak256(bytes("1")),
-                address(localAori)
-            )
-        );
-
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(userAPrivKey, digest);
-        return abi.encodePacked(r, s, v);
-    }
-
     /// @dev Test quoting for cancel message (33 bytes)
-    function testQuoteCancelMessage() public view {
+    function testQuoteCancelMessage() public {
         // Get standard LZ options
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
+        bytes memory options = defaultOptions();
 
         // Get quote for cancel message (msgType 1)
         uint256 cancelFee = localAori.quote(
@@ -156,7 +87,7 @@ contract QuoteTest is TestHelperOz5 {
     /// @dev Test quoting for settle message with increasing number of order fills
     function testQuoteSettleMessage() public {
         // Get standard LZ options
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
+        bytes memory options = defaultOptions();
 
         // Switch to remote chain to fill orders
         vm.chainId(remoteEid);
@@ -217,7 +148,7 @@ contract QuoteTest is TestHelperOz5 {
     /// @dev Test that quotes increase with payload size
     function testQuoteIncreasesWithPayloadSize() public {
         // Get standard LZ options
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
+        bytes memory options = defaultOptions();
 
         // Create and deposit multiple orders
         vm.chainId(localEid);
@@ -239,7 +170,7 @@ contract QuoteTest is TestHelperOz5 {
 
             // Switch to remote chain to fill orders
             vm.chainId(remoteEid);
-            vm.warp(uint32(uint32(block.timestamp) + 100)); // Ensure all orders have started
+            vm.warp(uint32(block.timestamp + 100)); // Ensure all orders have started
 
             // Fill each order
             for (uint256 i = 0; i < numOrders; i++) {
@@ -286,7 +217,7 @@ contract QuoteTest is TestHelperOz5 {
     /// @dev Compare cancel and settle message fees
     function testCompareQuoteCancelAndSettle() public {
         // Get standard LZ options
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
+        bytes memory options = defaultOptions();
 
         // Get quote for cancel message (33 bytes)
         uint256 cancelFee = localAori.quote(

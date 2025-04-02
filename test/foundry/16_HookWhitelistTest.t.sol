@@ -1,144 +1,49 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import "forge-std/Test.sol";
-import {Aori, IAori} from "../../contracts/Aori.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {OApp, Origin, MessagingFee} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
-import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
-import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
-import {MockERC20} from "./Mock/MockERC20.sol";
-import {MockHook} from "./Mock/MockHook.sol";
-import {ExecutionUtils, HookUtils, PayloadPackUtils, PayloadUnpackUtils} from "../../contracts/lib/AoriUtils.sol";
-
 /**
  * @title HookWhitelistTest
  * @notice Tests the hook whitelist functionality in the Aori contract
- * These tests verify that only whitelisted hooks can be used for token conversions
- * and that the whitelist system properly restricts access to non-whitelisted hooks.
+ *
+ * This test file verifies that the Aori contract properly manages and enforces hook whitelisting.
+ * Hook whitelisting is essential for security as it prevents arbitrary contracts from being used
+ * as conversion hooks during token transfers, which could potentially lead to theft or loss of funds.
+ *
+ * Tests:
+ * 1. testRevertDepositNonWhitelistedHook - Verifies deposit operation reverts when using a non-whitelisted hook
+ * 2. testDepositWithWhitelistedHook - Verifies deposit operation succeeds when using a whitelisted hook
+ * 3. testRevertFillNonWhitelistedHook - Verifies fill operation reverts when using a non-whitelisted hook
+ * 4. testFillWithWhitelistedHook - Verifies fill operation succeeds when using a whitelisted hook
+ * 5. testHookWhitelistManagement - Tests adding and removing hooks from the whitelist
+ *
+ * Special notes:
+ * - This test uses two mock hooks: one whitelisted and one non-whitelisted
+ * - Each test verifies both the success case (whitelisted) and failure case (non-whitelisted)
+ * - The whitelist management test demonstrates the dynamic nature of the whitelist
  */
-contract HookWhitelistTest is TestHelperOz5 {
-    using OptionsBuilder for bytes;
 
-    Aori public localAori;
-    Aori public remoteAori;
-    MockERC20 public inputToken;
-    MockERC20 public outputToken;
-    MockERC20 public convertedToken;
-    MockHook public whitelistedHook;
+import {TestUtils} from "./TestUtils.sol";
+import {MockHook} from "./Mock/MockHook.sol";
+import {IAori} from "../../contracts/Aori.sol";
+
+/**
+ * @notice Tests the hook whitelist functionality in the Aori contract
+ */
+contract HookWhitelistTest is TestUtils {
+    // Additional mock hook needed for testing
     MockHook public nonWhitelistedHook;
 
-    // User and solver addresses
-    uint256 public userAPrivKey = 0xBEEF;
-    address public userA;
-    // The whitelisted solver address that will be used for testing operations
-    address public solver = address(0x200);
-
-    uint32 private constant localEid = 1;
-    uint32 private constant remoteEid = 2;
-    uint16 private constant MAX_FILLS_PER_SETTLE = 10;
-
     function setUp() public override {
-        // Derive userA
-        userA = vm.addr(userAPrivKey);
+        // Setup parent test environment
+        super.setUp();
 
-        // Setup LayerZero endpoints
-        setUpEndpoints(2, LibraryType.UltraLightNode);
-
-        // Deploy local and remote Aori contracts
-        localAori = new Aori(address(endpoints[localEid]), address(this), localEid, MAX_FILLS_PER_SETTLE);
-        remoteAori = new Aori(address(endpoints[remoteEid]), address(this), remoteEid, MAX_FILLS_PER_SETTLE);
-
-        // Wire the OApps together
-        address[] memory aoriInstances = new address[](2);
-        aoriInstances[0] = address(localAori);
-        aoriInstances[1] = address(remoteAori);
-        wireOApps(aoriInstances);
-
-        // Set peers between chains
-        localAori.setPeer(remoteEid, bytes32(uint256(uint160(address(remoteAori)))));
-        remoteAori.setPeer(localEid, bytes32(uint256(uint160(address(localAori)))));
-
-        // Setup test tokens
-        inputToken = new MockERC20("Input", "IN");
-        outputToken = new MockERC20("Output", "OUT");
-        convertedToken = new MockERC20("Converted", "CONV");
-
-        // Mint tokens
-        inputToken.mint(userA, 1000e18);
-        outputToken.mint(solver, 1000e18);
-
-        // Deploy hook contracts
-        whitelistedHook = new MockHook();
+        // Deploy non-whitelisted hook
         nonWhitelistedHook = new MockHook();
-
-        // Fund hooks with tokens
-        convertedToken.mint(address(whitelistedHook), 1000e18);
+        
+        // Fund the non-whitelisted hook with tokens
         convertedToken.mint(address(nonWhitelistedHook), 1000e18);
-
-        // Only whitelist one hook
-        localAori.addAllowedHook(address(whitelistedHook));
-        remoteAori.addAllowedHook(address(whitelistedHook));
-
-        // The nonWhitelistedHook is intentionally NOT added to the whitelist
-
-        // Whitelist the solver in both contracts to allow it to perform operations
-        localAori.addAllowedSolver(solver);
-        remoteAori.addAllowedSolver(solver);
-    }
-
-    /**
-     * @dev Returns a valid order for testing
-     */
-    function createValidOrder() internal view returns (IAori.Order memory order) {
-        order = IAori.Order({
-            offerer: userA,
-            recipient: userA,
-            inputToken: address(inputToken),
-            outputToken: address(outputToken),
-            inputAmount: 1e18,
-            outputAmount: 2e18,
-            startTime: uint32(uint32(block.timestamp) + 1),
-            endTime: uint32(uint32(block.timestamp) + 1 days),
-            srcEid: localEid,
-            dstEid: remoteEid
-        });
-    }
-
-    /**
-     * @dev Creates EIP712 signature for the provided order
-     */
-    function signOrder(IAori.Order memory order) internal view returns (bytes memory) {
-        bytes32 structHash = keccak256(
-            abi.encode(
-                keccak256(
-                    "Order(uint256 inputAmount,uint256 outputAmount,address inputToken,address outputToken,uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient)"
-                ),
-                order.offerer,
-                order.recipient,
-                order.inputToken,
-                order.outputToken,
-                order.inputAmount,
-                order.outputAmount,
-                order.startTime,
-                order.endTime,
-                order.srcEid,
-                order.dstEid
-            )
-        );
-
-        bytes32 domainSeparator = keccak256(
-            abi.encode(
-                keccak256("EIP712Domain(string name,string version,address verifyingContract)"),
-                keccak256(bytes("Aori")),
-                keccak256(bytes("1")),
-                address(localAori)
-            )
-        );
-
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(userAPrivKey, digest);
-        return abi.encodePacked(r, s, v);
+        
+        // Note: The whitelisted hook is already set up in TestUtils (as mockHook)
     }
 
     /**
@@ -185,7 +90,7 @@ contract HookWhitelistTest is TestHelperOz5 {
 
         // Create SrcSolverData with the whitelisted hook
         IAori.SrcHook memory srcData = IAori.SrcHook({
-            hookAddress: address(whitelistedHook),
+            hookAddress: address(mockHook),
             preferredToken: address(convertedToken),
             minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
             instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), order.inputAmount)
@@ -218,7 +123,7 @@ contract HookWhitelistTest is TestHelperOz5 {
         inputToken.approve(address(localAori), order.inputAmount);
 
         IAori.SrcHook memory srcData = IAori.SrcHook({
-            hookAddress: address(whitelistedHook),
+            hookAddress: address(mockHook),
             preferredToken: address(convertedToken),
             minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
             instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), order.inputAmount)
@@ -262,7 +167,7 @@ contract HookWhitelistTest is TestHelperOz5 {
         inputToken.approve(address(localAori), order.inputAmount);
 
         IAori.SrcHook memory srcData = IAori.SrcHook({
-            hookAddress: address(whitelistedHook),
+            hookAddress: address(mockHook),
             preferredToken: address(convertedToken),
             minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
             instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), order.inputAmount)
@@ -276,7 +181,7 @@ contract HookWhitelistTest is TestHelperOz5 {
         vm.warp(order.startTime + 1);
 
         IAori.DstHook memory dstData = IAori.DstHook({
-            hookAddress: address(whitelistedHook),
+            hookAddress: address(mockHook),
             preferredToken: address(outputToken),
             instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(outputToken), order.outputAmount),
             preferedDstInputAmount: order.outputAmount
@@ -302,13 +207,13 @@ contract HookWhitelistTest is TestHelperOz5 {
         vm.chainId(localEid);
 
         // Initially the nonWhitelistedHook should not be in the whitelist
-        assertEq(localAori.isAllowedHook(address(nonWhitelistedHook)), false);
+        assertEq(localAori.isAllowedHook(address(nonWhitelistedHook)), false, "Hook should not be whitelisted initially");
 
         // Add the hook to the whitelist
         localAori.addAllowedHook(address(nonWhitelistedHook));
 
         // Now it should be whitelisted
-        assertEq(localAori.isAllowedHook(address(nonWhitelistedHook)), true);
+        assertEq(localAori.isAllowedHook(address(nonWhitelistedHook)), true, "Hook should be whitelisted after adding");
 
         // Now operations with this hook should work
         IAori.Order memory order = createValidOrder();
@@ -332,11 +237,11 @@ contract HookWhitelistTest is TestHelperOz5 {
         localAori.removeAllowedHook(address(nonWhitelistedHook));
 
         // Now it should no longer be whitelisted
-        assertEq(localAori.isAllowedHook(address(nonWhitelistedHook)), false);
+        assertEq(localAori.isAllowedHook(address(nonWhitelistedHook)), false, "Hook should not be whitelisted after removing");
 
         // Create a new order
         IAori.Order memory order2 = createValidOrder();
-        order2.startTime = uint32(uint32(block.timestamp) + 10); // make it unique
+        order2.startTime = uint32(block.timestamp + 10); // make it unique
         bytes memory signature2 = signOrder(order2);
 
         vm.prank(userA);
