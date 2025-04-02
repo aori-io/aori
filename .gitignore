@@ -1,23 +1,28 @@
-node_modules
 .env
+node_modules
+.DS_Store
 coverage
 coverage.json
 typechain
 typechain-types
+deployments/localhost
 
 # Hardhat files
 cache
 artifacts
 
+# Foundry specific
+cache/
+out/
+# Don't ignore the lib directory for Git submodules
+# !lib/
+
 # LayerZero specific files
 .layerzero
-
-# foundry test compilation files
-out
 
 # pnpm
 pnpm-error.log
 
 # Editor and OS files
-.DS_Store
 .idea
+.vscode

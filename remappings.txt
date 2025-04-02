@@ -1,0 +1,6 @@
+@openzeppelin/=lib/openzeppelin-contracts/
+@layerzerolabs/=lib/layerzero/
+solady/=lib/solady/src/
+ds-test/=lib/forge-std/lib/ds-test/src/
+forge-std/=lib/forge-std/src/
+@aori/=contracts/ 

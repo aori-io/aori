@@ -2,49 +2,38 @@ import assert from 'assert'
 
 import { type DeployFunction } from 'hardhat-deploy/types'
 
-// TODO declare your contract name here
-const contractName = 'MyOApp'
+const contractName = 'Aori'
 
 const deploy: DeployFunction = async (hre) => {
-    const { getNamedAccounts, deployments } = hre
+    const { getNamedAccounts, deployments, network } = hre
 
     const { deploy } = deployments
     const { deployer } = await getNamedAccounts()
 
     assert(deployer, 'Missing named deployer account')
 
-    console.log(`Network: ${hre.network.name}`)
+    console.log(`Network: ${network.name}`)
     console.log(`Deployer: ${deployer}`)
 
-    // This is an external deployment pulled in from @layerzerolabs/lz-evm-sdk-v2
-    //
-    // @layerzerolabs/toolbox-hardhat takes care of plugging in the external deployments
-    // from @layerzerolabs packages based on the configuration in your hardhat config
-    //
-    // For this to work correctly, your network config must define an eid property
-    // set to `EndpointId` as defined in @layerzerolabs/lz-definitions
-    //
-    // For example:
-    //
-    // networks: {
-    //   fuji: {
-    //     ...
-    //     eid: EndpointId.AVALANCHE_V2_TESTNET
-    //   }
-    // }
-    const endpointV2Deployment = await hre.deployments.get('EndpointV2')
+    const maxFills = 100
 
+    // Retrieve the external EndpointV2 deployment.
+    const endpointV2Deployment = await deployments.get('EndpointV2')
+
+    // For example, retrieve the "eid" from your hardhat.config, default to 1 if absent.
+    const eid = network.config.eid || 1
+
+    // Deploy Aori.
     const { address } = await deploy(contractName, {
         from: deployer,
-        args: [
-            endpointV2Deployment.address, // LayerZero's EndpointV2 address
-            deployer, // owner
-        ],
+        args: [endpointV2Deployment.address, deployer, eid, maxFills],
         log: true,
         skipIfAlreadyDeployed: false,
     })
 
-    console.log(`Deployed contract: ${contractName}, network: ${hre.network.name}, address: ${address}`)
+    console.log(`Deployed contract: ${contractName}`)
+    console.log(`Network:          ${network.name}`)
+    console.log(`Address:          ${address}`)
 }
 
 deploy.tags = [contractName]

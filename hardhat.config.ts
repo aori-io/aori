@@ -4,14 +4,11 @@
 // - Duplicate .env.example file and name it .env
 // - Fill in the environment variables
 import 'dotenv/config'
-
 import 'hardhat-deploy'
 import 'hardhat-contract-sizer'
 import '@nomiclabs/hardhat-ethers'
 import '@layerzerolabs/toolbox-hardhat'
 import { HardhatUserConfig, HttpNetworkAccountsUserConfig } from 'hardhat/types'
-
-import { EndpointId } from '@layerzerolabs/lz-definitions'
 
 // Set your preferred authentication method
 //
@@ -41,7 +38,7 @@ const config: HardhatUserConfig = {
     solidity: {
         compilers: [
             {
-                version: '0.8.22',
+                version: '0.8.28',
                 settings: {
                     optimizer: {
                         enabled: true,
@@ -52,29 +49,40 @@ const config: HardhatUserConfig = {
         ],
     },
     networks: {
-        'sepolia-testnet': {
-            eid: EndpointId.SEPOLIA_V2_TESTNET,
-            url: process.env.RPC_URL_SEPOLIA || 'https://rpc.sepolia.org/',
+        ethereum: {
+            eid: 30101,
+            url: 'https://nd-386-647-265.p2pify.com/40723238b029534649bd384dbe410645',
             accounts,
         },
-        'avalanche-testnet': {
-            eid: EndpointId.AVALANCHE_V2_TESTNET,
-            url: process.env.RPC_URL_FUJI || 'https://rpc.ankr.com/avalanche_fuji',
+        base: {
+            eid: 30184,
+            url: 'https://nd-162-609-387.p2pify.com/945ca2cd8ac8ba0bc854378eb6f4c8ea',
             accounts,
         },
-        'amoy-testnet': {
-            eid: EndpointId.AMOY_V2_TESTNET,
-            url: process.env.RPC_URL_AMOY || 'https://polygon-amoy-bor-rpc.publicnode.com',
+        'arbitrum-one': {
+            eid: 30110,
+            url: 'https://nd-818-527-340.p2pify.com/f1d5b772c018d5ca87dcb6608d43bcf7',
             accounts,
         },
+        'arbitrum-sepolia': {
+            eid: 40231,
+            url: 'https://arbitrum-sepolia-rpc.publicnode.com',
+            accounts,
+        },
+        sepolia: {
+            eid: 40161,
+            url: 'https://sepolia.drpc.org',
+            accounts,
+        },
+
         hardhat: {
-            // Need this for testing because TestHelperOz5.sol is exceeding the compiled contract size limit
+            // Needed in testing because TestHelperOz5.sol was exceeding the compiled contract size limit.
             allowUnlimitedContractSize: true,
         },
     },
     namedAccounts: {
         deployer: {
-            default: 0, // wallet address of index[0], of the mnemonic in .env
+            default: 0, // Address at index[0] from the mnemonic in .env
         },
     },
 }

@@ -1,17 +1,15 @@
 [profile.default]
-solc-version = '0.8.24'
+solc-version = '0.8.28'
 src = 'contracts'
 out = 'out'
 test = 'test/foundry'
 cache_path = 'cache/foundry'
 verbosity = 3
+via_ir = true
 libs = [
     # We provide a set of useful contract utilities
     # in the lib directory of @layerzerolabs/toolbox-foundry:
     # 
-    # - forge-std
-    # - ds-test
-    # - solidity-bytes-utils
     'node_modules/@layerzerolabs/toolbox-foundry/lib',
     'node_modules',
 ]
@@ -25,7 +23,11 @@ remappings = [
     'forge-std/=node_modules/@layerzerolabs/toolbox-foundry/lib/forge-std',
     '@layerzerolabs/=node_modules/@layerzerolabs/',
     '@openzeppelin/=node_modules/@openzeppelin/',
+    '@solady/=node_modules/solady/src/',
+    '@aori/=contracts/',
 ]
 
 [fuzz]
 runs = 1000
+
+gas_reports = ["contracts/Aori.sol"]

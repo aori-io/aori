@@ -1,60 +1,103 @@
-pragma solidity 0.8.24;
-
-import { MessagingFee } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.28;
 
 interface IAori {
-
-    /*//////////////////////////////////////////////////////////////
-                                STRUCTS
+    //////////////////////////////////////////////////////////////*/
+    //                            ENUMS
     //////////////////////////////////////////////////////////////*/
 
-    //20 bytes per address
-    //32 bytes per uint256
+    enum OrderStatus {
+        Unknown, // Order not found
+        Active, // Order deposited but not filled
+        Filled, // Pending settlement
+        Cancelled, // Order cancelled
+        Settled // Order settled
+
+    }
+
+    //////////////////////////////////////////////////////////////*/
+    //                            ORDER
+    //////////////////////////////////////////////////////////////*/
+
     struct Order {
+        uint128 inputAmount;
+        uint128 outputAmount;
+        address inputToken;
+        address outputToken;
+        uint32 startTime;
+        uint32 endTime;
+        uint32 srcEid;
+        uint32 dstEid;
         address offerer;
         address recipient;
-        address inputToken;
-        uint256 inputAmount;
-        address outputToken;
-        uint256 outputAmount;
-        uint256 dstChainId;
-        uint256 startTime;
-        uint256 endTime;
     }
 
-    struct FilledOrder {
-        Order order;
-        address filler;
+    //////////////////////////////////////////////////////////////*/
+    //                            HOOKS
+    //////////////////////////////////////////////////////////////*/
+
+    struct SrcHook {
+        address hookAddress;
+        address preferredToken;
+        uint256 minPreferedTokenAmountOut;
+        bytes instructions;
     }
 
-    /*//////////////////////////////////////////////////////////////
-                                 EVENTS
+    struct DstHook {
+        address hookAddress;
+        address preferredToken;
+        bytes instructions;
+        uint256 preferedDstInputAmount;
+    }
+
+    //////////////////////////////////////////////////////////////*/
+    //                     AORI SRC EVENTS                        */
     //////////////////////////////////////////////////////////////*/
 
-    event Deposit(
-        Order order
-    );
+    event Deposit(bytes32 indexed orderId, Order order);
 
-    event Fill(
-        Order order
-    );
+    event Cancel(bytes32 indexed orderId, Order order);
 
-    event Settle(
-        FilledOrder[] orders
-    );
+    event Settle(bytes32 indexed orderId, Order order);
 
-    event Repay(
-        FilledOrder order
-    );
+    event Withdraw(address indexed holder, address indexed token, uint256 amount);
 
-    /*//////////////////////////////////////////////////////////////
-                                 FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+    //                       AORI DST EVENTS
     //////////////////////////////////////////////////////////////*/
 
-    function deposit(Order calldata orderToCreate) external;
+    event Fill(bytes32 indexed orderId, Order order);
 
-    function fill(Order calldata orderToFill) external;
+    event SettleSent(uint32 indexed srcEid, address indexed filler, bytes payload);
 
-    function settle(FilledOrder[] calldata orders, MessagingFee calldata fee, bytes calldata extraOptions) external payable;
+    //////////////////////////////////////////////////////////////*/
+    //                       AORI SRC FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
+    function deposit(Order calldata order, bytes calldata signature) external payable;
+    function deposit(Order calldata order, bytes calldata signature, SrcHook calldata data) external payable;
+
+    function withdraw(address token) external;
+
+    function emergencyWithdraw(address token, uint256 amount) external;
+
+    //////////////////////////////////////////////////////////////*/
+    //                        AORI DST FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    function fill(Order calldata order) external payable;
+    function fill(Order calldata order, DstHook calldata hook) external payable;
+
+    function settle(uint32 srcEid, address filler, bytes calldata extraOptions) external payable;
+
+    function quote(
+        uint32 _dstEid,
+        uint8 _msgType,
+        bytes calldata _options,
+        bool _payInLzToken,
+        uint32 _srcEid,
+        address _filler
+    ) external view returns (uint256 fee);
+
+    function dstCancel(bytes32 orderId, Order calldata orderToCancel, bytes calldata extraOptions) external payable;
 }

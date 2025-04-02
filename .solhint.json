@@ -1,0 +1,12 @@
+{
+  "extends": ["@layerzerolabs/solhint-config"],
+  "rules": {
+    "no-global-import": "off",
+    "imports-on-top": "off",
+    "no-unused-import": "off",
+    "no-unresolved-library": "off",
+    "code-complexity": ["error", 8],
+    "max-line-length": ["error", 120],
+    "ordering": "error"
+  }
+} 
