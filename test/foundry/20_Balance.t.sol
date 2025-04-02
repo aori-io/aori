@@ -28,7 +28,6 @@ pragma solidity 0.8.28;
  * - The tests include both successful cases and error cases with revert assertions
  * - Gas optimization is explicitly tested to ensure efficient storage operations
  */
-
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import "@aori/lib/AoriUtils.sol";

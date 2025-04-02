@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 /**
  * @title CrossChainCancelAndSettleTest
  * @notice Tests cross-chain cancellation and settlement flows in the Aori protocol
- * 
+ *
  * This test file verifies that cross-chain order cancellation works correctly in different scenarios.
  * It tests both solver-initiated cancellations and user-initiated cancellations after the order
  * expiration, ensuring that tokens are properly unlocked after cancellation.
@@ -12,13 +12,12 @@ pragma solidity 0.8.28;
  * Tests:
  * 1. testDestinationCancelBySolver - Tests that a whitelisted solver can cancel an order before endTime
  * 2. testDestinationCancelByUser - Tests that the order offerer can cancel after endTime
- * 
+ *
  * Special notes:
  * - These tests use LayerZero message delivery simulation to verify cross-chain communication
  * - The tests focus on the entire flow from deposit to cancellation to final token withdrawal
  * - Cancellation permissions are tested to ensure only authorized actors can cancel orders
  */
-
 import {TestUtils} from "./TestUtils.sol";
 import {IAori} from "../../contracts/Aori.sol";
 import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
@@ -72,8 +71,11 @@ contract CrossChainCancelAndSettleTest is TestUtils {
         remoteAori.dstCancel{value: fee}(orderHash, order, options);
 
         // Verify order is cancelled
-        assertEq(uint256(remoteAori.orderStatus(orderHash)), uint8(IAori.OrderStatus.Cancelled), 
-                "Order not cancelled on destination chain");
+        assertEq(
+            uint256(remoteAori.orderStatus(orderHash)),
+            uint8(IAori.OrderStatus.Cancelled),
+            "Order not cancelled on destination chain"
+        );
     }
 
     /**

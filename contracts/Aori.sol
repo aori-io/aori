@@ -1,32 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-/**
- *                                            @@@@@@@@@
- *                                        @@@@@@@@@@@@@@@@
- * ----------------                    @@@@@@@@@@@@@@@@@@@@@@                             @@@@
- * @title Aori                        @@@             @@@@@@@@                           @@@@@@@
- *        Aori.sol v0.0.1:              @@@@              @@@@@@@                          @@@@@@@
- *                                        @@@@@               @@                             @@
- *                                          @@@@@@@
- *                                           @@@@@@@@@
- *         @@@@@@@                             @@@@@@@@@@        @@@@@         @@@@@@        @@@@
- *      @@@@@@@@@@@@@     @@@@@@           @@@@@@@@@@@@@@@@    @@@@@@@@@     @@@@@@@@@   @@@@@@@@
- *    @@@@@@@    @@@@@   @@@@@@@        @@@@@@@@@@@@@@@@@@@@@ @@@@@@@@@@@ @@@@@@@@@@@@@@@@@@@@@@@
- *   @@@@@@        @@@@  @@@@@@       @@@@@@@@       @@@@@@@@@@@   @@@@@@@@@@@    @@@@@   @@@@@@@
- * @@@@@@@           @@@@@@@@@@    @@@@@@@              @@@@@@@@@  @@@@@@           @@@@  @@@@@@@
- * @@@@@@@            @@@@@@@@    @@@@@@@                @@@@@@@@  @@@@@@           @@@   @@@@@@@
- * @@@@@@@            @@@@@@@@   @@@@@@@@    @      @@   @@@@@@@@@ @@@@@@            @@    @@@@@@
- * @@@@@@@             @@@@@@    @@@@@@@@    @@@  @@@@    @@@@@@@@ @@@@@@                  @@@@@@
- * @@@@@@@            @@@@@@     @@@@@@@     @@@@@@@@@    @@@@@@@@ @@@@@@                  @@@@@@
- * @@@@@@@            @@@@@@     @@@@@@@@    @@@@@@@@@    @@@@@@@  @@@@@@                  @@@@@@
- * @@@@@@@           @@@@@@@     @@@@@@@@    @      @@    @@@@@@@  @@@@@@                  @@@@@@
- *  @@@@@@          @@@@@@@@      @@@@@@@@               @@@@@@    @@@@@@                  @@@@@@    @@
- *  @@@@@@@        @@@@@@@@@@    @@@@@@@@@@             @@@@@@     @@@@@@                  @@@@@@    @@
- *   @@@@@@@      @@@@@@@ @@@@@@@@@ @@@@@@@@@         @@@@@@@      @@@@@@                  @@@@@@   @@
- *     @@@@@@@@@@@@@@@@    @@@@@@@@   @@@@@@@@@@@@@@@@@@@@         @@@@@@                  @@@@@@@@@@@
- *       @@@@@@@@@@@@      @@@@@@@       @@@@@@@@@@@@@@            @@@@@@                   @@@@@@@@
- */
 import { OApp, Origin, MessagingFee } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -38,22 +12,28 @@ import { ECDSA } from "solady/src/utils/ECDSA.sol";
 import { IAori } from "./interfaces/IAori.sol";
 import "./lib/AoriUtils.sol";
 
+/**
+ *•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*
+ * @title Aori
+ * @notice Aori.sol implements a trust-minimized cross-chain intent settlement protocol
+ * It enables users to deposit tokens on a source chain with signed intent parameters,
+ * which solvers can fulfill on destination chains. The contract manages the full intent 
+ * lifecycle through secure token custody, EIP-712 signature verification, and LayerZero 
+ * through secure token custody, EIP-712 signature verification, and LayerZero messaging 
+ * for cross-chain settlement. Advanced features include exclusive solver periods, 
+ * customizable hooks for token transformations, and robust balance tracking. This 
+ * architecture ensures that user intents are executed precisely according to their 
+ * parameters while maintaining security through comprehensive validation and state 
+ * management across the blockchain ecosystem.
+ *•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*
+ */
+
 contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     using PayloadPackUtils for bytes32[];
     using PayloadUnpackUtils for bytes;
     using HookUtils for SrcHook;
     using HookUtils for DstHook;
     using SafeERC20 for IERC20;
-
-    /**
-     *°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*
-     * @notice Initializes the Aori contract with LayerZero endpoint and configuration
-     * @param _endpoint The LayerZero endpoint address
-     * @param _owner The contract owner address
-     * @param _eid The endpoint ID for this chain
-     * @param _maxFillsPerSettle Maximum number of fills per settlement
-     *°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*
-     */
 
     constructor(
         address _endpoint, // LayerZero endpoint address

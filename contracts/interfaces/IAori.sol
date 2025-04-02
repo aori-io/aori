@@ -12,6 +12,7 @@ interface IAori {
         Filled, // Pending settlement
         Cancelled, // Order cancelled
         Settled // Order settled
+        
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/

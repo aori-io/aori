@@ -21,7 +21,6 @@ pragma solidity 0.8.28;
  * - Each test verifies both the success case (whitelisted) and failure case (non-whitelisted)
  * - The whitelist management test demonstrates the dynamic nature of the whitelist
  */
-
 import {TestUtils} from "./TestUtils.sol";
 import {MockHook} from "./Mock/MockHook.sol";
 import {IAori} from "../../contracts/Aori.sol";
@@ -39,10 +38,10 @@ contract HookWhitelistTest is TestUtils {
 
         // Deploy non-whitelisted hook
         nonWhitelistedHook = new MockHook();
-        
+
         // Fund the non-whitelisted hook with tokens
         convertedToken.mint(address(nonWhitelistedHook), 1000e18);
-        
+
         // Note: The whitelisted hook is already set up in TestUtils (as mockHook)
     }
 
@@ -207,7 +206,9 @@ contract HookWhitelistTest is TestUtils {
         vm.chainId(localEid);
 
         // Initially the nonWhitelistedHook should not be in the whitelist
-        assertEq(localAori.isAllowedHook(address(nonWhitelistedHook)), false, "Hook should not be whitelisted initially");
+        assertEq(
+            localAori.isAllowedHook(address(nonWhitelistedHook)), false, "Hook should not be whitelisted initially"
+        );
 
         // Add the hook to the whitelist
         localAori.addAllowedHook(address(nonWhitelistedHook));
@@ -237,7 +238,9 @@ contract HookWhitelistTest is TestUtils {
         localAori.removeAllowedHook(address(nonWhitelistedHook));
 
         // Now it should no longer be whitelisted
-        assertEq(localAori.isAllowedHook(address(nonWhitelistedHook)), false, "Hook should not be whitelisted after removing");
+        assertEq(
+            localAori.isAllowedHook(address(nonWhitelistedHook)), false, "Hook should not be whitelisted after removing"
+        );
 
         // Create a new order
         IAori.Order memory order2 = createValidOrder();
