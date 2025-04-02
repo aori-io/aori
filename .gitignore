@@ -1,4 +1,5 @@
 .env
+broadcast
 node_modules
 .DS_Store
 coverage
@@ -6,6 +7,8 @@ coverage.json
 typechain
 typechain-types
 deployments/localhost
+pnpm-lock.yaml
+deployments
 
 # Hardhat files
 cache
