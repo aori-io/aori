@@ -1,23 +1,46 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IAori} from "../interfaces/IAori.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IAori } from "../interfaces/IAori.sol";
 
-// Balance struct for tracking locked and unlocked token amounts
+/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+/*                         BALANCE                           */
+/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+/**
+ * @notice Balance struct for tracking locked and unlocked token amounts
+ * @dev Uses uint128 for both values to pack them into a single storage slot
+ */
 struct Balance {
-    uint128 locked;
-    uint128 unlocked;
+    uint128 locked; // Tokens locked in active orders
+    uint128 unlocked; // Tokens available for withdrawal
 }
 
 using BalanceUtils for Balance global;
 
-// Utility functions for managing token balances
+/**
+ * @notice Utility library for managing token balances
+ * @dev Provides functions for locking, unlocking, and managing token balances
+ * with optimized storage operations
+ */
 library BalanceUtils {
+    /**
+     * @notice Locks a specified amount of tokens
+     * @dev Increases the locked balance by the specified amount
+     * @param balance The Balance struct reference
+     * @param amount The amount to lock
+     */
     function lock(Balance storage balance, uint128 amount) internal {
         balance.locked += amount;
     }
 
+    /**
+     * @notice Unlocks a specified amount of tokens from locked to unlocked state
+     * @dev Decreases locked balance and increases unlocked balance
+     * @param balance The Balance struct reference
+     * @param amount The amount to unlock
+     */
     function unlock(Balance storage balance, uint128 amount) internal {
         (uint128 locked, uint128 unlocked) = balance.loadBalance();
         require(locked >= amount, "Insufficient locked balance");
@@ -29,9 +52,17 @@ library BalanceUtils {
         balance.storeBalance(locked, unlocked);
     }
 
-    // Will not revert on underflow
-    // Use with caution, as it may lead to incorrect state
-    function decreaseLockedNoRevert(Balance storage balance, uint128 amount) internal returns (bool success) {
+    /**
+     * @notice Decreases locked balance without reverting on underflow
+     * @dev Safe version that returns false instead of reverting on underflow
+     * @param balance The Balance struct reference
+     * @param amount The amount to decrease
+     * @return success Whether the operation was successful
+     */
+    function decreaseLockedNoRevert(
+        Balance storage balance,
+        uint128 amount
+    ) internal returns (bool success) {
         uint128 locked = balance.locked;
         unchecked {
             uint128 newLocked = locked - amount;
@@ -43,20 +74,34 @@ library BalanceUtils {
         return true;
     }
 
-    // Will not revert on overflow
-    // Use with caution, as it may lead to incorrect state
-    function increaseUnlockedNoRevert(Balance storage balance, uint128 amount) internal returns (bool success) {
+    /**
+     * @notice Increases unlocked balance without reverting on overflow
+     * @dev Safe version that returns false instead of reverting on overflow
+     * @param balance The Balance struct reference
+     * @param amount The amount to increase
+     * @return success Whether the operation was successful
+     */
+    function increaseUnlockedNoRevert(
+        Balance storage balance,
+        uint128 amount
+    ) internal returns (bool success) {
         uint128 unlocked = balance.unlocked;
         unchecked {
             uint128 newUnlocked = unlocked + amount;
             if (newUnlocked < unlocked) {
-                return false; // Underflow
+                return false; // Overflow
             }
             balance.unlocked = newUnlocked;
         }
         return true;
     }
 
+    /**
+     * @notice Unlocks all locked tokens into the unlocked balance
+     * @dev Moves the entire locked balance to unlocked
+     * @param balance The Balance struct reference
+     * @return amount The amount that was unlocked
+     */
     function unlockAll(Balance storage balance) internal returns (uint128 amount) {
         (uint128 locked, uint128 unlocked) = balance.loadBalance();
         amount = locked;
@@ -66,15 +111,34 @@ library BalanceUtils {
         balance.storeBalance(locked, unlocked);
     }
 
+    /**
+     * @notice Gets the unlocked balance amount
+     * @param balance The Balance struct reference
+     * @return The unlocked balance amount
+     */
     function getUnlocked(Balance storage balance) internal view returns (uint128) {
         return balance.unlocked;
     }
 
+    /**
+     * @notice Gets the locked balance amount
+     * @param balance The Balance struct reference
+     * @return The locked balance amount
+     */
     function getLocked(Balance storage balance) internal view returns (uint128) {
         return balance.locked;
     }
 
-    function loadBalance(Balance storage balance) internal view returns (uint128 locked, uint128 unlocked) {
+    /**
+     * @notice Load balance values using optimized storage operations
+     * @dev Uses assembly to read both values in a single storage read
+     * @param balance The Balance struct reference
+     * @return locked The locked balance
+     * @return unlocked The unlocked balance
+     */
+    function loadBalance(
+        Balance storage balance
+    ) internal view returns (uint128 locked, uint128 unlocked) {
         assembly {
             let fullSlot := sload(balance.slot)
             unlocked := shr(128, fullSlot)
@@ -82,6 +146,13 @@ library BalanceUtils {
         }
     }
 
+    /**
+     * @notice Store balance values using optimized storage operations
+     * @dev Uses assembly to write both values in a single storage write
+     * @param balance The Balance struct reference
+     * @param locked The locked balance to store
+     * @param unlocked The unlocked balance to store
+     */
     function storeBalance(Balance storage balance, uint128 locked, uint128 unlocked) internal {
         assembly {
             sstore(balance.slot, or(shl(128, unlocked), locked))
@@ -89,57 +160,148 @@ library BalanceUtils {
     }
 }
 
-// Execute external calls and observe token balance changes
+/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+/*                       EXECUTION                           */
+/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+/**
+ * @notice Library for executing external calls and observing token balance changes
+ * @dev Used for hook execution and token conversion operations
+ */
 library ExecutionUtils {
-    function observeBalChg(address target, bytes calldata data, address observedToken) internal returns (uint256) {
+    /**
+     * @notice Executes an external call and measures the resulting token balance change
+     * @dev Useful for hook operations that convert tokens
+     * @param target The target contract address to call
+     * @param data The calldata to send to the target
+     * @param observedToken The token address to observe balance changes for
+     * @return The balance change (typically positive if tokens are received)
+     */
+    function observeBalChg(
+        address target,
+        bytes calldata data,
+        address observedToken
+    ) internal returns (uint256) {
         uint256 balBefore = IERC20(observedToken).balanceOf(address(this));
-        (bool success,) = target.call(data);
+        (bool success, ) = target.call(data);
         require(success, "Call failed");
         uint256 balAfter = IERC20(observedToken).balanceOf(address(this));
         return balAfter - balBefore;
     }
 }
 
-// Utility functions for hook operations
+/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+/*                          HOOKS                            */
+/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+/**
+ * @notice Library for hook-related utility functions
+ * @dev Provides helper functions for working with SrcHook and DstHook structs
+ */
 library HookUtils {
+    /**
+     * @notice Checks if a SrcHook is defined (has a non-zero address)
+     * @param hook The SrcHook struct to check
+     * @return True if the hook has a non-zero address
+     */
     function isSome(IAori.SrcHook calldata hook) internal pure returns (bool) {
         return hook.hookAddress != address(0);
     }
 
+    /**
+     * @notice Checks if a DstHook is defined (has a non-zero address)
+     * @param hook The DstHook struct to check
+     * @return True if the hook has a non-zero address
+     */
     function isSome(IAori.DstHook calldata hook) internal pure returns (bool) {
         return hook.hookAddress != address(0);
     }
 }
 
+/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+/*                      PAYLOAD TYPES                        */
+/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+/**
+ * @notice Enum for different LayerZero message payload types
+ */
 enum PayloadType {
-    Settlement,
-    Cancellation
+    Settlement, // Settlement message with multiple order fills
+    Cancellation // Cancellation message for a single order
 }
 
+/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+/*                   PAYLOAD UNPACKING                       */
+/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+/**
+ * @notice Library for unpacking LayerZero message payloads
+ * @dev Provides functions to extract and validate data from received payloads
+ */
 library PayloadUnpackUtils {
+    /**
+     * @notice Validates the length of a cancellation payload
+     * @dev Ensures the payload is exactly 33 bytes (1 byte type + 32 bytes order hash)
+     * @param payload The payload to validate
+     */
     function validateCancellationLen(bytes calldata payload) internal pure {
         require(payload.length == 33, "Invalid cancellation payload length");
     }
 
+    /**
+     * @notice Unpacks an order hash from a cancellation payload
+     * @dev Extracts the 32-byte order hash, skipping the first byte (type)
+     * @param payload The cancellation payload to unpack
+     * @return orderHash The extracted order hash
+     */
     function unpackCancellation(bytes calldata payload) internal pure returns (bytes32 orderHash) {
         assembly {
             orderHash := calldataload(add(payload.offset, 1))
         }
     }
 
+    /**
+     * @notice Validates the minimum length of a settlement payload
+     * @dev Ensures the payload is at least 23 bytes (header size)
+     * @param payload The payload to validate
+     */
     function validateSettlementLen(bytes calldata payload) internal pure {
         require(payload.length >= 23, "Payload too short for settlement");
     }
 
+    /**
+     * @notice Validates the length of a settlement payload for a specific fill count
+     * @dev Ensures the payload matches the expected size based on fill count
+     * @param payload The payload to validate
+     * @param fillCount The number of fills in the payload
+     */
     function validateSettlementLen(bytes calldata payload, uint16 fillCount) internal pure {
-        require(payload.length == 23 + uint256(fillCount) * 32, "Invalid payload length for settlement");
+        require(
+            payload.length == 23 + uint256(fillCount) * 32,
+            "Invalid payload length for settlement"
+        );
     }
 
+    /**
+     * @notice Gets the payload type from a message payload
+     * @dev Reads the first byte to determine the payload type
+     * @param payload The payload to check
+     * @return The payload type (Settlement or Cancellation)
+     */
     function getType(bytes calldata payload) internal pure returns (PayloadType) {
         return PayloadType(uint8(payload[0]));
     }
 
-    function unpackSettlementHeader(bytes calldata payload) internal pure returns (address filler, uint16 fillCount) {
+    /**
+     * @notice Unpacks the header from a settlement payload
+     * @dev Extracts the filler address (20 bytes) and fill count (2 bytes)
+     * @param payload The settlement payload to unpack
+     * @return filler The filler address
+     * @return fillCount The number of fills in the payload
+     */
+    function unpackSettlementHeader(
+        bytes calldata payload
+    ) internal pure returns (address filler, uint16 fillCount) {
         require(payload.length >= 23, "Invalid payload length");
         assembly {
             let word := calldataload(add(payload.offset, 1))
@@ -148,7 +310,17 @@ library PayloadUnpackUtils {
         fillCount = (uint16(uint8(payload[21])) << 8) | uint16(uint8(payload[22]));
     }
 
-    function unpackSettlementBodyAt(bytes calldata payload, uint256 index) internal pure returns (bytes32 orderHash) {
+    /**
+     * @notice Unpacks an order hash from a specific position in the settlement payload body
+     * @dev Extracts the order hash at the specified index
+     * @param payload The settlement payload to unpack
+     * @param index The index of the order hash to extract
+     * @return orderHash The extracted order hash
+     */
+    function unpackSettlementBodyAt(
+        bytes calldata payload,
+        uint256 index
+    ) internal pure returns (bytes32 orderHash) {
         require(payload.length >= 23, "Invalid payload length");
         require(index < (payload.length - 23) / 32, "Index out of bounds");
         assembly {
@@ -157,9 +329,18 @@ library PayloadUnpackUtils {
     }
 }
 
+/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+/*                    PAYLOAD PACKING                        */
+/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+/**
+ * @notice Library for packing LayerZero message payloads
+ * @dev Provides functions to create properly formatted message payloads
+ */
 library PayloadPackUtils {
     /**
-     * @dev Packs the settlement payload for LayerZero messaging
+     * @notice Packs a settlement payload with order hashes for LayerZero messaging
+     * @dev Creates a settlement payload and clears the filled orders from storage
      * @param arr The array of order hashes to be packed
      * @param filler The address of the filler
      * @param takeSize The number of order hashes to take from the array
@@ -172,9 +353,12 @@ library PayloadPackUtils {
      * - 2 bytes: Fill count
      * Body
      * - Fill count * 32 bytes: Order hashes
-     * @notice The function expects takeSize <= arr.length
      */
-    function packSettlement(bytes32[] storage arr, address filler, uint16 takeSize) internal returns (bytes memory) {
+    function packSettlement(
+        bytes32[] storage arr,
+        address filler,
+        uint16 takeSize
+    ) internal returns (bytes memory) {
         uint32 offset = 23;
         bytes memory payload = new bytes(offset + takeSize * 32);
 
@@ -192,7 +376,9 @@ library PayloadPackUtils {
             let dataPtr := add(payloadPtr, offset)
 
             // Store storage elements into memory and clear them
-            for { let i := arrLength } gt(i, min_i) {} {
+            for {
+                let i := arrLength
+            } gt(i, min_i) {} {
                 i := sub(i, 1)
                 let elementSlot := add(base, i)
 
@@ -207,6 +393,12 @@ library PayloadPackUtils {
         return payload;
     }
 
+    /**
+     * @notice Packs a cancellation payload for LayerZero messaging
+     * @dev Creates a properly formatted cancellation message payload
+     * @param orderHash The hash of the order to cancel
+     * @return payload The packed cancellation payload
+     */
     function packCancellation(bytes32 orderHash) internal pure returns (bytes memory payload) {
         uint8 msgType = uint8(PayloadType.Cancellation);
         assembly {
@@ -217,9 +409,19 @@ library PayloadPackUtils {
     }
 }
 
+/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+/*                     UTILITY FUNCTIONS                     */
+/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+/**
+ * @notice Calculates the size of a settlement payload based on fill count
+ * @dev 1 byte type + 20 bytes filler + 2 bytes count + (fillCount * 32 bytes order hash)
+ * @param fillCount The number of fills in the settlement
+ * @return The total payload size in bytes
+ */
 function settlementPayloadSize(uint256 fillCount) pure returns (uint256) {
     return 1 + 20 + 2 + (fillCount * 32);
 }
 
-// Cancellation message: 1 byte (msgType) + 32 bytes (orderId) = 33 bytes
+// Size constant for cancellation messages: 1 byte type + 32 bytes order hash = 33 bytes total
 uint256 constant CANCELLATION_PAYLOAD_SIZE = 33;
