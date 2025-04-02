@@ -43,6 +43,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     ) OApp(_endpoint, _owner) Ownable(_owner) EIP712() {
         ENDPOINT_ID = _eid;
         MAX_FILLS_PER_SETTLE = _maxFillsPerSettle;
+        require(_owner != address(0), "Set owner");
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -195,9 +196,9 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     function validateDeposit(IAori.Order calldata order) internal view {
         require(order.offerer != address(0), "Invalid offerer");
         require(order.recipient != address(0), "Invalid recipient");
+        require(order.startTime <= block.timestamp, "Order cannot start in the future");
         require(order.endTime > block.timestamp, "Invalid end time");
         require(order.startTime < order.endTime, "Invalid start & end time");
-        require(order.endTime > order.startTime, "Invalid end time");
         require(order.inputAmount > 0, "Invalid input amount");
         require(order.outputAmount > 0, "Invalid output amount");
         require(order.inputToken != address(0) && order.outputToken != address(0), "Invalid token");
@@ -263,7 +264,6 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      * @param payload The message payload containing order hashes and filler information
      */
     function recvPayload(bytes calldata payload) internal {
-        payload.getType();
         PayloadType msgType = payload.getType();
         if (msgType == PayloadType.Cancellation) {
             handleCancellation(payload);
@@ -713,9 +713,8 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         address holder = msg.sender;
         uint256 amount = balances[holder][token].unlocked;
         require(amount > 0, "Non-zero balance required");
-        balances[holder][token].unlocked = 0;
-        IERC20(token).safeTransfer(holder, amount);
-
+        IERC20(token).safeTransfer(holder, amount);  
+        balances[holder][token].unlocked = 0;        
         emit Withdraw(holder, token, amount);
     }
 }

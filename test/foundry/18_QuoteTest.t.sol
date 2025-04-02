@@ -43,8 +43,8 @@ contract QuoteTest is TestUtils {
             outputToken: address(outputToken),
             inputAmount: 1e18,
             outputAmount: 2e18,
-            startTime: uint32(block.timestamp + 1 + index), // Unique start time per order
-            endTime: uint32(block.timestamp + 1 days),
+            startTime: uint32(block.timestamp), // Current time
+            endTime: uint32(block.timestamp + 100 + index), // Unique end time per order
             srcEid: localEid,
             dstEid: remoteEid
         });

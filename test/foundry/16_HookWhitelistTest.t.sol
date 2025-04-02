@@ -242,9 +242,11 @@ contract HookWhitelistTest is TestUtils {
             localAori.isAllowedHook(address(nonWhitelistedHook)), false, "Hook should not be whitelisted after removing"
         );
 
-        // Create a new order
-        IAori.Order memory order2 = createValidOrder();
-        order2.startTime = uint32(block.timestamp + 10); // make it unique
+        // Create a unique second order
+        IAori.Order memory order2 = order;
+        order2.inputAmount = 2e18;
+        order2.outputAmount = 4e18;
+        order2.startTime = uint32(block.timestamp); // current timestamp
         bytes memory signature2 = signOrder(order2);
 
         vm.prank(userA);

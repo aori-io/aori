@@ -118,8 +118,8 @@ contract TestUtils is TestHelperOz5 {
      * @param salt Optional salt value to make orders unique when called multiple times in same block
      */
     function createValidOrder(uint256 salt) public view returns (IAori.Order memory order) {
-        // Use fixed time offsets for more predictable testing
-        uint256 startTimeOffset = 1 hours;
+        // Use current timestamp for startTime to comply with contract requirements
+        // Only endTime has an offset for testing
         uint256 endTimeOffset = 1 days;
 
         // Generate unique random seed based on block properties
@@ -137,7 +137,7 @@ contract TestUtils is TestHelperOz5 {
             outputToken: address(outputToken),
             inputAmount: uint128(inputAmount),
             outputAmount: uint128(outputAmount),
-            startTime: uint32(block.timestamp + startTimeOffset),
+            startTime: uint32(block.timestamp), // Set to current timestamp
             endTime: uint32(block.timestamp + endTimeOffset),
             srcEid: localEid,
             dstEid: remoteEid

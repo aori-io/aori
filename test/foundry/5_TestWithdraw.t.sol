@@ -33,10 +33,10 @@ contract WithdrawTest is TestUtils {
             recipient: userA,
             inputToken: address(inputToken),
             outputToken: address(outputToken),
-            inputAmount: 1e18,
-            outputAmount: 2e18,
-            startTime: uint32(uint32(block.timestamp) + 1), // Must be > uint32(block.timestamp)
-            endTime: uint32(uint32(block.timestamp) + 1 days),
+            inputAmount: uint128(1e18),
+            outputAmount: uint128(2e18),
+            startTime: uint32(block.timestamp),
+            endTime: uint32(block.timestamp + 1 days),
             srcEid: localEid,
             dstEid: remoteEid
         });

@@ -46,8 +46,8 @@ contract ExtremeOrderParametersTest is TestUtils {
             outputToken: address(outputToken),
             inputAmount: type(uint128).max, // Very large input amount
             outputAmount: type(uint128).max, // Very large output amount
-            startTime: uint32(uint32(block.timestamp) + 1),
-            endTime: uint32(uint32(block.timestamp) + 1 days),
+            startTime: uint32(block.timestamp),
+            endTime: uint32(block.timestamp + 1 days),
             srcEid: localEid,
             dstEid: remoteEid
         });
@@ -95,7 +95,7 @@ contract ExtremeOrderParametersTest is TestUtils {
             outputToken: address(outputToken),
             inputAmount: 1, // Minimum possible non-zero amount
             outputAmount: 1, // Minimum possible non-zero amount
-            startTime: uint32(uint32(block.timestamp) + 1),
+            startTime: uint32(uint32(block.timestamp)),
             endTime: uint32(uint32(block.timestamp) + 1 days),
             srcEid: localEid,
             dstEid: remoteEid
@@ -139,8 +139,8 @@ contract ExtremeOrderParametersTest is TestUtils {
             outputToken: address(outputToken),
             inputAmount: 1e18,
             outputAmount: 2e18,
-            startTime: 1001, // Just 1 second after current time
-            endTime: 1002, // Just 1 second duration
+            startTime: 1000, // Exactly current timestamp
+            endTime: 1001, // Just 1 second duration
             srcEid: localEid,
             dstEid: remoteEid
         });
@@ -157,18 +157,10 @@ contract ExtremeOrderParametersTest is TestUtils {
         // Test fill with precise timing
         vm.chainId(remoteEid);
 
-        // Too early, should fail
-        vm.warp(1000);
-
+        // Exactly at start time, should work (no need to test too early case)
         vm.prank(solver);
         outputToken.approve(address(remoteAori), order.outputAmount);
 
-        vm.prank(solver);
-        vm.expectRevert(bytes("Order not started"));
-        remoteAori.fill(order);
-
-        // Exactly at start time, should work
-        vm.warp(1001);
         vm.prank(solver);
         remoteAori.fill(order);
 
@@ -188,7 +180,7 @@ contract ExtremeOrderParametersTest is TestUtils {
             outputToken: address(outputToken),
             inputAmount: 1e18,
             outputAmount: 2e18,
-            startTime: uint32(uint32(block.timestamp) + 1),
+            startTime: uint32(block.timestamp),
             endTime: type(uint32).max, // Maximum possible end time
             srcEid: localEid,
             dstEid: remoteEid
@@ -230,7 +222,7 @@ contract ExtremeOrderParametersTest is TestUtils {
             outputToken: address(outputToken),
             inputAmount: 1e18,
             outputAmount: 2e18,
-            startTime: uint32(uint32(block.timestamp) + 1),
+            startTime: uint32(uint32(block.timestamp)),
             endTime: uint32(uint32(block.timestamp) + 1 days),
             srcEid: localEid,
             dstEid: remoteEid

@@ -70,9 +70,8 @@ contract FillScript is Script {
         );
 
         // The order type hash must match the one in Aori.sol:
-        // "Order(address offerer,address recipient,address inputToken,address outputToken,uint256 inputAmount,uint256 outputAmount,uint256 startTime,uint256 endTime,uint32 srcEid,uint32 dstEid)"
         bytes32 ORDER_TYPEHASH = keccak256(
-            "Order(address offerer,address recipient,address inputToken,address outputToken,uint256 inputAmount,uint256 outputAmount,uint256 startTime,uint256 endTime,uint32 srcEid,uint32 dstEid)"
+            "Order(uint256 inputAmount,uint256 outputAmount,address inputToken,address outputToken,uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient)"
         );
 
         // Compute the struct hash for the order.

@@ -101,7 +101,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
             outputToken: address(outputToken),
             inputAmount: 1e18,
             outputAmount: 2e18,
-            startTime: uint32(block.timestamp + 1),
+            startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: localEid,
             dstEid: remoteEid
@@ -167,7 +167,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
             outputToken: address(outputToken),
             inputAmount: 1e18,
             outputAmount: 2e18,
-            startTime: uint32(block.timestamp + 1),
+            startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: localEid,
             dstEid: remoteEid
@@ -227,7 +227,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
             outputToken: address(outputToken),
             inputAmount: 0, // Invalid: zero input amount
             outputAmount: 2e18,
-            startTime: uint32(block.timestamp + 1),
+            startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: localEid,
             dstEid: remoteEid
@@ -255,17 +255,17 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
 
         // Test end time before start time
         order.outputAmount = 2e18;
-        order.startTime = uint32(block.timestamp + 2 days);
-        order.endTime = uint32(block.timestamp + 1 days); // Invalid: end time before start time
+        order.startTime = uint32(block.timestamp);
+        order.endTime = uint32(block.timestamp - 1); // Invalid: end time before start time
 
         signature = signOrder(order); // Re-sign with updated parameters
 
         vm.prank(solver);
-        vm.expectRevert("Invalid start & end time");
+        vm.expectRevert("Invalid end time");
         localAori.deposit(order, signature);
 
         // Test invalid tokens (zero address)
-        order.startTime = uint32(block.timestamp + 1);
+        order.startTime = uint32(block.timestamp);
         order.endTime = uint32(block.timestamp + 2 days);
         order.inputToken = address(0); // Invalid token address
 
@@ -300,7 +300,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
             outputToken: address(outputToken),
             inputAmount: 1e18,
             outputAmount: 2e18,
-            startTime: uint32(block.timestamp + 1),
+            startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: localEid,
             dstEid: remoteEid
