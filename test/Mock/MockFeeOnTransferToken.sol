@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import "./MockERC20.sol";
+import "../Mock/MockERC20.sol";
 
 contract FeeOnTransferToken is MockERC20 {
     uint256 public feeInBasisPoints; // 100 = 1%

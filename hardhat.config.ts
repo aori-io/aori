@@ -74,6 +74,16 @@ const config: HardhatUserConfig = {
             url: 'https://sepolia.drpc.org',
             accounts,
         },
+        polygon: {
+            eid: 30109,
+            url: 'https://polygon-rpc.com',
+            accounts,
+        },
+        optimism: {
+            eid: 30111,
+            url: 'https://mainnet.optimism.io',
+            accounts,
+        },
 
         hardhat: {
             // Needed in testing because TestHelperOz5.sol was exceeding the compiled contract size limit.

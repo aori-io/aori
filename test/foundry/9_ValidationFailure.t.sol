@@ -18,7 +18,7 @@ pragma solidity 0.8.28;
  * testing various edge cases and invalid input conditions.
  */
 import {IAori} from "../../contracts/IAori.sol";
-import {FailingHook} from "./Mock/FailHook.sol";
+import {FailingHook} from "../Mock/FailHook.sol";
 import "./TestUtils.sol";
 
 /**

@@ -18,8 +18,8 @@ import {Aori, IAori} from "../../contracts/Aori.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {OApp, Origin, MessagingFee} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
-import {MockERC20} from "./Mock/MockERC20.sol";
-import {MockHook} from "./Mock/MockHook.sol";
+import {MockERC20} from "../Mock/MockERC20.sol";
+import {MockHook} from "../Mock/MockHook.sol";
 import "forge-std/console.sol";
 import "./TestUtils.sol";
 

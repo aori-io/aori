@@ -23,7 +23,7 @@ pragma solidity 0.8.28;
  * - The whitelist management test demonstrates the dynamic nature of the whitelist
  */
 import {TestUtils} from "./TestUtils.sol";
-import {MockHook} from "./Mock/MockHook.sol";
+import {MockHook} from "../Mock/MockHook.sol";
 import {IAori} from "../../contracts/Aori.sol";
 import "forge-std/console.sol";
 

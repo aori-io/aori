@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import "./MockERC20.sol";
+import "../Mock/MockERC20.sol";
 
 contract RevertingToken is MockERC20 {
     bool public revertOnTransfer;

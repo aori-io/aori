@@ -21,10 +21,10 @@ pragma solidity 0.8.28;
  */
 import {TestUtils} from "./TestUtils.sol";
 import {IAori} from "../../contracts/Aori.sol";
-import "./Mock/MockRevertingToken.sol";
-import "./Mock/MockFeeOnTransferToken.sol";
-import "./Mock/MockAttacker.sol";
-import "./Mock/MockHook.sol";
+import "../Mock/MockRevertingToken.sol";
+import "../Mock/MockFeeOnTransferToken.sol";
+import "../Mock/MockAttacker.sol";
+import "../Mock/MockHook.sol";
 
 /**
  * @notice Tests various edge cases and security scenarios in the Aori protocol
