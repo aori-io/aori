@@ -9,34 +9,21 @@ Solvers can expose a simple API to ingest and process orderflow directly to thei
 The Aori protocol consists of paired smart contracts deployed on different blockchains, enabling secure cross-chain intent settlement through LayerZero's messaging infrastructure.
 
 ```mermaid
-sequenceDiagram
-    participant User
-    participant AoriSrc as Aori (Source Chain)
-    participant LZ as LayerZero
-    participant AoriDst as Aori (Destination Chain)
-    participant Solver
-
-    %% Order Fill Flow
-    User->>AoriSrc: deposit(order, signature)
-    Note over AoriSrc: Locks user tokens
+flowchart TD
+    Deposit[Deposit on Source Chain] --> Fill[Fill on Destination Chain]
+    Fill --> Settle[Settle via LayerZero]
+    Settle --> Transfer[Transfer Tokens to Solver]
     
-    Solver->>AoriDst: fill(order)
-    Note over AoriDst: Transfers tokens to recipient<br>Records fill in srcEidToFillerFills
+    Deposit --> Cancel[Cancel Order]
+    Cancel --> Unlock[Unlock User Tokens]
     
-    Solver->>AoriDst: settle(srcEid, filler, options)
-    Note over AoriDst: Builds payload with:<br>- msgType (0)<br>- filler address<br>- fillCount<br>- order hashes
-    AoriDst->>LZ: _lzSend(srcEid, payload, options)
-    LZ-->>AoriSrc: _lzReceive(origin, payload)
+    classDef source fill:#f9f,stroke:#333,stroke-width:2px
+    classDef destination fill:#bbf,stroke:#333,stroke-width:2px
+    classDef middleware fill:#bfb,stroke:#333,stroke-width:2px
     
-    Note over AoriSrc: Processes settlement payload:<br>1. Extracts filler and order hashes<br>2. Transfers tokens from user to filler<br>3. Marks orders as settled
-
-    %% Cancellation Flow
-    User->>AoriDst: dstCancel(orderId, orderToCancel, options)
-    Note over AoriDst: Builds payload with:<br>- msgType (1)<br>- orderHash
-    AoriDst->>LZ: _lzSend(srcEid, payload, options)
-    LZ-->>AoriSrc: _lzReceive(origin, payload)
-    
-    Note over AoriSrc: Processes cancellation:<br>1. Extracts orderHash<br>2. Unlocks tokens<br>3. Marks order as cancelled
+    class Deposit,Transfer,Unlock source
+    class Fill,Cancel destination
+    class Settle middleware
 ```
 
 ## Core Contract Components
@@ -65,14 +52,20 @@ struct Order {
 An order moves through various status states as it progresses through the settlement process:
 
 ```mermaid
-stateDiagram-v2
-    [*] --> Unknown
-    Unknown --> Active: deposit()
-    Active --> Filled: fill()
-    Active --> Cancelled: srcCancel() or dstCancel()
-    Filled --> Settled: settle()
-    Cancelled --> [*]
-    Settled --> [*]
+flowchart LR
+    Start([Start]) --> Unknown[Unknown]
+    Unknown -->|deposit()| Active[Active]
+    Active -->|fill()| Filled[Filled]
+    Active -->|srcCancel()/dstCancel()| Cancelled[Cancelled]
+    Filled -->|settle()| Settled[Settled]
+    Cancelled --> End([End])
+    Settled --> End
+    
+    classDef state fill:#bbf,stroke:#333,stroke-width:2px
+    classDef terminal fill:#f9f,stroke:#333,stroke-width:2px
+    
+    class Unknown,Active,Filled,Cancelled,Settled state
+    class Start,End terminal
 ```
 
 #### Deposit & Fill Process
