@@ -9,21 +9,35 @@ Solvers can expose a simple API to ingest and process orderflow directly to thei
 The Aori protocol consists of paired smart contracts deployed on different blockchains, enabling secure cross-chain intent settlement through LayerZero's messaging infrastructure.
 
 ```mermaid
-flowchart TD
-    Deposit[Deposit on Source Chain] --> Fill[Fill on Destination Chain]
-    Fill --> Settle[Settle via LayerZero]
-    Settle --> Transfer[Transfer Tokens to Solver]
+sequenceDiagram
+    participant User
+    participant AoriSrc as Aori (Source Chain)
+    participant LZ as LayerZero
+    participant AoriDst as Aori (Destination Chain)
+    participant Solver
+
+    %% Order Fill Flow
+    User->>AoriSrc: deposit
+    Note over AoriSrc: Locks user tokens
     
-    Deposit --> Cancel[Cancel Order]
-    Cancel --> Unlock[Unlock User Tokens]
+    Solver->>AoriDst: fill
+    Note over AoriDst: Transfers tokens to recipient
     
-    classDef source fill:#f9f,stroke:#333,stroke-width:2px
-    classDef destination fill:#bbf,stroke:#333,stroke-width:2px
-    classDef middleware fill:#bfb,stroke:#333,stroke-width:2px
+    Solver->>AoriDst: settle
+    AoriDst->>LZ: _lzSend
+    LZ-->>AoriSrc: _lzReceive
     
-    class Deposit,Transfer,Unlock source
-    class Fill,Cancel destination
-    class Settle middleware
+    Note over AoriSrc: Process settlement:
+    Note over AoriSrc: Transfer tokens to solver
+    Note over AoriSrc: Mark orders as settled
+
+    %% Cancellation Flow
+    User->>AoriDst: dstCancel
+    AoriDst->>LZ: _lzSend
+    LZ-->>AoriSrc: _lzReceive
+    
+    Note over AoriSrc: Unlock tokens
+    Note over AoriSrc: Mark order as cancelled
 ```
 
 ## Core Contract Components
@@ -53,19 +67,12 @@ An order moves through various status states as it progresses through the settle
 
 ```mermaid
 flowchart LR
-    Start([Start]) --> Unknown[Unknown]
-    Unknown -->|deposit()| Active[Active]
-    Active -->|fill()| Filled[Filled]
-    Active -->|srcCancel()/dstCancel()| Cancelled[Cancelled]
-    Filled -->|settle()| Settled[Settled]
-    Cancelled --> End([End])
+    Unknown -->|deposit()| Active
+    Active -->|fill()| Filled
+    Active -->|srcCancel()/dstCancel()| Cancelled
+    Filled -->|settle()| Settled
+    Cancelled --> End
     Settled --> End
-    
-    classDef state fill:#bbf,stroke:#333,stroke-width:2px
-    classDef terminal fill:#f9f,stroke:#333,stroke-width:2px
-    
-    class Unknown,Active,Filled,Cancelled,Settled state
-    class Start,End terminal
 ```
 
 #### Deposit & Fill Process
