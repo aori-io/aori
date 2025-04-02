@@ -196,16 +196,16 @@ contract TestUtils is TestHelperOz5 {
                 keccak256(
                     "Order(uint256 inputAmount,uint256 outputAmount,address inputToken,address outputToken,uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient)"
                 ),
-                order.offerer,
-                order.recipient,
-                order.inputToken,
-                order.outputToken,
                 order.inputAmount,
                 order.outputAmount,
+                order.inputToken,
+                order.outputToken,
                 order.startTime,
                 order.endTime,
                 order.srcEid,
-                order.dstEid
+                order.dstEid,
+                order.offerer,
+                order.recipient
             )
         );
 

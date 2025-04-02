@@ -155,16 +155,16 @@ contract GasReportTest is TestHelperOz5 {
         bytes32 structHash = keccak256(
             abi.encode(
                 typeHash,
-                order.offerer,
-                order.recipient,
-                order.inputToken,
-                order.outputToken,
                 order.inputAmount,
                 order.outputAmount,
+                order.inputToken,
+                order.outputToken,
                 order.startTime,
                 order.endTime,
                 order.srcEid,
-                order.dstEid
+                order.dstEid,
+                order.offerer,
+                order.recipient
             )
         );
         bytes32 domainSeparator = keccak256(

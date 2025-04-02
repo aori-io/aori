@@ -184,16 +184,16 @@ contract EdgeCasesTest is TestUtils {
         bytes32 structHash = keccak256(
             abi.encode(
                 ORDER_TYPEHASH,
-                order.offerer,
-                order.recipient,
-                order.inputToken,
-                order.outputToken,
                 order.inputAmount,
                 order.outputAmount,
+                order.inputToken,
+                order.outputToken,
                 order.startTime,
                 order.endTime,
                 order.srcEid,
-                order.dstEid
+                order.dstEid,
+                order.offerer,
+                order.recipient
             )
         );
 
