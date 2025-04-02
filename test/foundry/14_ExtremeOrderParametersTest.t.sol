@@ -15,7 +15,7 @@ pragma solidity 0.8.28;
  * such as maximum/minimum token amounts and time windows, while maintaining proper whitelist enforcement.
  * These edge cases are important to test the robustness of the contract's validation logic.
  */
-import {IAori} from "../../contracts/interfaces/IAori.sol";
+import {IAori} from "../../contracts/IAori.sol";
 import "./TestUtils.sol";
 
 /**

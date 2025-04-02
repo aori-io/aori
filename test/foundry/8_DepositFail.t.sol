@@ -14,7 +14,7 @@ pragma solidity 0.8.28;
  * This test file focuses on edge cases and failure conditions for the deposit operation,
  * using a custom FailingDepositHook that intentionally reverts to simulate errors.
  */
-import {IAori} from "../../contracts/interfaces/IAori.sol";
+import {IAori} from "../../contracts/IAori.sol";
 import "./TestUtils.sol";
 
 /**

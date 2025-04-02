@@ -5,7 +5,7 @@ import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/Option
 import {Script} from "@layerzerolabs/toolbox-foundry/lib/forge-std/Script.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {IAori} from "../interfaces/IAori.sol";
+import {IAori} from "../IAori.sol";
 
 contract WithdrawalScript is Script {
     using OptionsBuilder for bytes;

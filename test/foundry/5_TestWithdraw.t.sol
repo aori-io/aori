@@ -13,8 +13,8 @@ pragma solidity 0.8.28;
  * - The user can then withdraw their unlocked tokens
  * - Balances are correctly tracked and updated throughout the process
  */
-import {ExecutionUtils, HookUtils, PayloadPackUtils, PayloadUnpackUtils} from "../../contracts/lib/AoriUtils.sol";
-import {IAori} from "../../contracts/interfaces/IAori.sol";
+import "../../contracts/AoriUtils.sol";
+import {IAori} from "../../contracts/IAori.sol";
 import "./TestUtils.sol";
 
 contract WithdrawTest is TestUtils {

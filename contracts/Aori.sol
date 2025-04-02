@@ -9,8 +9,8 @@ import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { EIP712 } from "solady/src/utils/EIP712.sol";
 import { ECDSA } from "solady/src/utils/ECDSA.sol";
-import { IAori } from "./interfaces/IAori.sol";
-import "./lib/AoriUtils.sol";
+import { IAori } from "./IAori.sol";
+import "./AoriUtils.sol";
 
 /**
  *•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*

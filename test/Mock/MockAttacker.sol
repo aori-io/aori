@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import "../../../contracts/interfaces/IAori.sol";
-import "../../../contracts/Aori.sol";
+import "../../contracts/IAori.sol";
+import "../../contracts/Aori.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract ReentrantAttacker {

@@ -18,7 +18,7 @@ pragma solidity 0.8.28;
  * solver whitelisting. It simulates cross-chain communication by using LayerZero's test helpers
  * and manually constructing the settlement and cancellation payloads.
  */
-import {IAori} from "../../contracts/interfaces/IAori.sol";
+import {IAori} from "../../contracts/Aori.sol";
 import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import "./TestUtils.sol";

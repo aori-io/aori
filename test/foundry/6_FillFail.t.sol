@@ -17,7 +17,7 @@ pragma solidity 0.8.28;
  * This test file focuses on edge cases and failure conditions for the fill operation,
  * using a custom FailingHook that intentionally fails to transfer tokens to simulate errors.
  */
-import {IAori} from "../../contracts/interfaces/IAori.sol";
+import {IAori} from "../../contracts/IAori.sol";
 import "./TestUtils.sol";
 
 /**

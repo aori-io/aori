@@ -18,7 +18,7 @@ pragma solidity 0.8.28;
  * particularly the pause/unpause mechanisms and emergency fund recovery features.
  * The admin is set to the test contract itself to simplify testing of admin-only functions.
  */
-import {IAori} from "../../contracts/interfaces/IAori.sol";
+import {IAori} from "../../contracts/IAori.sol";
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import "./TestUtils.sol";
 

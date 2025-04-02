@@ -17,7 +17,7 @@ pragma solidity 0.8.28;
  * This test file focuses specifically on validation failures in the fill function of the Aori contract,
  * testing various edge cases and invalid input conditions.
  */
-import {IAori} from "../../contracts/interfaces/IAori.sol";
+import {IAori} from "../../contracts/IAori.sol";
 import {FailingHook} from "./Mock/FailHook.sol";
 import "./TestUtils.sol";
 

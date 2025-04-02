@@ -15,7 +15,7 @@ pragma solidity 0.8.28;
  * This test file focuses on edge cases and failure conditions related to the LayerZero cross-chain messaging
  * system used by Aori, including payload format violations, authorization issues, and fee-related failures.
  */
-import {IAori} from "../../contracts/interfaces/IAori.sol";
+import {IAori} from "../../contracts/IAori.sol";
 import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import "./TestUtils.sol";

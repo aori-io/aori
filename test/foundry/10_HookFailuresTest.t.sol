@@ -14,7 +14,7 @@ pragma solidity 0.8.28;
  * using custom hooks (FailingHook and PartialOutputHook) to simulate error conditions.
  */
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IAori} from "../../contracts/interfaces/IAori.sol";
+import {IAori} from "../../contracts/IAori.sol";
 import "./TestUtils.sol";
 
 /**
