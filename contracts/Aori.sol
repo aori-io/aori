@@ -19,12 +19,9 @@ import "./lib/AoriUtils.sol";
  * It enables users to deposit tokens on a source chain with signed intent parameters,
  * which solvers can fulfill on destination chains. The contract manages the full intent 
  * lifecycle through secure token custody, EIP-712 signature verification, and LayerZero 
- * through secure token custody, EIP-712 signature verification, and LayerZero messaging 
- * for cross-chain settlement. Advanced features include exclusive solver periods, 
- * customizable hooks for token transformations, and robust balance tracking. This 
- * architecture ensures that user intents are executed precisely according to their 
- * parameters while maintaining security through comprehensive validation and state 
- * management across the blockchain ecosystem.
+ * messaging for cross-chain settlement. This architecture ensures that user intents are 
+ * executed precisely according to their parameters while maintaining security 
+ * through comprehensive validation and state management across the blockchain ecosystem.
  *•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*
  */
 
@@ -245,7 +242,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
 
     /**
      * @notice Handles incoming LayerZero messages for order settlement and cancellation
-     * @dev Processes both read responses and settlement payloads
+     * @dev Processes settlement and cancellation payloads
      * @param payload The message payload containing order hashes and filler information
      */
     function _lzReceive(
@@ -309,16 +306,16 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
                 keccak256(
                     abi.encode(
                         _ORDER_TYPEHASH,
-                        order.offerer,
-                        order.recipient,
-                        order.inputToken,
-                        order.outputToken,
                         order.inputAmount,
                         order.outputAmount,
+                        order.inputToken,
+                        order.outputToken,
                         order.startTime,
                         order.endTime,
                         order.srcEid,
-                        order.dstEid
+                        order.dstEid,
+                        order.offerer,
+                        order.recipient
                     )
                 )
             );
@@ -525,6 +522,12 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         postFill(orderId, order);
     }
 
+    /**
+     * @notice Executes a destination hook and handles token conversion
+     * @param order The order details
+     * @param hook The destination hook configuration
+     * @return balChg The balance change observed from the hook execution
+     */
     function executeDstHook(
         Order calldata order,
         IAori.DstHook calldata hook
@@ -550,12 +553,22 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         }
     }
 
+    /**
+     * @notice Validates and prepares an order for filling
+     * @param order The order details to fill
+     * @return orderId The unique identifier for the order
+     */
     function preFill(Order calldata order) internal view returns (bytes32 orderId) {
         validateFill(order);
         deadlineCheck(order);
         orderId = hash(order);
     }
 
+    /**
+     * @notice Processes an order after successful filling
+     * @param orderId The unique identifier for the order
+     * @param order The order details that were filled
+     */
     function postFill(bytes32 orderId, Order calldata order) internal {
         orderStatus[orderId] = IAori.OrderStatus.Filled;
         srcEidToFillerFills[order.srcEid][msg.sender].push(orderId);
@@ -663,7 +676,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         bytes memory payload = PayloadPackUtils.packCancellation(orderId);
         __lzSend(orderToCancel.srcEid, payload, extraOptions);
         orderStatus[orderId] = IAori.OrderStatus.Cancelled;
-        // emit Cancel(orderId, orderToCancel);
+        emit CancelSent(orderId, orderToCancel);
     }
 
     /**
@@ -695,6 +708,10 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         emit CancelSent(orderId, order);
     }
 
+    /**
+     * @notice Handles cancellation payload from source chain
+     * @param payload The cancellation payload containing the order hash
+     */
     function handleCancellation(bytes calldata payload) internal {
         payload.validateCancellationLen();
         bytes32 orderId = payload.unpackCancellation();
