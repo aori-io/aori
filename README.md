@@ -67,10 +67,10 @@ An order moves through various status states as it progresses through the settle
 
 ```mermaid
 flowchart LR
-    Unknown -->|deposit()| Active
-    Active -->|fill()| Filled
-    Active -->|srcCancel()/dstCancel()| Cancelled
-    Filled -->|settle()| Settled
+    Unknown -->|deposit| Active
+    Active -->|fill| Filled
+    Active -->|srcCancel/dstCancel| Cancelled
+    Filled -->|settle| Settled
     Cancelled --> End
     Settled --> End
 ```
