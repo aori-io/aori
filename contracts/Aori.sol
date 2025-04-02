@@ -248,6 +248,12 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     /*                          DEPOSIT                           */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
+    /**
+     * @notice Deposits tokens to the contract without a hook call
+     * @dev Supports both direct deposits and hook-based token conversion
+     * @param order The order details
+     * @param signature The user's EIP712 signature over the order
+     */
     function deposit(
         Order calldata order,
         bytes calldata signature
@@ -258,8 +264,8 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     }
 
     /**
-     * @notice Deposits tokens to the contract for filling on another chain
-     * @dev Supports both direct deposits and hook-based token conversion
+     * @notice Deposits tokens to the contract fwith a hook call
+     * @dev This function executes a hook call before depositing the tokens
      * @param order The order details
      * @param signature The user's EIP712 signature over the order
      * @param hook The pre-hook configuration

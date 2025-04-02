@@ -2,7 +2,7 @@
 
 #### Aori is designed to securely facilitate performant cross chain trading, with trust minimized settlement. To accomplish this, Aori uses a combination of off-chain infrastucture, on-chain settlement contracts, and Layer Zero messaging.
 
-#### Solvers can expose a simple API to ingest and process orderflow directly to their trading system. The Aori smart contracts ensure that the user’s intents are satisfied by the Solver on the destination chain according to the parameters of an intent on the source chain, signed by the user.
+#### Solvers can expose a simple API to ingest and process orderflow directly to their trading system. The Aori smart contracts ensure that the user's intents are satisfied by the Solver on the destination chain according to the parameters of an intent on the source chain, signed by the user.
 
 ## Protocol Architecture
 
@@ -177,6 +177,48 @@ See code test coverage
 
 ```bash
 forge coverage --report --ir-minimum
+```
+
+## Deterministic Multi-Chain Deployments
+
+The Aori contracts support deterministic deployments across multiple chains, allowing you to deploy contracts to the same address on different networks. This simplifies cross-chain integration as users and integrators can use the same contract address regardless of the chain.
+
+### Method 1: Nonce Management
+
+This approach ensures your deployer has the same nonce across all chains:
+
+1. Check nonces across networks:
+```bash
+npx hardhat run scripts/checkNonces.ts
+```
+
+2. Align nonces using dummy transactions:
+```bash
+npx hardhat run scripts/setNonces.ts
+```
+
+3. Deploy with deterministic flag:
+```bash
+npx hardhat deploy --tags deterministic --network <network-name>
+```
+
+### Method 2: CREATE2 Factory (Recommended)
+
+The CREATE2 approach is more robust and doesn't depend on nonce management:
+
+1. Deploy the factory to each network:
+```bash
+npx hardhat deploy --tags factory --network <network-name>
+```
+
+2. Deploy Aori contracts using CREATE2:
+```bash
+npx hardhat deploy --tags create2 --network <network-name>
+```
+
+After deploying to all networks, wire the contracts together:
+```bash
+npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
 ```
 
 ## License
