@@ -194,7 +194,7 @@ contract TestUtils is TestHelperOz5 {
         bytes32 structHash = keccak256(
             abi.encode(
                 keccak256(
-                    "Order(uint256 inputAmount,uint256 outputAmount,address inputToken,address outputToken,uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient)"
+                    "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient)"
                 ),
                 order.inputAmount,
                 order.outputAmount,
