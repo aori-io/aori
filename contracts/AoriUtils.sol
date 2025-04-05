@@ -226,8 +226,8 @@ library HookUtils {
  * @notice Enum for different LayerZero message payload types
  */
 enum PayloadType {
-    Settlement, // Settlement message with multiple order fills
-    Cancellation // Cancellation message for a single order
+    Settlement, // Settlement message with multiple order fills (0)
+    Cancellation // Cancellation message for a single order (1)
 }
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -400,11 +400,10 @@ library PayloadPackUtils {
      * @return payload The packed cancellation payload
      */
     function packCancellation(bytes32 orderHash) internal pure returns (bytes memory payload) {
-        uint8 msgType = uint8(PayloadType.Cancellation);
+        payload = new bytes(33);
+        payload[0] = bytes1(uint8(PayloadType.Cancellation));
         assembly {
-            mstore(payload, CANCELLATION_PAYLOAD_SIZE)
-            mstore(add(payload, 32), msgType)
-            mstore(add(payload, 33), orderHash)
+            mstore(add(add(payload, 32), 1), orderHash) // Copy the 32-byte order hash starting at position 1
         }
     }
 }
@@ -422,6 +421,3 @@ library PayloadPackUtils {
 function settlementPayloadSize(uint256 fillCount) pure returns (uint256) {
     return 1 + 20 + 2 + (fillCount * 32);
 }
-
-// Size constant for cancellation messages: 1 byte type + 32 bytes order hash = 33 bytes total
-uint256 constant CANCELLATION_PAYLOAD_SIZE = 33;

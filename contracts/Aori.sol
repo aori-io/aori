@@ -692,7 +692,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     ) public view returns (uint256 fee) {
         uint256 payloadSize;
         if (_msgType == uint8(PayloadType.Cancellation)) {
-            payloadSize = CANCELLATION_PAYLOAD_SIZE;
+            payloadSize = 33;
         } else if (_msgType == uint8(PayloadType.Settlement)) {
             uint256 fillsLength = srcEidToFillerFills[_srcEid][_filler].length;
             uint16 fillCount = uint16(
