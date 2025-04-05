@@ -35,6 +35,7 @@ pragma solidity 0.8.28;
 import "forge-std/Test.sol";
 import "./TestUtils.sol";
 import "../../contracts/AoriUtils.sol";
+import "forge-std/console.sol";
 
 /**
  * @title PayloadTestWrapper
@@ -396,62 +397,126 @@ contract PayloadPackingUnpackingTest is Test {
     
     /// @dev Tests packing a cancellation payload
     /// @notice Covers lines 402-407 in AoriUtils.sol
-    // TODO: Add this test back in after addressing the issue with the packCancellation function
-    // function test_packCancellation() public view{
-    //     // Arrange
-    //     bytes32 orderHash = TEST_ORDER_HASH;
+    function test_packCancellation() public view {
+        // Arrange
+        bytes32 orderHash = TEST_ORDER_HASH;
         
-    //     // Act
-    //     bytes memory payload = wrapper.packCancellation(orderHash);
+        // Log the test order hash
+        console.log("TEST ORDER HASH:");
+        console.logBytes32(orderHash);
         
-    //     // Assert
-    //     assertEq(payload.length, TEST_CANCELLATION_SIZE);
-    //     assertEq(uint8(payload[0]), CANCELLATION_TYPE);
+        // Act
+        bytes memory payload = wrapper.packCancellation(orderHash);
         
-    //     // Extract the order hash from the payload and compare
-    //     bytes32 extractedHash;
-    //     assembly {
-    //         extractedHash := mload(add(payload, 33))
-    //     }
-    //     assertEq(extractedHash, orderHash);
-    // }
+        // Log the payload length and expected length
+        console.log("PAYLOAD LENGTH:");
+        console.log("  Expected:", TEST_CANCELLATION_SIZE);
+        console.log("  Actual:", payload.length);
+        
+        // Log the payload type byte
+        console.log("PAYLOAD TYPE BYTE:");
+        console.log("  Expected:", CANCELLATION_TYPE);
+        console.log("  Actual:", uint8(payload[0]));
+        
+        // Log the full payload in hex for inspection
+        console.log("FULL PAYLOAD (hex):");
+        console.logBytes(payload);
+        
+        // Extract and log the order hash from the payload
+        bytes32 extractedHash;
+        assembly {
+            extractedHash := mload(add(payload, 33))
+        }
+        console.log("EXTRACTED ORDER HASH:");
+        console.logBytes32(extractedHash);
+        console.log("MATCHES ORIGINAL:", extractedHash == orderHash ? "Yes" : "No");
+        
+        // Assert
+        assertEq(payload.length, TEST_CANCELLATION_SIZE);
+        assertEq(uint8(payload[0]), CANCELLATION_TYPE);
+        assertEq(extractedHash, orderHash);
+    }
     
     /// @dev Tests packing a settlement payload with a single order
     /// @notice Covers lines 357-393 in AoriUtils.sol
-    // TODO: Add this test back in after addressing the issue with the packSettlement function
-    // function test_packSettlement_singleOrder() public {
-    //     // Arrange
-    //     bytes32[] memory orderHashes = new bytes32[](1);
-    //     orderHashes[0] = TEST_ORDER_HASH;
-    //     wrapper.setupFillsArray(orderHashes);
+    function test_packSettlement_singleOrder() public {
+        // Arrange
+        bytes32[] memory orderHashes = new bytes32[](1);
+        orderHashes[0] = TEST_ORDER_HASH;
+        wrapper.setupFillsArray(orderHashes);
         
-    //     address filler = TEST_FILLER;
-    //     uint16 takeSize = 1;
+        // Log the input data
+        console.log("TEST SETUP:");
+        console.logBytes32(TEST_ORDER_HASH);
+        console.log("  Filler Address:");
+        console.logAddress(TEST_FILLER);
+        console.log("  Take Size:");
+        console.logUint(1);
         
-    //     // Act
-    //     bytes memory payload = wrapper.packSettlement(filler, takeSize);
+        // Act
+        bytes memory payload = wrapper.packSettlement(TEST_FILLER, 1);
         
-    //     // Assert
-    //     // Header: 1 byte type + 20 bytes filler + 2 bytes count = 23 bytes
-    //     // Body: takeSize * 32 bytes (order hash) = 32 bytes
-    //     // Total: 23 + 32 = 55 bytes
-    //     assertEq(payload.length, 55);
-    //     assertEq(uint8(payload[0]), SETTLEMENT_TYPE);
+        // Calculate expected payload size
+        uint256 expectedSize = 23 + 32; // Header (23 bytes) + 1 order hash (32 bytes)
+        console.log("PAYLOAD SIZE:");
+        console.log("  Expected:", expectedSize);
+        console.log("  Actual:", payload.length);
         
-    //     // Verify filler address
-    //     address extractedFiller;
-    //     assembly {
-    //         extractedFiller := shr(96, mload(add(payload, 21)))
-    //     }
-    //     assertEq(extractedFiller, filler);
+        // Log the payload type byte
+        console.log("PAYLOAD TYPE BYTE:");
+        console.log("  Expected:", SETTLEMENT_TYPE);
+        console.log("  Actual:", uint8(payload[0]));
         
-    //     // Verify fill count
-    //     uint16 extractedCount = (uint16(uint8(payload[21])) << 8) | uint16(uint8(payload[22]));
-    //     assertEq(extractedCount, takeSize);
+        // Log the filler address from the payload
+        address extractedFiller;
+        assembly {
+            extractedFiller := shr(96, mload(add(payload, 21)))
+        }
+        console.log("FILLER ADDRESS:");
+        console.log("  Expected:", TEST_FILLER);
+        console.log("  Actual:", extractedFiller);
         
-    //     // Verify the fills array is empty after packing (elements were cleared)
-    //     assertEq(wrapper.getFillsLength(), 0);
-    // }
+        // Log the fill count from the payload
+        uint16 extractedCount = (uint16(uint8(payload[21])) << 8) | uint16(uint8(payload[22]));
+        console.log("FILL COUNT:");
+        console.log("  Expected:");
+        console.logUint(1);
+        console.log("  Actual:");
+        console.logUint(extractedCount);
+        
+        // Extract and log the order hash from the payload
+        bytes32 extractedHash;
+        assembly {
+            extractedHash := mload(add(payload, 55))
+        }
+        console.log("EXTRACTED ORDER HASH:");
+        console.logBytes32(extractedHash);
+        console.log("MATCHES ORIGINAL:", extractedHash == TEST_ORDER_HASH ? "Yes" : "No");
+        
+        // Log the full payload in hex
+        console.log("FULL PAYLOAD (hex):");
+        console.logBytes(payload);
+        
+        // Verify the fill array is emptied after packing
+        console.log("FILLS ARRAY LENGTH AFTER PACKING:");
+        console.log("  Expected:");
+        console.logUint(0);
+        console.log("  Actual:");
+        console.logUint(wrapper.getFillsLength());
+        
+        // Assert
+        assertEq(payload.length, 55);
+        assertEq(uint8(payload[0]), SETTLEMENT_TYPE);
+        
+        // Verify filler address
+        assertEq(extractedFiller, TEST_FILLER);
+        
+        // Verify fill count
+        assertEq(extractedCount, 1);
+        
+        // Verify the fills array is empty after packing (elements were cleared)
+        assertEq(wrapper.getFillsLength(), 0);
+    }
     
     /// @dev Tests packing a settlement payload with multiple orders
     /// @notice Covers lines 357-393 in AoriUtils.sol
