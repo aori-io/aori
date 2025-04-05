@@ -439,85 +439,82 @@ contract PayloadPackingUnpackingTest is Test {
     
     /// @dev Tests packing a settlement payload with a single order
     /// @notice Covers lines 357-393 in AoriUtils.sol
-    // TODO: Fix settlement payload packing
-    // function test_packSettlement_singleOrder() public {
-    //     // Arrange
-    //     bytes32[] memory orderHashes = new bytes32[](1);
-    //     orderHashes[0] = TEST_ORDER_HASH;
-    //     wrapper.setupFillsArray(orderHashes);
+    function test_packSettlement_singleOrder() public {
+        // Arrange
+        bytes32[] memory orderHashes = new bytes32[](1);
+        orderHashes[0] = TEST_ORDER_HASH;
+        wrapper.setupFillsArray(orderHashes);
         
-    //     // Log the input data
-    //     console.log("TEST SETUP:");
-    //     console.logBytes32(TEST_ORDER_HASH);
-    //     console.log("  Filler Address:");
-    //     console.logAddress(TEST_FILLER);
-    //     console.log("  Take Size:");
-    //     console.logUint(1);
+        // Log the input data
+        console.log("TEST SETUP:");
+        console.logBytes32(TEST_ORDER_HASH);
+        console.log("  Filler Address:");
+        console.logAddress(TEST_FILLER);
+        console.log("  Take Size:");
+        console.logUint(1);
         
-    //     // Act
-    //     bytes memory payload = wrapper.packSettlement(TEST_FILLER, 1);
+        // Act
+        bytes memory payload = wrapper.packSettlement(TEST_FILLER, 1);
         
-    //     // Calculate expected payload size
-    //     uint256 expectedSize = 23 + 32; // Header (23 bytes) + 1 order hash (32 bytes)
-    //     console.log("PAYLOAD SIZE:");
-    //     console.log("  Expected:", expectedSize);
-    //     console.log("  Actual:", payload.length);
+        // Calculate expected payload size
+        uint256 expectedSize = 23 + 32; // Header (23 bytes) + 1 order hash (32 bytes)
+        console.log("PAYLOAD SIZE:");
+        console.log("  Expected:", expectedSize);
+        console.log("  Actual:", payload.length);
         
-    //     // Log the payload type byte
-    //     console.log("PAYLOAD TYPE BYTE:");
-    //     console.log("  Expected:", SETTLEMENT_TYPE);
-    //     console.log("  Actual:", uint8(payload[0]));
+        // Log the payload type byte
+        console.log("PAYLOAD TYPE BYTE:");
+        console.log("  Expected:", SETTLEMENT_TYPE);
+        console.log("  Actual:", uint8(payload[0]));
         
-    //     // Log the filler address from the payload
-    //     address extractedFiller;
-    //     assembly {
-    //         extractedFiller := shr(96, mload(add(payload, 21)))
-    //     }
-    //     console.log("FILLER ADDRESS:");
-    //     console.log("  Expected:", TEST_FILLER);
-    //     console.log("  Actual:", extractedFiller);
+        // Extract filler address using unpackSettlementHeader function
+        (address unpackedFiller, uint16 unpackedFillCount) = wrapper.unpackSettlementHeader(payload);
+        console.log("UNPACKED HEADER:");
+        console.log("  Filler Address:");
+        console.logAddress(unpackedFiller);
+        console.log("  Fill Count:");
+        console.logUint(unpackedFillCount);
         
-    //     // Log the fill count from the payload
-    //     uint16 extractedCount = (uint16(uint8(payload[21])) << 8) | uint16(uint8(payload[22]));
-    //     console.log("FILL COUNT:");
-    //     console.log("  Expected:");
-    //     console.logUint(1);
-    //     console.log("  Actual:");
-    //     console.logUint(extractedCount);
+        // For debugging: Log all bytes in the first 23 bytes (header)
+        console.log("HEADER BYTES:");
+        for (uint i = 0; i < 23; i++) {
+            console.log(string(abi.encodePacked("  Byte ", uint8(i), ":")));
+            console.logUint(uint8(payload[i]));
+        }
         
-    //     // Extract and log the order hash from the payload
-    //     bytes32 extractedHash;
-    //     assembly {
-    //         extractedHash := mload(add(payload, 55))
-    //     }
-    //     console.log("EXTRACTED ORDER HASH:");
-    //     console.logBytes32(extractedHash);
-    //     console.log("MATCHES ORIGINAL:", extractedHash == TEST_ORDER_HASH ? "Yes" : "No");
+        // Extract and log the order hash from the payload
+        bytes32 extractedHash;
+        assembly {
+            extractedHash := mload(add(add(payload, 32), 23))
+        }
+        console.log("EXTRACTED ORDER HASH:");
+        console.logBytes32(extractedHash);
+        console.log("MATCHES ORIGINAL:", extractedHash == TEST_ORDER_HASH ? "Yes" : "No");
         
-    //     // Log the full payload in hex
-    //     console.log("FULL PAYLOAD (hex):");
-    //     console.logBytes(payload);
+        // Log the full payload in hex
+        console.log("FULL PAYLOAD (hex):");
+        console.logBytes(payload);
         
-    //     // Verify the fill array is emptied after packing
-    //     console.log("FILLS ARRAY LENGTH AFTER PACKING:");
-    //     console.log("  Expected:");
-    //     console.logUint(0);
-    //     console.log("  Actual:");
-    //     console.logUint(wrapper.getFillsLength());
+        // Verify the fill array is emptied after packing
+        console.log("FILLS ARRAY LENGTH AFTER PACKING:");
+        console.log("  Expected:");
+        console.logUint(0);
+        console.log("  Actual:");
+        console.logUint(wrapper.getFillsLength());
         
-    //     // Assert
-    //     assertEq(payload.length, 55);
-    //     assertEq(uint8(payload[0]), SETTLEMENT_TYPE);
+        // Assert using the unpacked values
+        assertEq(payload.length, 55);
+        assertEq(uint8(payload[0]), SETTLEMENT_TYPE);
         
-    //     // Verify filler address
-    //     assertEq(extractedFiller, TEST_FILLER);
+        // Verify filler address with the unpacked value
+        assertEq(unpackedFiller, TEST_FILLER);
         
-    //     // Verify fill count
-    //     assertEq(extractedCount, 1);
+        // Verify fill count
+        assertEq(unpackedFillCount, 1);
         
-    //     // Verify the fills array is empty after packing (elements were cleared)
-    //     assertEq(wrapper.getFillsLength(), 0);
-    // }
+        // Verify the fills array is empty after packing (elements were cleared)
+        assertEq(wrapper.getFillsLength(), 0);
+    }
     
     /// @dev Tests packing a settlement payload with multiple orders
     /// @notice Covers lines 357-393 in AoriUtils.sol
@@ -533,14 +530,54 @@ contract PayloadPackingUnpackingTest is Test {
         address filler = TEST_FILLER;
         uint16 takeSize = orderCount;
         
+        // Log the input data
+        console.log("MULTIPLE ORDERS TEST SETUP:");
+        console.log("  Order Count:", orderCount);
+        console.log("  Filler Address:");
+        console.logAddress(filler);
+        
         // Act
         bytes memory payload = wrapper.packSettlement(filler, takeSize);
+        
+        // Log the payload type and size
+        console.log("PAYLOAD INFO:");
+        console.log("  Type:", uint8(payload[0]));
+        console.log("  Expected Length:", 23 + takeSize * 32);
+        console.log("  Actual Length:", payload.length);
+        
+        // Extract header using unpackSettlementHeader
+        (address unpackedFiller, uint16 unpackedFillCount) = wrapper.unpackSettlementHeader(payload);
+        console.log("UNPACKED HEADER:");
+        console.log("  Filler Address:");
+        console.logAddress(unpackedFiller);
+        console.log("  Fill Count:");
+        console.logUint(unpackedFillCount);
+        
+        // For debugging: Log all bytes in the first 23 bytes (header)
+        console.log("HEADER BYTES:");
+        for (uint i = 0; i < 23; i++) {
+            console.log(string(abi.encodePacked("  Byte ", uint8(i), ":")));
+            console.logUint(uint8(payload[i]));
+        }
+        
+        // Log full payload for inspection
+        console.log("FULL PAYLOAD (hex):");
+        console.logBytes(payload);
         
         // Assert
         // Header: 1 byte type + 20 bytes filler + 2 bytes count = 23 bytes
         // Body: takeSize * 32 bytes (order hash) = 96 bytes
         // Total: 23 + 96 = 119 bytes
         assertEq(payload.length, 23 + takeSize * 32);
+        
+        // Verify payload type
+        assertEq(uint8(payload[0]), SETTLEMENT_TYPE);
+        
+        // Verify filler address using unpacked value
+        assertEq(unpackedFiller, filler, "Filler address in payload doesn't match expected");
+        
+        // Verify fill count using unpacked value
+        assertEq(unpackedFillCount, takeSize, "Fill count in payload doesn't match expected");
         
         // Verify the fills array is empty after packing
         assertEq(wrapper.getFillsLength(), 0);
@@ -624,18 +661,102 @@ contract PayloadPackingUnpackingTest is Test {
         address filler = TEST_FILLER;
         uint16 takeSize = orderCount;
         
+        console.log("SETTLEMENT INTEGRATION TEST SETUP:");
+        console.log("  Order Count:");
+        console.logUint(orderCount);
+        console.log("  Filler Address:");
+        console.logAddress(filler);
+        
+        // Log the original order hashes
+        console.log("ORIGINAL ORDER HASHES:");
+        for (uint16 i = 0; i < orderCount; i++) {
+            console.log("  Hash", i, ":");
+            console.logBytes32(orderHashes[i]);
+        }
+        
         // Act - Pack
         bytes memory payload = wrapper.packSettlement(filler, takeSize);
+        
+        // Log the packed payload details
+        console.log("PACKED PAYLOAD:");
+        console.log("  Length:");
+        console.logUint(payload.length);
+        console.log("  Type:");
+        console.logUint(uint8(payload[0]));
+        
+        // Extract and log filler address from payload
+        address packedFiller;
+        assembly {
+            packedFiller := shr(96, mload(add(payload, 21)))
+        }
+        console.log("  Packed Filler:");
+        console.logAddress(packedFiller);
+        
+        // Extract and log fill count from payload
+        uint16 packedFillCount = (uint16(uint8(payload[21])) << 8) | uint16(uint8(payload[22]));
+        console.log("  Packed Fill Count:");
+        console.logUint(packedFillCount);
+        
+        // Log raw payload bytes
+        console.log("RAW PAYLOAD BYTES:");
+        console.logBytes(payload);
+        
+        // Perform a byte-by-byte inspection of the header (first 23 bytes)
+        console.log("HEADER BYTE INSPECTION:");
+        console.log("  Type byte (0):");
+        console.logUint(uint8(payload[0]));
+        console.log("  Filler address bytes (1-20):");
+        for (uint i = 0; i < 20; i++) {
+            console.log("    Byte");
+            console.logUint(i+1);
+            console.log(":");
+            console.logUint(uint8(payload[i+1]));
+        }
+        console.log("  Fill count bytes (21-22):");
+        console.log("    Byte 21:");
+        console.logUint(uint8(payload[21]));
+        console.log("    Byte 22:");
+        console.logUint(uint8(payload[22]));
         
         // Act - Unpack
         PayloadType payloadType = wrapper.getType(payload);
         wrapper.validateSettlementLen(payload);
         (address unpackedFiller, uint16 unpackedFillCount) = wrapper.unpackSettlementHeader(payload);
         
+        // Log the unpacked header details
+        console.log("UNPACKED HEADER:");
+        console.log("  Payload Type:");
+        console.logUint(uint8(payloadType));
+        console.log("  Unpacked Filler:");
+        console.logAddress(unpackedFiller);
+        console.log("  Unpacked Fill Count:");
+        console.logUint(unpackedFillCount);
+        
         // Get all order hashes
         bytes32[] memory unpackedHashes = new bytes32[](unpackedFillCount);
+        console.log("UNPACKED ORDER HASHES:");
         for (uint16 i = 0; i < unpackedFillCount; i++) {
             unpackedHashes[i] = wrapper.unpackSettlementBodyAt(payload, i);
+            console.log("  Hash");
+            console.logUint(i);
+            console.log(":");
+            console.logBytes32(unpackedHashes[i]);
+        }
+        
+        // Check how the expected order hashes should map to unpacked order hashes
+        console.log("ORDER HASH MAPPING CHECK:");
+        for (uint16 i = 0; i < unpackedFillCount; i++) {
+            console.log("  Original[");
+            console.logUint(orderCount - i - 1);
+            console.log("] should match Unpacked[");
+            console.logUint(i);
+            console.log("]:");
+            console.logBytes32(orderHashes[orderCount - i - 1]);
+            console.logBytes32(unpackedHashes[i]);
+            
+            bool matches = orderHashes[orderCount - i - 1] == unpackedHashes[i];
+            console.log("  Match:");
+            console.logString(matches ? "Yes" : "No");
         }
         
         // Assert
