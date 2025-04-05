@@ -231,6 +231,85 @@ enum PayloadType {
 }
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+/*                    PAYLOAD PACKING                        */
+/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+/**
+ * @notice Library for packing LayerZero message payloads
+ * @dev Provides functions to create properly formatted message payloads
+ */
+library PayloadPackUtils {
+    /**
+     * @notice Packs a settlement payload with order hashes for LayerZero messaging
+     * @dev Creates a settlement payload and clears the filled orders from storage
+     * @param arr The array of order hashes to be packed
+     * @param filler The address of the filler
+     * @param takeSize The number of order hashes to take from the array
+     * @return The packed payload
+     *
+     * @notice The payload structure is as follows:
+     * Header
+     * - 1 byte: Message type (0)
+     * - 20 bytes: Filler address
+     * - 2 bytes: Fill count
+     * Body
+     * - Fill count * 32 bytes: Order hashes
+     */
+    function packSettlement(
+        bytes32[] storage arr,
+        address filler,
+        uint16 takeSize
+    ) internal returns (bytes memory) {
+        uint32 offset = 23;
+        bytes memory payload = new bytes(offset + takeSize * 32);
+
+        assembly {
+            let payloadPtr := add(payload, 32)
+            // Store msgType, filler and takeSize
+            mstore(payloadPtr, or(shl(88, filler), shl(72, takeSize)))
+
+            // Load array slot
+            mstore(0x00, arr.slot)
+            let base := keccak256(0x00, 32)
+
+            let arrLength := sload(arr.slot)
+            let min_i := sub(arrLength, takeSize)
+            let dataPtr := add(payloadPtr, offset)
+
+            // Store storage elements into memory and clear them
+            for {
+                let i := arrLength
+            } gt(i, min_i) {} {
+                i := sub(i, 1)
+                let elementSlot := add(base, i)
+
+                mstore(dataPtr, sload(elementSlot)) // Storage -> memory
+                sstore(elementSlot, 0) // Clear the slot
+
+                dataPtr := add(dataPtr, 32)
+            }
+            // Update the array length
+            sstore(arr.slot, min_i)
+        }
+        return payload;
+    }
+
+    /**
+     * @notice Packs a cancellation payload for LayerZero messaging
+     * @dev Creates a properly formatted cancellation message payload
+     * @param orderHash The hash of the order to cancel
+     * @return payload The packed cancellation payload
+     */
+    function packCancellation(bytes32 orderHash) internal pure returns (bytes memory payload) {
+        payload = new bytes(33);
+        payload[0] = bytes1(uint8(PayloadType.Cancellation));
+        assembly {
+            mstore(add(add(payload, 32), 1), orderHash) // Copy the 32-byte order hash starting at position 1
+        }
+    }
+}
+
+/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                   PAYLOAD UNPACKING                       */
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
@@ -327,97 +406,4 @@ library PayloadUnpackUtils {
             orderHash := calldataload(add(add(payload.offset, 23), mul(index, 32)))
         }
     }
-}
-
-/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-/*                    PAYLOAD PACKING                        */
-/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-/**
- * @notice Library for packing LayerZero message payloads
- * @dev Provides functions to create properly formatted message payloads
- */
-library PayloadPackUtils {
-    /**
-     * @notice Packs a settlement payload with order hashes for LayerZero messaging
-     * @dev Creates a settlement payload and clears the filled orders from storage
-     * @param arr The array of order hashes to be packed
-     * @param filler The address of the filler
-     * @param takeSize The number of order hashes to take from the array
-     * @return The packed payload
-     *
-     * @notice The payload structure is as follows:
-     * Header
-     * - 1 byte: Message type (0)
-     * - 20 bytes: Filler address
-     * - 2 bytes: Fill count
-     * Body
-     * - Fill count * 32 bytes: Order hashes
-     */
-    function packSettlement(
-        bytes32[] storage arr,
-        address filler,
-        uint16 takeSize
-    ) internal returns (bytes memory) {
-        uint32 offset = 23;
-        bytes memory payload = new bytes(offset + takeSize * 32);
-
-        assembly {
-            let payloadPtr := add(payload, 32)
-            // Store msgType, filler and takeSize
-            mstore(payloadPtr, or(shl(88, filler), shl(72, takeSize)))
-
-            // Load array slot
-            mstore(0x00, arr.slot)
-            let base := keccak256(0x00, 32)
-
-            let arrLength := sload(arr.slot)
-            let min_i := sub(arrLength, takeSize)
-            let dataPtr := add(payloadPtr, offset)
-
-            // Store storage elements into memory and clear them
-            for {
-                let i := arrLength
-            } gt(i, min_i) {} {
-                i := sub(i, 1)
-                let elementSlot := add(base, i)
-
-                mstore(dataPtr, sload(elementSlot)) // Storage -> memory
-                sstore(elementSlot, 0) // Clear the slot
-
-                dataPtr := add(dataPtr, 32)
-            }
-            // Update the array length
-            sstore(arr.slot, min_i)
-        }
-        return payload;
-    }
-
-    /**
-     * @notice Packs a cancellation payload for LayerZero messaging
-     * @dev Creates a properly formatted cancellation message payload
-     * @param orderHash The hash of the order to cancel
-     * @return payload The packed cancellation payload
-     */
-    function packCancellation(bytes32 orderHash) internal pure returns (bytes memory payload) {
-        payload = new bytes(33);
-        payload[0] = bytes1(uint8(PayloadType.Cancellation));
-        assembly {
-            mstore(add(add(payload, 32), 1), orderHash) // Copy the 32-byte order hash starting at position 1
-        }
-    }
-}
-
-/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-/*                     UTILITY FUNCTIONS                     */
-/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-/**
- * @notice Calculates the size of a settlement payload based on fill count
- * @dev 1 byte type + 20 bytes filler + 2 bytes count + (fillCount * 32 bytes order hash)
- * @param fillCount The number of fills in the settlement
- * @return The total payload size in bytes
- */
-function settlementPayloadSize(uint256 fillCount) pure returns (uint256) {
-    return 1 + 20 + 2 + (fillCount * 32);
 }

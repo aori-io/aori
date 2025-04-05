@@ -680,6 +680,9 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      * @param _payInLzToken Whether to pay fee in LayerZero token
      * @param _srcEid Source endpoint ID (for settle operations)
      * @param _filler Filler address (for settle operations)
+     * @dev This function calculates the payload size based on the message type and filler address
+     * @dev cancellation payload size is 33 bytes
+     * @dev settlement payload size is 23 bytes + (fillCount * 32 bytes)
      * @return fee The messaging fee in native currency
      */
     function quote(
@@ -698,7 +701,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             uint16 fillCount = uint16(
                 fillsLength < MAX_FILLS_PER_SETTLE ? fillsLength : MAX_FILLS_PER_SETTLE
             );
-            payloadSize = settlementPayloadSize(fillCount);
+            payloadSize = 23 + (fillCount * 32);
         } else {
             revert("Invalid message type");
         }
