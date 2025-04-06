@@ -301,10 +301,12 @@ library PayloadPackUtils {
      * @return payload The packed cancellation payload
      */
     function packCancellation(bytes32 orderHash) internal pure returns (bytes memory payload) {
-        payload = new bytes(33);
-        payload[0] = bytes1(uint8(PayloadType.Cancellation));
+        uint8 msgType = uint8(PayloadType.Cancellation);
         assembly {
-            mstore(add(add(payload, 32), 1), orderHash) // Copy the 32-byte order hash starting at position 1
+            mstore(payload, 33)
+            mstore8(add(payload, 32), msgType)
+            mstore(add(payload, 33), orderHash)
+            mstore(0x40, add(payload, 65))
         }
     }
 }
@@ -406,4 +408,8 @@ library PayloadUnpackUtils {
             orderHash := calldataload(add(add(payload.offset, 23), mul(index, 32)))
         }
     }
+}
+
+function settlementPayloadSize(uint256 fillCount) pure returns (uint256) {
+    return 1 + 20 + 2 + (fillCount * 32);
 }
