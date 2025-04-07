@@ -410,6 +410,52 @@ library PayloadUnpackUtils {
     }
 }
 
+/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+/*                    PAYLOAD SIZES                        */
+/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+/**
+ * @notice Calculates the size of a settlement payload based on fill count
+ * @dev 1 byte type + 20 bytes filler + 2 bytes count + (fillCount * 32 bytes order hash)
+ * @param fillCount The number of fills in the settlement
+ * @return The total payload size in bytes
+ */
 function settlementPayloadSize(uint256 fillCount) pure returns (uint256) {
     return 1 + 20 + 2 + (fillCount * 32);
+}
+
+// Constant size of a cancellation payload: 1 byte type + 32 bytes order hash
+uint256 constant CANCELLATION_PAYLOAD_SIZE = 33;
+
+/**
+ * @notice Library for payload size calculations
+ * @dev Provides functions to calculate payload sizes for different message types
+ */
+library PayloadSizeUtils {
+    /**
+     * @notice Calculate payload size based on message type and other parameters
+     * @param msgType Message type (0 for settlement, 1 for cancellation)
+     * @param fillsLength Number of fills available for the filler
+     * @param maxFillsPerSettle Maximum fills allowed per settlement
+     * @return The calculated payload size in bytes
+     */
+    function calculatePayloadSize(
+        uint8 msgType,
+        uint256 fillsLength,
+        uint16 maxFillsPerSettle
+    ) internal pure returns (uint256) {
+        if (msgType == uint8(PayloadType.Cancellation)) {
+            return CANCELLATION_PAYLOAD_SIZE; // 1 byte type + 32 bytes order hash
+        } else if (msgType == uint8(PayloadType.Settlement)) {
+            // Get the number of fills (capped by maxFillsPerSettle)
+            uint16 fillCount = uint16(
+                fillsLength < maxFillsPerSettle ? fillsLength : maxFillsPerSettle
+            );
+            
+            // Calculate settlement payload size
+            return settlementPayloadSize(fillCount);
+        } else {
+            revert("Invalid message type");
+        }
+    }
 }

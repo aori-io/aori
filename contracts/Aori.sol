@@ -28,6 +28,7 @@ import "./AoriUtils.sol";
 contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     using PayloadPackUtils for bytes32[];
     using PayloadUnpackUtils for bytes;
+    using PayloadSizeUtils for uint8;
     using HookUtils for SrcHook;
     using HookUtils for DstHook;
     using SafeERC20 for IERC20;
@@ -450,7 +451,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         }
         orderStatus[orderId] = IAori.OrderStatus.Settled;
 
-        emit Settle(orderId, order);
+        emit Settle(orderId);
     }
     /**
      * @notice Handles settlement of filled orders
@@ -500,7 +501,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         bytes memory payload = PayloadPackUtils.packCancellation(orderId);
         __lzSend(orderToCancel.srcEid, payload, extraOptions);
         orderStatus[orderId] = IAori.OrderStatus.Cancelled;
-        emit CancelSent(orderId, orderToCancel);
+        emit CancelSent(orderId);
     }
 
     /**
@@ -514,7 +515,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         Order memory order = orders[orderId];
         balances[order.offerer][order.inputToken].unlock(uint128(order.inputAmount));
 
-        emit CancelSent(orderId, order);
+        emit CancelSent(orderId);
     }
 
     /**
@@ -680,9 +681,6 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      * @param _payInLzToken Whether to pay fee in LayerZero token
      * @param _srcEid Source endpoint ID (for settle operations)
      * @param _filler Filler address (for settle operations)
-     * @dev This function calculates the payload size based on the message type and filler address
-     * @dev cancellation payload size is 33 bytes
-     * @dev settlement payload size is 23 bytes + (fillCount * 32 bytes)
      * @return fee The messaging fee in native currency
      */
     function quote(
@@ -693,24 +691,22 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         uint32 _srcEid,
         address _filler
     ) public view returns (uint256 fee) {
-        uint256 payloadSize;
-        if (_msgType == uint8(PayloadType.Cancellation)) {
-            payloadSize = 33;
-        } else if (_msgType == uint8(PayloadType.Settlement)) {
-            uint256 fillsLength = srcEidToFillerFills[_srcEid][_filler].length;
-            uint16 fillCount = uint16(
-                fillsLength < MAX_FILLS_PER_SETTLE ? fillsLength : MAX_FILLS_PER_SETTLE
-            );
-            payloadSize = 23 + (fillCount * 32);
-        } else {
-            revert("Invalid message type");
-        }
+        // Calculate payload size using the library function
+        uint256 fillsLength = srcEidToFillerFills[_srcEid][_filler].length;
+        uint256 payloadSize = PayloadSizeUtils.calculatePayloadSize(
+            _msgType,
+            fillsLength,
+            MAX_FILLS_PER_SETTLE
+        );
+        
+        // Get the quote from LayerZero
         MessagingFee memory messagingFee = _quote(
             _dstEid,
             new bytes(payloadSize),
             _options,
             _payInLzToken
         );
+        
         return messagingFee.nativeFee;
     }
 }
