@@ -15,7 +15,13 @@
     "test": "forge test",
     "test:forge": "forge test",
     "hardhat:deploy": "npx hardhat lz:deploy",
-    "hardhat:wire": "npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts"
+    "hardhat:wire": "npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts",
+    "whitelist-solver": "node whitelist_solver.js",
+    "whitelist-hooks": "node whitelist_hooks.js",
+    "whitelist-all": "node whitelist_solver.js && node whitelist_hooks.js",
+    "aori": "cd cli && node src/index.js",
+    "postinstall": "npm run cli:setup",
+    "cli:setup": "cd cli && npm install"
   },
   "resolutions": {
     "ethers": "^5.7.2",
@@ -45,7 +51,7 @@
     "@types/node": "~18.18.14",
     "chai": "^4.4.1",
     "concurrently": "~9.1.0",
-    "dotenv": "^16.4.1",
+    "dotenv": "^16.4.7",
     "eslint": "^9.0.0",
     "eslint-plugin-jest-extended": "~2.0.0",
     "ethers": "^5.7.2",

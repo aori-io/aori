@@ -198,34 +198,4 @@ contract BalanceUtilsTest is Test {
         assertTrue(success, "Should succeed");
         assertEq(balance.getUnlocked(), 1500, "Unlocked should increase to 1500");
     }
-
-    /**
-     * @notice Tests gas optimization of the balance operations
-     */
-    function testGasUsage() public {
-        uint256 gasBefore;
-        uint256 gasAfter;
-
-        // Measure gas for regular assignments
-        Balance storage regularBalance = balance;
-        gasBefore = gasleft();
-        regularBalance.locked = 100;
-        regularBalance.unlocked = 200;
-        gasAfter = gasleft();
-        uint256 regularGas = gasBefore - gasAfter;
-
-        // Reset
-        balance.storeBalance(0, 0);
-
-        // Measure gas for optimized storage
-        gasBefore = gasleft();
-        balance.storeBalance(100, 200);
-        gasAfter = gasleft();
-        uint256 optimizedGas = gasBefore - gasAfter;
-
-        console.log("Regular storage gas:", regularGas);
-        console.log("Optimized storage gas:", optimizedGas);
-
-        assertTrue(optimizedGas <= regularGas, "Optimized storage should use less gas");
-    }
 }

@@ -64,27 +64,11 @@ const config: HardhatUserConfig = {
             url: 'https://nd-818-527-340.p2pify.com/f1d5b772c018d5ca87dcb6608d43bcf7',
             accounts,
         },
-        'arbitrum-sepolia': {
-            eid: 40231,
-            url: 'https://arbitrum-sepolia-rpc.publicnode.com',
-            accounts,
-        },
-        sepolia: {
-            eid: 40161,
-            url: 'https://sepolia.drpc.org',
-            accounts,
-        },
-        polygon: {
-            eid: 30109,
-            url: 'https://polygon-rpc.com',
-            accounts,
-        },
         optimism: {
             eid: 30111,
-            url: 'https://mainnet.optimism.io',
+            url: 'https://nd-292-688-815.p2pify.com/bef6f576c854febba72dedc55dc37dc0',
             accounts,
         },
-
         hardhat: {
             // Needed in testing because TestHelperOz5.sol was exceeding the compiled contract size limit.
             allowUnlimitedContractSize: true,
