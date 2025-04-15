@@ -7,23 +7,23 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { EIP712 } from "solady/src/utils/EIP712.sol";
-import { ECDSA } from "solady/src/utils/ECDSA.sol";
+import { EIP712 } from "@solady/utils/EIP712.sol";
+import { ECDSA } from "@solady/utils/ECDSA.sol";
 import { IAori } from "./IAori.sol";
 import "./AoriUtils.sol";
 
 /**
- *•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*
- * @title Aori
- * @notice Aori.sol implements a trust-minimized cross-chain intent settlement protocol
- * It enables users to deposit tokens on a source chain with signed intent parameters,
- * which solvers can fulfill on destination chains. The contract manages the full intent
- * lifecycle through secure token custody, EIP-712 signature verification, and LayerZero
- * messaging for cross-chain settlement. This architecture ensures that user intents are
- * executed precisely according to their signed parameters while maintaining security
- * through comprehensive validation and state management across the blockchain ecosystem.
- *•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*
- */
+*•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*
+* @title Aori
+* @notice Aori implements a trust-minimized cross-chain intent settlement protocol
+* It enables users to deposit tokens on a source chain with signed intent parameters,
+* which solvers can fulfill on destination chains. The contract manages the full intent
+* lifecycle through secure token custody, EIP-712 signature verification, and LayerZero
+* messaging for cross-chain settlement. This architecture ensures that user intents are
+* executed precisely according to their signed parameters while maintaining security
+* through comprehensive validation and state management across the blockchain ecosystem.
+*•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*
+*/
 
 contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     using PayloadPackUtils for bytes32[];
@@ -698,7 +698,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             fillsLength,
             MAX_FILLS_PER_SETTLE
         );
-        
+
         // Get the quote from LayerZero
         MessagingFee memory messagingFee = _quote(
             _dstEid,
@@ -706,7 +706,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             _options,
             _payInLzToken
         );
-        
+
         return messagingFee.nativeFee;
     }
 }
