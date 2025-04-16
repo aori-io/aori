@@ -68,7 +68,7 @@ contract WithdrawTest is TestUtils {
         // PHASE 2: Cancel the order to unlock the funds.
         bytes32 orderHash = localAori.hash(order);
         vm.prank(solver);
-        localAori.srcCancel(orderHash);
+        localAori.cancel(orderHash);
 
         // After cancellation, the locked balance must be 0 and the unlocked balance equal to order.inputAmount.
         uint256 lockedAfterCancel = localAori.getLockedBalances(userA, address(inputToken));

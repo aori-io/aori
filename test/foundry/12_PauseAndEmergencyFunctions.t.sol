@@ -148,7 +148,7 @@ contract PauseAndEmergencyFunctionsTest is TestUtils {
 
         // Cancel the order using the whitelisted solver
         vm.prank(solver);
-        localAori.srcCancel(orderHash);
+        localAori.cancel(orderHash);
 
         // Verify that funds are now unlocked for userA
         uint256 unlockedBalance = localAori.getUnlockedBalances(userA, address(inputToken));

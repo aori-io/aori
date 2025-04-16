@@ -269,4 +269,17 @@ contract TestUtils is TestHelperOz5 {
     function defaultOptions() public pure returns (bytes memory) {
         return OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
     }
+
+    /**
+     * @notice Helper function to directly lock tokens in an offerer's balance for testing
+     * @dev This is used only for testing to setup the correct balance state
+     * @param offerer The address of the offerer
+     * @param token The token address to lock
+     * @param amount The amount to lock
+     */
+    function testLockOffererTokens(address offerer, address token, uint128 amount) external {
+        // Cannot directly access private mapping, so this function is removed
+        // This would need to be replaced with an appropriate function call to the Aori contract
+        // if balance locking functionality is needed for tests
+    }
 }

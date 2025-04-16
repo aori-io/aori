@@ -200,7 +200,7 @@ contract FillFailTest is TestUtils {
         vm.prank(solver);
         outputToken.approve(address(remoteAori), order.outputAmount);
 
-        vm.expectRevert("Must provide at least the expected output amount");
+        vm.expectRevert("Hook must provide at least the expected output amount");
         vm.prank(solver);
         remoteAori.fill(order, dstData);
     }

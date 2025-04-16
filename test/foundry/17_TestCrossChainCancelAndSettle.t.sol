@@ -68,7 +68,7 @@ contract CrossChainCancelAndSettleTest is TestUtils {
 
         // Cancel as whitelisted solver before endTime
         vm.prank(solver);
-        remoteAori.dstCancel{value: fee}(orderHash, order, options);
+        remoteAori.cancel{value: fee}(orderHash, order, options);
 
         // Verify order is cancelled
         assertEq(
@@ -120,7 +120,7 @@ contract CrossChainCancelAndSettleTest is TestUtils {
 
         // Cancel as offerer after endTime
         vm.prank(userA);
-        remoteAori.dstCancel{value: fee}(orderHash, order, options);
+        remoteAori.cancel{value: fee}(orderHash, order, options);
 
         // PHASE 3: Simulate LZ message delivery to Source Chain
         vm.chainId(localEid);

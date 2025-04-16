@@ -63,6 +63,39 @@ contract BalanceWrapper {
         }
         return result;
     }
+    
+    // Add functions to test balance validation
+    function validateBalanceTransfer(
+        uint128 initialOffererLocked,
+        uint128 finalOffererLocked,
+        uint128 initialSolverUnlocked,
+        uint128 finalSolverUnlocked,
+        uint128 transferAmount
+    ) external view returns (bool) {
+        return balance.validateBalanceTransfer(
+            initialOffererLocked,
+            finalOffererLocked,
+            initialSolverUnlocked,
+            finalSolverUnlocked,
+            transferAmount
+        );
+    }
+    
+    function validateBalanceTransferOrRevert(
+        uint128 initialOffererLocked,
+        uint128 finalOffererLocked,
+        uint128 initialSolverUnlocked,
+        uint128 finalSolverUnlocked,
+        uint128 transferAmount
+    ) external view {
+        balance.validateBalanceTransferOrRevert(
+            initialOffererLocked,
+            finalOffererLocked,
+            initialSolverUnlocked,
+            finalSolverUnlocked,
+            transferAmount
+        );
+    }
 }
 
 /**
@@ -392,6 +425,156 @@ contract BalanceUtilsTest is Test {
     }
     
     /**********************************/
+    /*    Balance Validation Tests    */
+    /**********************************/
+    
+    /// @dev Tests validateBalanceTransfer with correct values
+    function test_validateBalanceTransfer_valid() public {
+        // Arrange
+        uint128 initialOffererLocked = 100;
+        uint128 finalOffererLocked = 70;
+        uint128 initialSolverUnlocked = 50;
+        uint128 finalSolverUnlocked = 80;
+        uint128 transferAmount = 30;
+        
+        // Act
+        bool success = wrapper.validateBalanceTransfer(
+            initialOffererLocked,
+            finalOffererLocked,
+            initialSolverUnlocked,
+            finalSolverUnlocked,
+            transferAmount
+        );
+        
+        // Assert
+        assertTrue(success);
+    }
+    
+    /// @dev Tests validateBalanceTransfer with incorrect offerer locked change
+    function test_validateBalanceTransfer_invalidOffererChange() public {
+        // Arrange
+        uint128 initialOffererLocked = 100;
+        uint128 finalOffererLocked = 60; // Should be 70 for a 30 token transfer
+        uint128 initialSolverUnlocked = 50;
+        uint128 finalSolverUnlocked = 80;
+        uint128 transferAmount = 30;
+        
+        // Act
+        bool success = wrapper.validateBalanceTransfer(
+            initialOffererLocked,
+            finalOffererLocked,
+            initialSolverUnlocked,
+            finalSolverUnlocked,
+            transferAmount
+        );
+        
+        // Assert
+        assertFalse(success);
+    }
+    
+    /// @dev Tests validateBalanceTransfer with incorrect solver unlocked change
+    function test_validateBalanceTransfer_invalidSolverChange() public {
+        // Arrange
+        uint128 initialOffererLocked = 100;
+        uint128 finalOffererLocked = 70;
+        uint128 initialSolverUnlocked = 50;
+        uint128 finalSolverUnlocked = 85; // Should be 80 for a 30 token transfer
+        uint128 transferAmount = 30;
+        
+        // Act
+        bool success = wrapper.validateBalanceTransfer(
+            initialOffererLocked,
+            finalOffererLocked,
+            initialSolverUnlocked,
+            finalSolverUnlocked,
+            transferAmount
+        );
+        
+        // Assert
+        assertFalse(success);
+    }
+    
+    /// @dev Tests validateBalanceTransferOrRevert with correct values
+    function test_validateBalanceTransferOrRevert_valid() public {
+        // Arrange
+        uint128 initialOffererLocked = 100;
+        uint128 finalOffererLocked = 70;
+        uint128 initialSolverUnlocked = 50;
+        uint128 finalSolverUnlocked = 80;
+        uint128 transferAmount = 30;
+        
+        // Act & Assert - should not revert
+        wrapper.validateBalanceTransferOrRevert(
+            initialOffererLocked,
+            finalOffererLocked,
+            initialSolverUnlocked,
+            finalSolverUnlocked,
+            transferAmount
+        );
+    }
+    
+    /// @dev Tests validateBalanceTransferOrRevert with incorrect offerer locked change
+    function test_validateBalanceTransferOrRevert_invalidOffererChange() public {
+        // Arrange
+        uint128 initialOffererLocked = 100;
+        uint128 finalOffererLocked = 60; // Should be 70 for a 30 token transfer
+        uint128 initialSolverUnlocked = 50;
+        uint128 finalSolverUnlocked = 80;
+        uint128 transferAmount = 30;
+        
+        // Act & Assert - should revert with expected message
+        vm.expectRevert("Inconsistent offerer balance");
+        wrapper.validateBalanceTransferOrRevert(
+            initialOffererLocked,
+            finalOffererLocked,
+            initialSolverUnlocked,
+            finalSolverUnlocked,
+            transferAmount
+        );
+    }
+    
+    /// @dev Tests validateBalanceTransferOrRevert with incorrect solver unlocked change
+    function test_validateBalanceTransferOrRevert_invalidSolverChange() public {
+        // Arrange
+        uint128 initialOffererLocked = 100;
+        uint128 finalOffererLocked = 70;
+        uint128 initialSolverUnlocked = 50;
+        uint128 finalSolverUnlocked = 85; // Should be 80 for a 30 token transfer
+        uint128 transferAmount = 30;
+        
+        // Act & Assert - should revert with expected message
+        vm.expectRevert("Inconsistent solver balance");
+        wrapper.validateBalanceTransferOrRevert(
+            initialOffererLocked,
+            finalOffererLocked,
+            initialSolverUnlocked,
+            finalSolverUnlocked,
+            transferAmount
+        );
+    }
+    
+    /// @dev Tests validateBalanceTransferOrRevert with edge case values
+    function test_validateBalanceTransferOrRevert_edgeCases() public {
+        // Test with zero transfer amount
+        wrapper.validateBalanceTransferOrRevert(
+            100,
+            100,
+            50,
+            50,
+            0
+        );
+        
+        // Test with maximum values
+        wrapper.validateBalanceTransferOrRevert(
+            MAX_UINT128,
+            MAX_UINT128 - 1,
+            0,
+            1,
+            1
+        );
+    }
+    
+    /**********************************/
     /*      Integration Tests         */
     /**********************************/
     
@@ -431,5 +614,33 @@ contract BalanceUtilsTest is Test {
         (uint128 finalLocked, uint128 finalUnlocked) = wrapper.loadBalance();
         assertEq(finalLocked, 0);
         assertEq(finalUnlocked, 1000);
+    }
+    
+    /// @dev Tests the integration of the new validation functions with balance operations
+    function test_integration_balanceOperationsWithValidation() public {
+        // Perform balance operations
+        wrapper.setRawBalance(100, 50);
+        
+        // Initial values
+        uint128 initialOffererLocked = 100;
+        uint128 initialSolverUnlocked = 50;
+        
+        // Simulate a transfer of 30 tokens
+        bool decreaseSuccess = wrapper.decreaseLockedNoRevert(30);
+        assertTrue(decreaseSuccess);
+        
+        // Set the solver's balance
+        wrapper.setRawBalance(70, 80);
+        
+        // Verify using the validation function
+        bool isValid = wrapper.validateBalanceTransfer(
+            initialOffererLocked,
+            70,  // Final offerer locked
+            initialSolverUnlocked,
+            80,  // Final solver unlocked
+            30   // Transfer amount
+        );
+        
+        assertTrue(isValid);
     }
 }

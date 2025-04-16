@@ -12,7 +12,6 @@ interface IAori {
         Filled, // Pending settlement
         Cancelled, // Order cancelled
         Settled // Order settled
-        
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -73,13 +72,17 @@ interface IAori {
 
     function deposit(Order calldata order, bytes calldata signature) external payable;
 
-    function deposit(Order calldata order, bytes calldata signature, SrcHook calldata data) external payable;
+    function deposit(
+        Order calldata order,
+        bytes calldata signature,
+        SrcHook calldata data
+    ) external payable;
 
     function withdraw(address token) external;
 
     function emergencyWithdraw(address token, uint256 amount) external;
 
-    function srcCancel(bytes32 orderId) external;
+    function cancel(bytes32 orderId) external;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                        DST FUNCTIONS                       */
@@ -91,7 +94,17 @@ interface IAori {
 
     function settle(uint32 srcEid, address filler, bytes calldata extraOptions) external payable;
 
-    function dstCancel(bytes32 orderId, Order calldata orderToCancel, bytes calldata extraOptions) external payable;
+    function cancel(
+        bytes32 orderId,
+        Order calldata orderToCancel,
+        bytes calldata extraOptions
+    ) external payable;
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                     SINGLE-CHAIN-SWAPS                     */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    function depositAndFill(Order calldata order, bytes calldata signature) external payable;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                        UTILITY FUNCTIONS                   */

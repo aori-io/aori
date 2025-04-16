@@ -3,6 +3,155 @@ pragma solidity 0.8.28;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IAori } from "./IAori.sol";
+import { ECDSA } from "@solady/utils/ECDSA.sol";
+
+/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+/*                          VALIDATION                        */
+/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+/**
+ * @notice Library for order validation functions
+ * @dev Provides reusable validation logic for orders across different contract functions
+ */
+library ValidationUtils {
+    /**
+     * @notice Validates basic order parameters that are common to all validation flows
+     * @dev Checks offerer, recipient, time bounds, amounts, and token addresses
+     * @param order The order to validate
+     */
+    function validateCommonOrderParams(IAori.Order calldata order) internal view {
+        require(order.offerer != address(0), "Invalid offerer");
+        require(order.recipient != address(0), "Invalid recipient");
+        require(order.startTime < order.endTime, "Invalid end time");
+        require(order.startTime <= block.timestamp, "Order not started");
+        require(order.endTime > block.timestamp, "Order has expired");
+        require(order.inputAmount > 0, "Invalid input amount");
+        require(order.outputAmount > 0, "Invalid output amount");
+        require(order.inputToken != address(0) && order.outputToken != address(0), "Invalid token");
+    }
+
+    /**
+     * @notice Validates deposit parameters including signature verification
+     * @dev Performs comprehensive validation for deposit operations
+     * @param order The order to validate
+     * @param signature The EIP712 signature to verify
+     * @param digest The EIP712 type hash digest of the order
+     * @param endpointId The current chain's endpoint ID
+     * @param orderStatus The status mapping function to check order status
+     * @return orderId The calculated order hash
+     */
+    function validateDeposit(
+        IAori.Order calldata order,
+        bytes calldata signature,
+        bytes32 digest,
+        uint32 endpointId,
+        function(bytes32) external view returns (IAori.OrderStatus) orderStatus
+    ) internal view returns (bytes32 orderId) {
+        orderId = keccak256(abi.encode(order));
+        require(orderStatus(orderId) == IAori.OrderStatus.Unknown, "Order already exists");
+
+        // Signature validation
+        address recovered = ECDSA.recover(digest, signature);
+        require(recovered == order.offerer, "InvalidSignature");
+
+        // Order parameter validation
+        validateCommonOrderParams(order);
+        require(order.srcEid == endpointId, "Chain mismatch");
+    }
+
+    /**
+     * @notice Validates fill parameters for both single-chain and cross-chain swaps
+     * @dev Performs comprehensive validation for fill operations
+     * @param order The order to validate
+     * @param endpointId The current chain's endpoint ID
+     * @param orderStatus The status mapping function to check order status
+     * @return orderId The calculated order hash
+     */
+    function validateFill(
+        IAori.Order calldata order,
+        uint32 endpointId,
+        function(bytes32) external view returns (IAori.OrderStatus) orderStatus
+    ) internal view returns (bytes32 orderId) {
+        // Order parameter validation
+        validateCommonOrderParams(order);
+        require(order.dstEid == endpointId, "Chain mismatch");
+
+        orderId = keccak256(abi.encode(order));
+
+        // Different validation based on whether it's a single-chain or cross-chain swap
+        if (order.srcEid == order.dstEid) {
+            // For single-chain swaps, the order should already be Active
+            require(orderStatus(orderId) == IAori.OrderStatus.Active, "Order not active");
+        } else {
+            // For cross-chain swaps, the order should be Unknown on the destination chain
+            require(orderStatus(orderId) == IAori.OrderStatus.Unknown, "Order not active");
+        }
+    }
+
+    /**
+     * @notice Validates deposit and fill parameters for single-chain swaps
+     * @dev Combines validation for both deposit and fill in a single function
+     * @param order The order to validate
+     * @param signature The EIP712 signature to verify
+     * @param digest The EIP712 type hash digest of the order
+     * @param endpointId The current chain's endpoint ID
+     * @param orderStatus The status mapping function to check order status
+     * @return orderId The calculated order hash
+     */
+    function validateDepositAndFill(
+        IAori.Order calldata order,
+        bytes calldata signature,
+        bytes32 digest,
+        uint32 endpointId,
+        function(bytes32) external view returns (IAori.OrderStatus) orderStatus
+    ) internal view returns (bytes32 orderId) {
+        orderId = keccak256(abi.encode(order));
+        require(orderStatus(orderId) == IAori.OrderStatus.Unknown, "Order already exists");
+        // Signature validation
+        address recovered = ECDSA.recover(digest, signature);
+        require(recovered == order.offerer, "InvalidSignature");
+
+        // Order parameter validation
+        validateCommonOrderParams(order);
+        require(order.srcEid == endpointId && order.dstEid == endpointId, "Chain mismatch");
+        require(order.inputToken != order.outputToken, "Invalid Pair");
+    }
+
+    /**
+     * @notice Validates the cancellation of an order
+     * @param order The order details to cancel
+     * @param orderId The hash of the order to cancel
+     * @param endpointId The current chain's endpoint ID
+     * @param orderStatus The status mapping function to check order status
+     * @param sender The address of the transaction sender
+     * @param isAllowedSolver A function to check if an address is a whitelisted solver
+     */
+    function validateCancel(
+        IAori.Order calldata order,
+        bytes32 orderId,
+        uint32 endpointId,
+        function(bytes32) external view returns (IAori.OrderStatus) orderStatus,
+        address sender,
+        function(address) external view returns (bool) isAllowedSolver
+    ) internal view {
+        require(order.dstEid == endpointId, "Not on destination chain");
+        require(orderStatus(orderId) == IAori.OrderStatus.Unknown, "Order not active");
+        require(
+            (isAllowedSolver(sender)) ||
+                (sender == order.offerer && block.timestamp > order.endTime),
+            "Only whitelisted solver or offerer(after expiry) can cancel"
+        );
+    }
+
+    /**
+     * @notice Checks if an order is a single-chain swap
+     * @param order The order to check
+     * @return True if the order is a single-chain swap
+     */
+    function isSingleChainSwap(IAori.Order calldata order) internal pure returns (bool) {
+        return order.srcEid == order.dstEid;
+    }
+}
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                         BALANCE                           */
@@ -157,6 +306,69 @@ library BalanceUtils {
         assembly {
             sstore(balance.slot, or(shl(128, unlocked), locked))
         }
+    }
+
+    /**
+     * @notice Validates a decrease in locked balance with a corresponding increase in unlocked balance
+     * @dev Verifies that the token accounting was performed correctly during transfer operations
+     * @param balance The Balance struct reference (not used in this function, just for pattern consistency)
+     * @param initialOffererLocked The offerer's initial locked balance
+     * @param finalOffererLocked The offerer's final locked balance
+     * @param initialSolverUnlocked The solver's initial unlocked balance
+     * @param finalSolverUnlocked The solver's final unlocked balance
+     * @param transferAmount The amount that should have been transferred
+     * @return success Whether the validation was successful
+     */
+    function validateBalanceTransfer(
+        Balance storage balance,
+        uint128 initialOffererLocked,
+        uint128 finalOffererLocked,
+        uint128 initialSolverUnlocked,
+        uint128 finalSolverUnlocked,
+        uint128 transferAmount
+    ) internal view returns (bool success) {
+        // Verify offerer's locked balance decreased by exactly the transfer amount
+        if (initialOffererLocked != finalOffererLocked + transferAmount) {
+            return false;
+        }
+
+        // Verify solver's unlocked balance increased by exactly the transfer amount
+        if (finalSolverUnlocked != initialSolverUnlocked + transferAmount) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @notice Validates a decrease in locked balance with a corresponding increase in unlocked balance with revert
+     * @dev Same as validateBalanceTransfer but reverts with custom error messages if validation fails
+     * @param balance The Balance struct reference (not used in this function, just for pattern consistency)
+     * @param initialOffererLocked The offerer's initial locked balance
+     * @param finalOffererLocked The offerer's final locked balance
+     * @param initialSolverUnlocked The solver's initial unlocked balance
+     * @param finalSolverUnlocked The solver's final unlocked balance
+     * @param transferAmount The amount that should have been transferred
+     */
+    function validateBalanceTransferOrRevert(
+        Balance storage balance,
+        uint128 initialOffererLocked,
+        uint128 finalOffererLocked,
+        uint128 initialSolverUnlocked,
+        uint128 finalSolverUnlocked,
+        uint128 transferAmount
+    ) internal view {
+        // Verify offerer's locked balance decreased by exactly the transfer amount
+        require(
+            initialOffererLocked == finalOffererLocked + transferAmount,
+            "Inconsistent offerer balance"
+        );
+
+        // Verify solver's unlocked balance increased by exactly the transfer amount
+        require(
+            finalSolverUnlocked == initialSolverUnlocked + transferAmount,
+            "Inconsistent solver balance"
+        );
     }
 }
 
@@ -451,7 +663,7 @@ library PayloadSizeUtils {
             uint16 fillCount = uint16(
                 fillsLength < maxFillsPerSettle ? fillsLength : maxFillsPerSettle
             );
-            
+
             // Calculate settlement payload size
             return settlementPayloadSize(fillCount);
         } else {

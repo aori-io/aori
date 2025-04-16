@@ -59,7 +59,7 @@ struct Order {
 flowchart LR
     Unknown -->|deposit| Active
     Active -->|fill| Filled
-    Active -->|srcCancel/dstCancel| Cancelled
+    Active -->|cancel/cancel| Cancelled
     Filled -->|settle| Settled
     Cancelled --> End
     Settled --> End
@@ -92,7 +92,7 @@ sequenceDiagram
 
     %% Cancellation Flow
     note right of User: Cancellation Flow
-    User->>AoriDst: dstCancel
+    User->>AoriDst: cancel
     AoriDst->>LZ: _lzSend
     LZ-->>AoriSrc: _lzReceive
     Note over AoriSrc: Unlock tokens

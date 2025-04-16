@@ -84,7 +84,7 @@ contract HookFailuresTest is TestUtils {
         outputToken.approve(address(remoteAori), order.outputAmount);
 
         vm.prank(solver);
-        vm.expectRevert(bytes("Must provide at least the expected output amount"));
+        vm.expectRevert(bytes("Hook must provide at least the expected output amount"));
         remoteAori.fill(order, dstData);
     }
 

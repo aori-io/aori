@@ -179,7 +179,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         // Whitelisted solver cancels the order
         bytes32 orderHash = localAori.hash(order);
         vm.prank(solver);
-        localAori.srcCancel(orderHash);
+        localAori.cancel(orderHash);
 
         // Verify funds are now unlocked for the offerer
         uint256 unlockedBalance = localAori.getUnlockedBalances(userA, address(inputToken));
@@ -188,7 +188,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
 
     /**
      * @notice Test that non-whitelisted solver cannot cancel an order
-     * Only whitelisted solvers can call srcCancel
+     * Only whitelisted solvers can call cancel
      */
     function testNonWhitelistedSolverCannotCancel() public {
         vm.chainId(localEid);
@@ -210,7 +210,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         bytes32 orderHash = localAori.hash(order);
         vm.prank(nonWhitelistedSolver);
         vm.expectRevert("Only whitelisted solver can cancel from the source chain");
-        localAori.srcCancel(orderHash);
+        localAori.cancel(orderHash);
     }
 
     /**
@@ -272,7 +272,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
             uint8(remoteAori.orderStatus(orderHash)), uint8(IAori.OrderStatus.Filled), "Order should be in filled state"
         );
         vm.expectRevert("Order not active");
-        remoteAori.dstCancel(orderHash, order, options);
+        remoteAori.cancel(orderHash, order, options);
     }
 
     /**
@@ -307,7 +307,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         vm.deal(userA, cancelFee);
         vm.startPrank(userA);
         bytes32 orderHash = localAori.hash(order);
-        remoteAori.dstCancel{value: cancelFee}(orderHash, order, options);
+        remoteAori.cancel{value: cancelFee}(orderHash, order, options);
         vm.stopPrank();
 
         assertEq(

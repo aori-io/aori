@@ -5,11 +5,11 @@ pragma solidity 0.8.28;
  * CancelSuccessTest - Tests the order cancellation functionality in the Aori contract
  *
  * Test cases:
- * 1. testCancelSuccess - Tests source chain cancellation (srcCancel)
+ * 1. testCancelSuccess - Tests source chain cancellation (cancel)
  *    - Verifies tokens are unlocked on the source chain
  *    - Confirms order status changes to Cancelled
  *
- * 2. testCrossChainCancelSuccess - Tests full cross-chain cancellation flow (dstCancel)
+ * 2. testCrossChainCancelSuccess - Tests full cross-chain cancellation flow (cancel)
  *    - Deposits order on source chain
  *    - Cancels from destination chain
  *    - Simulates LayerZero message delivery
@@ -34,7 +34,7 @@ contract CancelSuccessTest is TestUtils {
      * Flow:
      * 1. Deposits an order on the source chain
      * 2. Verifies the locked balance for userA increases by order.inputAmount
-     * 3. Whitelisted solver calls srcCancel
+     * 3. Whitelisted solver calls cancel
      * 4. Verifies the locked balance is zero and the unlocked balance for userA is updated
      */
     function testCancelSuccess() public {
@@ -63,7 +63,7 @@ contract CancelSuccessTest is TestUtils {
 
         // Cancel the order locally using the whitelisted solver
         vm.prank(solver);
-        localAori.srcCancel(orderHash);
+        localAori.cancel(orderHash);
 
         // Check balances after cancellation
         uint256 lockedAfter = localAori.getLockedBalances(userA, address(inputToken));
@@ -87,7 +87,7 @@ contract CancelSuccessTest is TestUtils {
      * 1. Deposits an order on the source chain
      * 2. Verifies the locked balance increases
      * 3. Switches to destination chain
-     * 4. Initiates cancellation from destination chain (dstCancel)
+     * 4. Initiates cancellation from destination chain (cancel)
      * 5. Verifies the cancellation message is sent via LayerZero
      * 6. Simulates the message being received on source chain
      * 7. Verifies the order is cancelled and tokens unlocked on the source chain
@@ -143,8 +143,8 @@ contract CancelSuccessTest is TestUtils {
             "Order should be unknown on dst chain before cancellation"
         );
         
-        // Call dstCancel to send the cancellation message
-        remoteAori.dstCancel{value: cancelFee}(orderHash, order, options);
+        // Call cancel to send the cancellation message
+        remoteAori.cancel{value: cancelFee}(orderHash, order, options);
         
         // Verify order is marked as cancelled on destination chain
         assertEq(

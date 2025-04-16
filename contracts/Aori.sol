@@ -13,17 +13,17 @@ import { IAori } from "./IAori.sol";
 import "./AoriUtils.sol";
 
 /**
-*•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*
-* @title Aori
-* @notice Aori implements a trust-minimized cross-chain intent settlement protocol
-* It enables users to deposit tokens on a source chain with signed intent parameters,
-* which solvers can fulfill on destination chains. The contract manages the full intent
-* lifecycle through secure token custody, EIP-712 signature verification, and LayerZero
-* messaging for cross-chain settlement. This architecture ensures that user intents are
-* executed precisely according to their signed parameters while maintaining security
-* through comprehensive validation and state management across the blockchain ecosystem.
-*•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*
-*/
+ *•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*
+ * @title Aori
+ * @notice Aori implements a trust-minimized cross-chain intent settlement protocol
+ * It enables users to deposit tokens on a source chain with signed intent parameters,
+ * which solvers can fulfill on destination chains. The contract manages the full intent
+ * lifecycle through secure token custody, EIP-712 signature verification, and LayerZero
+ * messaging for cross-chain settlement. This architecture ensures that user intents are
+ * executed precisely according to their signed parameters while maintaining security
+ * through comprehensive validation and state management across the blockchain ecosystem.
+ *•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*
+ */
 
 contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     using PayloadPackUtils for bytes32[];
@@ -32,6 +32,8 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     using HookUtils for SrcHook;
     using HookUtils for DstHook;
     using SafeERC20 for IERC20;
+    using BalanceUtils for Balance;
+    using ValidationUtils for IAori.Order;
 
     constructor(
         address _endpoint, // LayerZero endpoint address
@@ -173,79 +175,6 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                    VALIDATION FUNCTIONS                    */
-    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-    /**
-     * @notice Validates order parameters and signature for deposit
-     * @dev Performs comprehensive validation including signature verification, parameter validation,
-     *      and order status check; calculates and returns the order ID
-     * @param order The order to validate
-     * @param signature The user's EIP712 signature over the order
-     * @return orderId The unique identifier for the order (hash of order parameters)
-     */
-    function _validateDeposit(
-        Order calldata order,
-        bytes calldata signature
-    ) internal view returns (bytes32 orderId) {
-        orderId = hash(order);
-        require(orderStatus[orderId] == IAori.OrderStatus.Unknown, "Order already exists");
-
-        // Signature validation
-        bytes32 digest = _hashOrder712(order);
-        address recovered = ECDSA.recover(digest, signature);
-        require(recovered == order.offerer, "InvalidSignature");
-
-        // Order validation
-        require(order.offerer != address(0), "Invalid offerer");
-        require(order.recipient != address(0), "Invalid recipient");
-        require(order.startTime <= block.timestamp, "Order cannot start in the future");
-        require(order.endTime > block.timestamp, "Invalid end time");
-        require(order.startTime < order.endTime, "Invalid start & end time");
-        require(order.inputAmount > 0, "Invalid input amount");
-        require(order.outputAmount > 0, "Invalid output amount");
-        require(order.inputToken != address(0) && order.outputToken != address(0), "Invalid token");
-        require(order.srcEid == ENDPOINT_ID, "Chain mismatch");
-    }
-
-    /**
-     * @notice Validates order parameters for fill operations
-     * @dev Performs comprehensive parameter validation including time checks, amount validation,
-     *      chain verification, and order status check; calculates and returns the order ID
-     * @param order The order to validate for filling
-     * @return orderId The unique identifier for the order (hash of order parameters)
-     */
-    function _validateFill(Order calldata order) internal view returns (bytes32 orderId) {
-        require(order.offerer != address(0), "Invalid offerer");
-        require(order.recipient != address(0), "Invalid recipient");
-        require(block.timestamp >= order.startTime, "Order not started");
-        require(order.endTime > order.startTime, "Invalid end time");
-        require(block.timestamp <= order.endTime, "Order has expired"); // Include deadline check
-        require(order.inputAmount > 0, "Invalid input amount");
-        require(order.outputAmount > 0, "Invalid output amount");
-        require(order.inputToken != address(0) && order.outputToken != address(0), "Invalid token");
-        require(order.dstEid == ENDPOINT_ID, "Chain mismatch");
-
-        orderId = hash(order);
-        require(orderStatus[orderId] == IAori.OrderStatus.Unknown, "Order not active");
-    }
-
-    /**
-     * @notice Validates the cancellation of an order
-     * @param orderId The hash of the order to cancel
-     * @param orderToCancel The order details to cancel
-     */
-    function _validateCancel(bytes32 orderId, Order calldata orderToCancel) internal view {
-        require(orderToCancel.dstEid == ENDPOINT_ID, "Not on destination chain");
-        require(orderStatus[orderId] == IAori.OrderStatus.Unknown, "Order not active");
-        require(
-            (isAllowedSolver[msg.sender]) ||
-                (msg.sender == orderToCancel.offerer && block.timestamp > orderToCancel.endTime),
-            "Only whitelisted solver or offerer(after expiry) can cancel"
-        );
-    }
-
-    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                          DEPOSIT                           */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
@@ -259,13 +188,18 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         Order calldata order,
         bytes calldata signature
     ) external payable nonReentrant whenNotPaused onlySolver {
-        bytes32 orderId = _validateDeposit(order, signature);
+        bytes32 orderId = order.validateDeposit(
+            signature,
+            _hashOrder712(order),
+            ENDPOINT_ID,
+            this.orderStatus
+        );
         IERC20(order.inputToken).safeTransferFrom(order.offerer, address(this), order.inputAmount);
         _postDeposit(order.inputToken, order.inputAmount, order, orderId);
     }
 
     /**
-     * @notice Deposits tokens to the contract fwith a hook call
+     * @notice Deposits tokens to the contract with a hook call
      * @dev This function executes a hook call before depositing the tokens
      * @param order The order details
      * @param signature The user's EIP712 signature over the order
@@ -277,32 +211,77 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         SrcHook calldata hook
     ) external payable nonReentrant whenNotPaused onlySolver {
         require(hook.isSome(), "Missing hook");
-        bytes32 orderId = _validateDeposit(order, signature);
-        uint256 amountOut = _executeSrcHook(order, hook);
-        _postDeposit(hook.preferredToken, amountOut, order, orderId);
+        bytes32 orderId = order.validateDeposit(
+            signature,
+            _hashOrder712(order),
+            ENDPOINT_ID,
+            this.orderStatus
+        );
+
+        // Execute hook and handle single-chain or cross-chain logic
+        (uint256 amountReceived, address tokenReceived) = 
+            _executeSrcHook(order, hook);
+        
+        if (order.isSingleChainSwap()) {
+            // Save the order details
+            orders[orderId] = order;
+            
+            // Settle the order immediately for single-chain swaps
+            _settleSingleChainSwap(orderId, order, msg.sender, amountReceived);
+        } else {
+            // Process the cross-chain deposit
+            _postDeposit(tokenReceived, amountReceived, order, orderId);
+        }
     }
 
     /**
      * @notice Executes a source hook and returns the balance change
      * @param order The order details
      * @param hook The source hook configuration
-     * @return balChg The balance change observed from the hook execution
+     * @return amountReceived The amount of tokens received from the hook
+     * @return tokenReceived The token address that was received
      */
     function _executeSrcHook(
         Order calldata order,
         SrcHook calldata hook
-    ) internal allowedHookAddress(hook.hookAddress) returns (uint256 balChg) {
+    ) internal allowedHookAddress(hook.hookAddress) returns (
+        uint256 amountReceived,
+        address tokenReceived
+    ) {
+        // Transfer input tokens to the hook
         IERC20(order.inputToken).safeTransferFrom(
             order.offerer,
             hook.hookAddress,
             order.inputAmount
         );
-        balChg = ExecutionUtils.observeBalChg(
-            hook.hookAddress,
-            hook.instructions,
-            hook.preferredToken
-        );
-        require(balChg >= hook.minPreferedTokenAmountOut, "Insufficient output from hook");
+        
+        if (order.isSingleChainSwap()) {
+            // For single-chain swaps, observe balance changes in the output token
+            amountReceived = ExecutionUtils.observeBalChg(
+                hook.hookAddress,
+                hook.instructions,
+                order.outputToken
+            );
+            
+            // Ensure sufficient output was received
+            require(amountReceived >= order.outputAmount, "Insufficient output from hook");
+            
+            // Set token received to the output token
+            tokenReceived = order.outputToken;
+        } else {
+            // For cross-chain swaps, observe balance changes in the preferred token
+            amountReceived = ExecutionUtils.observeBalChg(
+                hook.hookAddress,
+                hook.instructions,
+                hook.preferredToken
+            );
+            
+            // Ensure sufficient preferred tokens were received
+            require(amountReceived >= hook.minPreferedTokenAmountOut, "Insufficient output from hook");
+            
+            // Set token received to the preferred token
+            tokenReceived = hook.preferredToken;
+        }
     }
 
     /**
@@ -337,8 +316,20 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      * @param order The order details to fill
      */
     function fill(Order calldata order) external payable nonReentrant whenNotPaused onlySolver {
-        bytes32 orderId = _validateFill(order);
+        bytes32 orderId = order.validateFill(
+            ENDPOINT_ID,
+            this.orderStatus
+        );
         IERC20(order.outputToken).safeTransferFrom(msg.sender, order.recipient, order.outputAmount);
+
+        // single-chain swap path
+        if (order.isSingleChainSwap()) {
+            uint256 amountReceived = order.outputAmount;
+            _settleSingleChainSwap(orderId, order, msg.sender, amountReceived);
+            return;
+        }
+
+        // Cross-chain swap path
         _postFill(orderId, order);
     }
 
@@ -352,9 +343,16 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         Order calldata order,
         IAori.DstHook calldata hook
     ) external payable nonReentrant whenNotPaused onlySolver {
-        bytes32 orderId = _validateFill(order);
-        uint256 sendAmt = _executeDstHook(order, hook);
-        IERC20(order.outputToken).safeTransfer(order.recipient, sendAmt);
+        // For single-chain swaps, this function should never be called
+        require(!order.isSingleChainSwap(), "Use fill() without hook for single-chain swaps");
+
+        bytes32 orderId = order.validateFill(
+            ENDPOINT_ID,
+            this.orderStatus
+        );
+        uint256 amountReceived = _executeDstHook(order, hook);
+
+        IERC20(order.outputToken).safeTransfer(order.recipient, amountReceived);
         _postFill(orderId, order);
     }
 
@@ -381,7 +379,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             hook.instructions,
             order.outputToken
         );
-        require(balChg >= order.outputAmount, "Must provide at least the expected output amount");
+        require(balChg >= order.outputAmount, "Hook must provide at least the expected output amount");
 
         uint256 solverReturnAmt = balChg - order.outputAmount;
         if (solverReturnAmt > 0) {
@@ -398,6 +396,45 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         orderStatus[orderId] = IAori.OrderStatus.Filled;
         srcEidToFillerFills[order.srcEid][msg.sender].push(orderId);
         emit Fill(orderId, order);
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*             DEPOSIT AND FILL (Single-chain-swap)           */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /**
+     * @notice Deposits and immediately fills a single-chain swap order in a single transaction
+     * @dev Only for single-chain swaps, combines deposit and fill steps
+     * @param order The order details
+     * @param signature The user's EIP712 signature over the order
+     */
+    function depositAndFill(
+        Order calldata order,
+        bytes calldata signature
+    ) external payable nonReentrant whenNotPaused onlySolver {
+        // This function is only for single-chain swaps
+        require(order.isSingleChainSwap(), "Only for single-chain swaps");
+        bytes32 orderId = order.validateDepositAndFill(
+            signature,
+            _hashOrder712(order),
+            ENDPOINT_ID,
+            this.orderStatus
+        );
+        // Transfer input token from offerer to this contract
+        IERC20(order.inputToken).safeTransferFrom(order.offerer, address(this), order.inputAmount);
+        
+        // Transfer output token from solver to recipient
+        IERC20(order.outputToken).safeTransferFrom(msg.sender, order.recipient, order.outputAmount);
+        
+        // Credit the input token directly to the solver's unlocked balance
+        balances[msg.sender][order.inputToken].increaseUnlockedNoRevert(uint128(order.inputAmount));
+        
+        // Order is immediately settled
+        orderStatus[orderId] = IAori.OrderStatus.Settled;
+        orders[orderId] = order;
+        
+        // Emit event
+        emit Settle(orderId);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -433,7 +470,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      * @param orderId The hash of the order to settle
      * @param filler The filler address
      */
-    function settleOrder(bytes32 orderId, address filler) internal {
+    function _settleOrder(bytes32 orderId, address filler) internal {
         if (orderStatus[orderId] != IAori.OrderStatus.Active) {
             return; // Any reverts are skipped
         }
@@ -453,6 +490,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
 
         emit Settle(orderId);
     }
+
     /**
      * @notice Handles settlement of filled orders
      * @param payload The settlement payload containing order hashes and filler information
@@ -465,8 +503,64 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         // Handle with care: If a single order fails the whole batch will revert
         for (uint256 i = 0; i < fillCount; ++i) {
             bytes32 orderId = payload.unpackSettlementBodyAt(i);
-            settleOrder(orderId, filler);
+            _settleOrder(orderId, filler);
         }
+    }
+
+    /**
+     * @notice Handles settlement of same-chain swaps
+     * @dev Performs immediate settlement without cross-chain messaging for same-chain orders
+     * @param orderId The unique identifier for the order
+     * @param order The order details
+     * @param solver The address of the solver
+     * @param amountReceived The actual output amount (may be more than order.outputAmount)
+     */
+    function _settleSingleChainSwap(
+        bytes32 orderId,
+        Order memory order,
+        address solver,
+        uint256 amountReceived
+    ) internal {
+        // Capture initial balance state for validation
+        uint128 initialOffererLocked = balances[order.offerer][order.inputToken].locked;
+        uint128 initialSolverUnlocked = balances[solver][order.inputToken].unlocked;
+
+        // Transfer the output token to the recipient
+        IERC20(order.outputToken).safeTransfer(order.recipient, order.outputAmount);
+
+        // Return any surplus to the solver
+        uint256 surplus = amountReceived - order.outputAmount;
+        if (surplus > 0) {
+            IERC20(order.outputToken).safeTransfer(solver, surplus);
+        }
+
+        if (balances[order.offerer][order.inputToken].locked >= order.inputAmount) {
+            // Unlock the tokens from offerer's balance
+            balances[order.offerer][order.inputToken].decreaseLockedNoRevert(
+                uint128(order.inputAmount)
+            );
+
+            // Credit the tokens directly to the solver's unlocked balance
+            balances[solver][order.inputToken].increaseUnlockedNoRevert(uint128(order.inputAmount));
+        }
+
+        // Order is immediately settled
+        orderStatus[orderId] = IAori.OrderStatus.Settled;
+
+        // Emit event
+        emit Settle(orderId);
+
+        // Sanity check: Validate balance consistency using the utility library
+        uint128 finalOffererLocked = balances[order.offerer][order.inputToken].locked;
+        uint128 finalSolverUnlocked = balances[solver][order.inputToken].unlocked;
+
+        balances[order.offerer][order.inputToken].validateBalanceTransferOrRevert(
+            initialOffererLocked,
+            finalOffererLocked,
+            initialSolverUnlocked,
+            finalSolverUnlocked,
+            uint128(order.inputAmount)
+        );
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -477,7 +571,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      * @notice Allows whitelisted solvers to cancel an order from the source chain
      * @param orderId The hash of the order to cancel
      */
-    function srcCancel(bytes32 orderId) external whenNotPaused {
+    function cancel(bytes32 orderId) external whenNotPaused {
         require(
             isAllowedSolver[msg.sender],
             "Only whitelisted solver can cancel from the source chain"
@@ -492,12 +586,18 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      * @param orderToCancel The order details to cancel
      * @param extraOptions Additional LayerZero options
      */
-    function dstCancel(
+    function cancel(
         bytes32 orderId,
         Order calldata orderToCancel,
         bytes calldata extraOptions
     ) external payable nonReentrant whenNotPaused {
-        _validateCancel(orderId, orderToCancel);
+        orderToCancel.validateCancel(
+            orderId,
+            ENDPOINT_ID,
+            this.orderStatus,
+            msg.sender,
+            this.isAllowedSolver
+        );
         bytes memory payload = PayloadPackUtils.packCancellation(orderId);
         __lzSend(orderToCancel.srcEid, payload, extraOptions);
         orderStatus[orderId] = IAori.OrderStatus.Cancelled;
@@ -555,7 +655,11 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      * @param payload The message payload
      * @param extraOptions Additional options
      */
-    function __lzSend(uint32 eId, bytes memory payload, bytes calldata extraOptions) internal {
+    function __lzSend(
+        uint32 eId, 
+        bytes memory payload, 
+        bytes calldata extraOptions
+        ) internal {
         _lzSend(eId, payload, extraOptions, MessagingFee(msg.value, 0), payable(msg.sender));
     }
 
@@ -591,7 +695,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                      HELPER FUNCTIONS                      */
+    /*               EIP-712/HASHING HELPER FUNCTIONS             */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     /**
