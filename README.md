@@ -6,32 +6,6 @@ Aori is designed to securely facilitate performant cross chain trading, with tru
 
 Solvers can expose a simple API to ingest and process orderflow directly to their trading system. The Aori smart contracts ensure that the user's intents are satisfied by the Solver on the destination chain according to the parameters of an intent on the source chain, signed by the user.
 
-## Protocol Architecture
-
- The Aori protocol consists of paired smart contracts deployed on different blockchains, enabling secure cross-chain intent settlement through LayerZero's messaging infrastructure.
-
-```mermaid
-sequenceDiagram
-    actor User
-    actor Solver
-    participant AoriSrc as Aori (Source)
-    participant LZ as LayerZero
-    participant AoriDst as Aori (Destination)
-
-    %% Order Fill Flow
-    User->>Solver: Signed Order
-    Solver->>AoriSrc: deposit()
-    User-->>AoriSrc: Locks user tokens
-    Solver->>AoriDst: fill()
-    AoriDst-->>User: Transfers tokens to recipient
-    Solver->>AoriDst: settle()
-    AoriDst->>LZ: _lzSend
-    LZ-->>AoriSrc: _lzReceive
-    Note over AoriSrc: Credit Solver
-    Solver->>AoriSrc: withdraw()
-    AoriSrc-->>Solver: Transfer tokens to solver
-```
-
 ## Core Contract Components
 
 ### Order
@@ -65,6 +39,32 @@ flowchart LR
     Filled -->|settle| Settled
     Cancelled --> End
     Settled --> End
+```
+
+## Cross Chain Architecture
+
+ The Aori protocol consists of paired smart contracts deployed on different blockchains, enabling secure cross-chain intent settlement through LayerZero's messaging infrastructure.
+
+```mermaid
+sequenceDiagram
+    actor User
+    actor Solver
+    participant AoriSrc as Aori (Source)
+    participant LZ as LayerZero
+    participant AoriDst as Aori (Destination)
+
+    %% Order Fill Flow
+    User->>Solver: Signed Order
+    Solver->>AoriSrc: deposit()
+    User-->>AoriSrc: Locks user tokens
+    Solver->>AoriDst: fill()
+    AoriDst-->>User: Transfers tokens to recipient
+    Solver->>AoriDst: settle()
+    AoriDst->>LZ: _lzSend
+    LZ-->>AoriSrc: _lzReceive
+    Note over AoriSrc: Credit Solver
+    Solver->>AoriSrc: withdraw()
+    AoriSrc-->>Solver: Transfer tokens to solver
 ```
 
 #### Deposit & Fill Process
@@ -116,7 +116,7 @@ sequenceDiagram
 
 This design ensures efficient, secure settlement while gracefully handling partial failures.
 
-### Single-Chain Swap Orders
+## Single-Chain Swap Architecture
 
 Single-chain swap orders are also supported by Aori.sol. These orders bypass the complex cross-chain messaging and offer efficient peer to peer settlement. The contract supports three main fulfillment paths for single-chain swaps:
 
