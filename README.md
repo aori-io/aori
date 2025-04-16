@@ -116,6 +116,95 @@ sequenceDiagram
 
 This design ensures efficient, secure settlement while gracefully handling partial failures.
 
+### Single-Chain Swap Orders
+
+Single-chain swap orders are also supported by Aori.sol. These orders bypass the complex cross-chain messaging and offer efficient peer to peer settlement. The contract supports three main fulfillment paths for single-chain swaps:
+
+#### Immediate Fulfillment via `depositAndFill`
+
+```mermaid
+sequenceDiagram
+    actor User
+    actor Solver
+    participant Aori as Aori Contract
+
+    User->>Solver: Signed Order
+    Solver->>Aori: depositAndFill(order, signature)
+    User-->>Aori: Input tokens locked
+    Solver-->>Aori: Output tokens provided
+    Aori-->>User: Output tokens transferred to recipient
+    Aori-->>Solver: Input tokens credited (unlocked)
+```
+
+In this atomic flow:
+1. Solver calls `depositAndFill()` with the user's signed order
+2. Input tokens are transferred from the user to the contract
+3. Output tokens are transferred from the solver to the recipient
+4. Input tokens are immediately credited to the solver (unlocked balance)
+5. Order is marked as Settled in a single transaction
+
+This is the most gas-efficient path but requires the solver to already have the output tokens.
+
+#### Delayed Fulfillment via deposit then fill
+
+```mermaid
+sequenceDiagram
+    actor User
+    actor Solver
+    participant Aori as Aori Contract
+    participant LiqSrc as Liquidity Source
+
+    User->>Solver: Signed Order
+    Solver->>Aori: deposit(order, signature)
+    User-->>Aori: Input tokens locked
+    Note over Solver: Time delay (sourcing liquidity)
+    LiqSrc->>Solver: Output tokens provided
+    Solver->>Aori: fill(order)
+    Aori-->>User: Output tokens transferred to recipient
+    Aori-->>Solver: Input tokens credited (unlocked)
+```
+
+In this two-step flow:
+1. Solver first calls `deposit()` with the user's signed order
+2. Input tokens are transferred from the user and locked in the contract
+3. Order is marked as Active
+4. Later, when the solver has sourced the output tokens (from a DEX or other liquidity source)
+5. Solver calls `fill()` with the same order
+6. Output tokens are transferred from the solver to the recipient
+7. Order is immediately settled, and input tokens are credited to the solver
+
+This pattern gives solvers flexibility to lock in the user's intent first, then source the output tokens before completing the trade. The settlement happens immediately after the fill call without needing cross-chain messaging.
+
+#### Deposit with Hook Path
+
+The contract also supports a hook-based deposit mechanism for single-chain swaps:
+
+```mermaid
+sequenceDiagram
+    actor User
+    actor Solver
+    participant Aori as Aori Contract
+    participant Hook as DEX Hook
+
+    User->>Solver: Signed Order
+    Solver->>Aori: deposit(order, signature, hook)
+    User-->>Aori: Input tokens transferred
+    Aori->>Hook: Input tokens + execute hook
+    Hook-->>Aori: Output tokens returned
+    Aori-->>User: Output tokens to recipient
+    Aori-->>Solver: Input tokens credited
+```
+
+In this path:
+1. Solver calls `deposit()` with the user's order, signature, and hook configuration
+2. Input tokens are transferred directly to the hook contract
+3. The hook executes (e.g., performs a swap on a DEX)
+4. Output tokens are returned to the Aori contract
+5. Output tokens are transferred to the recipient
+6. Settlement happens immediately, crediting the input amount to the solver
+
+This pattern enables advanced liquidity sourcing directly within the transaction.
+
 ---
 
 # Developers
@@ -138,6 +227,11 @@ forge build
 
 ```bash
 forge test
+```
+
+#### Running Aori Contracts cli
+```bash
+pnpm run aori
 ```
 
 ## Deploying Contracts
@@ -179,48 +273,6 @@ See code test coverage
 
 ```bash
 forge coverage --report --ir-minimum
-```
-
-## Deterministic Multi-Chain Deployments
-
-The Aori contracts support deterministic deployments across multiple chains, allowing you to deploy contracts to the same address on different networks. This simplifies cross-chain integration as users and integrators can use the same contract address regardless of the chain.
-
-### Method 1: Nonce Management
-
-This approach ensures your deployer has the same nonce across all chains:
-
-1. Check nonces across networks:
-```bash
-npx hardhat run scripts/checkNonces.ts
-```
-
-2. Align nonces using dummy transactions:
-```bash
-npx hardhat run scripts/setNonces.ts
-```
-
-3. Deploy with deterministic flag:
-```bash
-npx hardhat deploy --tags deterministic --network <network-name>
-```
-
-### Method 2: CREATE2 Factory (Recommended)
-
-The CREATE2 approach is more robust and doesn't depend on nonce management:
-
-1. Deploy the factory to each network:
-```bash
-npx hardhat deploy --tags factory --network <network-name>
-```
-
-2. Deploy Aori contracts using CREATE2:
-```bash
-npx hardhat deploy --tags create2 --network <network-name>
-```
-
-After deploying to all networks, wire the contracts together:
-```bash
-npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
 ```
 
 ## License
