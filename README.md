@@ -137,11 +137,11 @@ sequenceDiagram
 ```
 
 In this atomic flow:
-1. Solver calls `depositAndFill()` with the user's signed order
-2. Input tokens are transferred from the user to the contract
-3. Output tokens are transferred from the solver to the recipient
-4. Input tokens are immediately credited to the solver (unlocked balance)
-5. Order is marked as Settled in a single transaction
+- 1. Solver calls `depositAndFill()` with the user's signed order
+- 2. Input tokens are transferred from the user to the contract
+- 3. Output tokens are transferred from the solver to the recipient
+- 4. Input tokens are immediately credited to the solver (unlocked balance)
+- 5. Order is marked as Settled in a single transaction
 
 This is the most gas-efficient path but requires the solver to already have the output tokens.
 
@@ -165,13 +165,13 @@ sequenceDiagram
 ```
 
 In this two-step flow:
-1. Solver first calls `deposit()` with the user's signed order
-2. Input tokens are transferred from the user and locked in the contract
-3. Order is marked as Active
-4. Later, when the solver has sourced the output tokens (from a DEX or other liquidity source)
-5. Solver calls `fill()` with the same order
-6. Output tokens are transferred from the solver to the recipient
-7. Order is immediately settled, and input tokens are credited to the solver
+- 1. Solver first calls `deposit()` with the user's signed order
+- 2. Input tokens are transferred from the user and locked in the contract
+- 3. Order is marked as Active
+- 4. Later, when the solver has sourced the output tokens (from a DEX or other liquidity source)
+- 5. Solver calls `fill()` with the same order
+- 6. Output tokens are transferred from the solver to the recipient
+- 7. Order is immediately settled, and input tokens are credited to the solver
 
 This pattern gives solvers flexibility to lock in the user's intent first, then source the output tokens before completing the trade. The settlement happens immediately after the fill call without needing cross-chain messaging.
 
@@ -196,12 +196,12 @@ sequenceDiagram
 ```
 
 In this path:
-1. Solver calls `deposit()` with the user's order, signature, and hook configuration
-2. Input tokens are transferred directly to the hook contract
-3. The hook executes (e.g., performs a swap on a DEX)
-4. Output tokens are returned to the Aori contract
-5. Output tokens are transferred to the recipient
-6. Settlement happens immediately, crediting the input amount to the solver
+- 1. Solver calls `deposit()` with the user's order, signature, and hook configuration
+- 2. Input tokens are transferred directly to the hook contract
+- 3. The hook executes (e.g., performs a swap on a DEX)
+- 4. Output tokens are returned to the Aori contract
+- 5. Output tokens are transferred to the recipient
+- 6. Settlement happens immediately, crediting the input amount to the solver
 
 This pattern enables advanced liquidity sourcing directly within the transaction.
 
