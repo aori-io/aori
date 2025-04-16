@@ -184,7 +184,7 @@ sequenceDiagram
     actor User
     actor Solver
     participant Aori as Aori Contract
-    participant Hook as DEX Hook
+    participant Hook as Hook
 
     User->>Solver: Signed Order
     Solver->>Aori: deposit(order, signature, hook)
@@ -198,7 +198,7 @@ sequenceDiagram
 In this path:
 - 1. Solver calls `deposit()` with the user's order, signature, and hook configuration
 - 2. Input tokens are transferred directly to the hook contract
-- 3. The hook executes (e.g., performs a swap on a DEX)
+- 3. The hook executes a route
 - 4. Output tokens are returned to the Aori contract
 - 5. Output tokens are transferred to the recipient
 - 6. Settlement happens immediately, crediting the input amount to the solver
