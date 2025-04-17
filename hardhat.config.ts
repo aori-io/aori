@@ -34,6 +34,7 @@ if (accounts == null) {
 const config: HardhatUserConfig = {
     paths: {
         cache: 'cache/hardhat',
+        sources: "./contracts",
     },
     solidity: {
         compilers: [

@@ -3,7 +3,7 @@ pragma solidity 0.8.28;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IAori } from "./IAori.sol";
-import { ECDSA } from "@solady/utils/ECDSA.sol";
+import { ECDSA } from "solady/src/utils/ECDSA.sol";
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                          VALIDATION                        */
@@ -311,7 +311,7 @@ library BalanceUtils {
     /**
      * @notice Validates a decrease in locked balance with a corresponding increase in unlocked balance
      * @dev Verifies that the token accounting was performed correctly during transfer operations
-     * @param balance The Balance struct reference (not used in this function, just for pattern consistency)
+     * @param balance The Balance struct reference (not used, but needed for extension method pattern)
      * @param initialOffererLocked The offerer's initial locked balance
      * @param finalOffererLocked The offerer's final locked balance
      * @param initialSolverUnlocked The solver's initial unlocked balance
@@ -343,7 +343,7 @@ library BalanceUtils {
     /**
      * @notice Validates a decrease in locked balance with a corresponding increase in unlocked balance with revert
      * @dev Same as validateBalanceTransfer but reverts with custom error messages if validation fails
-     * @param balance The Balance struct reference (not used in this function, just for pattern consistency)
+     * @param balance The Balance struct reference (not used, but needed for extension method pattern)
      * @param initialOffererLocked The offerer's initial locked balance
      * @param finalOffererLocked The offerer's final locked balance
      * @param initialSolverUnlocked The solver's initial unlocked balance

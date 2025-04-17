@@ -7,8 +7,8 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { EIP712 } from "@solady/utils/EIP712.sol";
-import { ECDSA } from "@solady/utils/ECDSA.sol";
+import { EIP712 } from "solady/src/utils/EIP712.sol";
+import { ECDSA } from "solady/src/utils/ECDSA.sol";
 import { IAori } from "./IAori.sol";
 import "./AoriUtils.sol";
 
