@@ -253,13 +253,14 @@ To deploy your contracts to your desired blockchains, run the following command 
 npx hardhat lz:deploy
 ```
 
-More information about available CLI arguments can be found using the `--help` flag:
-
-```bash
-npx hardhat lz:deploy --help
-```
 
 ## Configuring Contracts
+
+Initialize your contracts by running:
+
+```bash
+npx hardhat lz:oapp:config:init --contract-name Aori --oapp-config layerzero.config.ts
+```
 
 Wire your deployed contracts by running:
 
