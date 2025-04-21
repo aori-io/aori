@@ -311,7 +311,7 @@ library BalanceUtils {
     /**
      * @notice Validates a decrease in locked balance with a corresponding increase in unlocked balance
      * @dev Verifies that the token accounting was performed correctly during transfer operations
-     * @param balance The Balance struct reference (not used, but needed for extension method pattern)
+     * @param _balance The Balance struct reference (not used, but needed for extension method pattern)
      * @param initialOffererLocked The offerer's initial locked balance
      * @param finalOffererLocked The offerer's final locked balance
      * @param initialSolverUnlocked The solver's initial unlocked balance
@@ -320,13 +320,13 @@ library BalanceUtils {
      * @return success Whether the validation was successful
      */
     function validateBalanceTransfer(
-        Balance storage balance,
+        Balance storage _balance,
         uint128 initialOffererLocked,
         uint128 finalOffererLocked,
         uint128 initialSolverUnlocked,
         uint128 finalSolverUnlocked,
         uint128 transferAmount
-    ) internal view returns (bool success) {
+    ) internal pure returns (bool success) {
         // Verify offerer's locked balance decreased by exactly the transfer amount
         if (initialOffererLocked != finalOffererLocked + transferAmount) {
             return false;
@@ -343,7 +343,7 @@ library BalanceUtils {
     /**
      * @notice Validates a decrease in locked balance with a corresponding increase in unlocked balance with revert
      * @dev Same as validateBalanceTransfer but reverts with custom error messages if validation fails
-     * @param balance The Balance struct reference (not used, but needed for extension method pattern)
+     * @param _balance The Balance struct reference (not used, but needed for extension method pattern)
      * @param initialOffererLocked The offerer's initial locked balance
      * @param finalOffererLocked The offerer's final locked balance
      * @param initialSolverUnlocked The solver's initial unlocked balance
@@ -351,13 +351,13 @@ library BalanceUtils {
      * @param transferAmount The amount that should have been transferred
      */
     function validateBalanceTransferOrRevert(
-        Balance storage balance,
+        Balance storage _balance,
         uint128 initialOffererLocked,
         uint128 finalOffererLocked,
         uint128 initialSolverUnlocked,
         uint128 finalSolverUnlocked,
         uint128 transferAmount
-    ) internal view {
+    ) internal pure {
         // Verify offerer's locked balance decreased by exactly the transfer amount
         require(
             initialOffererLocked == finalOffererLocked + transferAmount,
