@@ -8,6 +8,7 @@ typechain
 typechain-types
 deployments/localhost
 pnpm-lock.yaml
+.cursorrules
 
 # Hardhat files
 cache

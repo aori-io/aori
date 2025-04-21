@@ -34,7 +34,7 @@ import { MockERC20 } from "../Mock/MockERC20.sol";
  */
 contract HashVerificationTest is TestUtils {
     // Fixed test values
-    address public constant ARBITRUM_CONTRACT_ADDRESS = 0xC2bA162A7ddc091Cd5D75F26e73A23D338E7FfCB;
+    address public constant ARBITRUM_CONTRACT_ADDRESS = 0x67E786775Bb4056bf13e4F2f1e85ab8ea680fBc2;
     uint32 public constant ARBITRUM_EID = 30110;
     uint32 public constant ETHEREUM_EID = 30101; // Using mainnet as destination
 
