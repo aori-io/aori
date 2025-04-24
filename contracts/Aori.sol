@@ -591,6 +591,9 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         Order calldata orderToCancel,
         bytes calldata extraOptions
     ) external payable nonReentrant whenNotPaused {
+        require(hash(orderToCancel) == orderId, "Submitted order data doesn't match orderId");
+
+        
         orderToCancel.validateCancel(
             orderId,
             ENDPOINT_ID,
