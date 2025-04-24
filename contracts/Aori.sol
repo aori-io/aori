@@ -451,7 +451,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         uint32 srcEid,
         address filler,
         bytes calldata extraOptions
-    ) external payable nonReentrant whenNotPaused {
+    ) external payable nonReentrant whenNotPaused onlySolver {
         bytes32[] storage arr = srcEidToFillerFills[srcEid][filler];
         uint256 arrLength = arr.length;
         require(arrLength > 0, "No orders provided");
