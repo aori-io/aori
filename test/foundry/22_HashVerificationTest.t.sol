@@ -34,7 +34,7 @@ import { MockERC20 } from "../Mock/MockERC20.sol";
  */
 contract HashVerificationTest is TestUtils {
     // Fixed test values
-    address public constant ARBITRUM_CONTRACT_ADDRESS = 0x67E786775Bb4056bf13e4F2f1e85ab8ea680fBc2;
+    address public constant ARBITRUM_CONTRACT_ADDRESS = 0x3dDB39211742809309BE73f6FE5DB32E180d2fcE;
     uint32 public constant ARBITRUM_EID = 30110;
     uint32 public constant ETHEREUM_EID = 30101; // Using mainnet as destination
 
@@ -103,7 +103,7 @@ contract HashVerificationTest is TestUtils {
         }
         
         // Set v (must be 27 or 28 for Solady ECDSA)
-        signature[64] = bytes1(uint8(rawV == 0 ? 27 : 28));
+        signature[64] = bytes1(rawV);
         
         // Print relevant information
         console.log("\n==== HASH VERIFICATION TEST ====");
