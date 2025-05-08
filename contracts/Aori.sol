@@ -311,8 +311,8 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     /**
-     * @notice Fills an order by transferring tokens from the filler
-     * @dev Supports both direct fills and hook-based token conversion
+     * @notice Fills an order by transferring output tokens from the filler
+     * @dev Direct fill path, does not use a hook contract call
      * @param order The order details to fill
      */
     function fill(Order calldata order) external payable nonReentrant whenNotPaused onlySolver {
@@ -334,8 +334,8 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     }
 
     /**
-     * @notice Fills an order by transferring tokens from the filler
-     * @dev Supports both direct fills and hook-based token conversion
+     * @notice Fills an order by converting preferred tokens from the filler to output tokens   
+     * @dev Requires a hook contract call
      * @param order The order details to fill
      * @param hook The solver data including hook configuration
      */
@@ -352,7 +352,14 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         );
         uint256 amountReceived = _executeDstHook(order, hook);
 
-        IERC20(order.outputToken).safeTransfer(order.recipient, amountReceived);
+        uint256 surplus = amountReceived - order.outputAmount;
+
+        IERC20(order.outputToken).safeTransfer(order.recipient, order.outputAmount);
+        
+        if (surplus > 0) {
+            IERC20(order.outputToken).safeTransfer(msg.sender, surplus);
+        }
+
         _postFill(orderId, order);
     }
 
@@ -380,11 +387,6 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             order.outputToken
         );
         require(balChg >= order.outputAmount, "Hook must provide at least the expected output amount");
-
-        uint256 solverReturnAmt = balChg - order.outputAmount;
-        if (solverReturnAmt > 0) {
-            IERC20(order.outputToken).safeTransfer(msg.sender, solverReturnAmt);
-        }
     }
 
     /**
