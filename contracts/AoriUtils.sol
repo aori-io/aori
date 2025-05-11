@@ -512,14 +512,9 @@ library PayloadPackUtils {
      * @param orderHash The hash of the order to cancel
      * @return payload The packed cancellation payload
      */
-    function packCancellation(bytes32 orderHash) internal pure returns (bytes memory payload) {
+    function packCancellation(bytes32 orderHash) internal pure returns (bytes memory) {
         uint8 msgType = uint8(PayloadType.Cancellation);
-        assembly {
-            mstore(payload, 33)
-            mstore8(add(payload, 32), msgType)
-            mstore(add(payload, 33), orderHash)
-            mstore(0x40, add(payload, 65))
-        }
+        return abi.encodePacked(msgType, orderHash);
     }
 }
 
