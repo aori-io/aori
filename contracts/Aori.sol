@@ -430,7 +430,10 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         IERC20(order.outputToken).safeTransferFrom(msg.sender, order.recipient, order.outputAmount);
         
         // Credit the input token directly to the solver's unlocked balance
-        balances[msg.sender][order.inputToken].increaseUnlockedNoRevert(uint128(order.inputAmount));
+        bool success = balances[msg.sender][order.inputToken].increaseUnlockedNoRevert(
+            SafeCast.toUint128(order.inputAmount)
+        );
+        require(success, "Balance operation failed");
         
         // Order is immediately settled
         orderStatus[orderId] = IAori.OrderStatus.Settled;
@@ -551,13 +554,19 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         }
 
         if (balances[order.offerer][order.inputToken].locked >= order.inputAmount) {
+            
             // Unlock the tokens from offerer's balance
-            balances[order.offerer][order.inputToken].decreaseLockedNoRevert(
+            bool successLock = balances[order.offerer][order.inputToken].decreaseLockedNoRevert(
                 uint128(order.inputAmount)
             );
-
+            
             // Credit the tokens directly to the solver's unlocked balance
-            balances[solver][order.inputToken].increaseUnlockedNoRevert(uint128(order.inputAmount));
+            bool successUnlock = balances[solver][order.inputToken].increaseUnlockedNoRevert(
+                uint128(order.inputAmount)
+            );
+            
+            // Verify both operations succeeded
+            require(successLock && successUnlock, "Balance operation failed");
         }
 
         // Order is immediately settled
