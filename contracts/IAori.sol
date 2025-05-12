@@ -84,6 +84,9 @@ interface IAori {
 
     function cancel(bytes32 orderId) external;
 
+    event SettlementSkipped(bytes32 indexed orderId, uint32 expectedEid, uint32 actualEid, string reason);
+
+
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                        DST FUNCTIONS                       */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/

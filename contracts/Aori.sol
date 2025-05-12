@@ -497,15 +497,28 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     /**
      * @notice Handles settlement of filled orders
      * @param payload The settlement payload containing order hashes and filler information
+     * @param senderEid The source endpoint ID
+     * @dev Skips orders that were filled on the wrong chain and emits an event
      */
-    function _handleSettlement(bytes calldata payload) internal {
+    function _handleSettlement(bytes calldata payload, uint32 senderEid) internal {
         payload.validateSettlementLen();
         (address filler, uint16 fillCount) = payload.unpackSettlementHeader();
         payload.validateSettlementLen(fillCount);
 
-        // Handle with care: If a single order fails the whole batch will revert
         for (uint256 i = 0; i < fillCount; ++i) {
             bytes32 orderId = payload.unpackSettlementBodyAt(i);
+            Order memory order = orders[orderId];
+            
+            if (order.dstEid != senderEid) {
+                emit SettlementSkipped(
+                    orderId, 
+                    order.dstEid, 
+                    senderEid, 
+                    "Order filled on wrong chain"
+                );
+                continue; 
+            }
+            
             _settleOrder(orderId, filler);
         }
     }
@@ -675,26 +688,28 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      * @param payload The message payload containing order hashes and filler information
      */
     function _lzReceive(
-        Origin calldata, // origin
-        bytes32, // guid
+        Origin calldata origin,
+        bytes32,
         bytes calldata payload,
-        address, // executor
+        address,
         bytes calldata
     ) internal override whenNotPaused {
         require(payload.length > 0, "Empty payload");
-        _recvPayload(payload);
+        
+        // Pass the sender chain's endpoint ID
+        _recvPayload(payload, origin.srcEid);
     }
 
     /**
      * @notice Processes incoming LayerZero messages based on the payload type
      * @param payload The message payload containing order hashes and filler information
      */
-    function _recvPayload(bytes calldata payload) internal {
+    function _recvPayload(bytes calldata payload, uint32 srcEid) internal {
         PayloadType msgType = payload.getType();
         if (msgType == PayloadType.Cancellation) {
             _handleCancellation(payload);
         } else if (msgType == PayloadType.Settlement) {
-            _handleSettlement(payload);
+            _handleSettlement(payload, srcEid);
         } else {
             revert("Unsupported payload type");
         }
