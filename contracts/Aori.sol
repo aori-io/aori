@@ -510,11 +510,11 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             Order memory order = orders[orderId];
             
             if (order.dstEid != senderEid) {
-                emit SettlementSkipped(
+                emit settlementFailed(
                     orderId, 
                     order.dstEid, 
                     senderEid, 
-                    "Order filled on wrong chain"
+                    "Eid mismatch"
                 );
                 continue; 
             }
