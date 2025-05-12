@@ -608,14 +608,22 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     /**
-     * @notice Allows whitelisted solvers to cancel an order from the source chain
+     * @notice Allows cancellation of orders from the source chain
+     * @dev Cancellation is permitted for:
+     *      1. Whitelisted solvers (for any active order)
+     *      2. Order offerers (for their own expired single-chain orders)
      * @param orderId The hash of the order to cancel
      */
     function cancel(bytes32 orderId) external whenNotPaused {
+        Order memory order = orders[orderId];
         require(
-            isAllowedSolver[msg.sender],
-            "Only whitelisted solver can cancel from the source chain"
+            isAllowedSolver[msg.sender] || 
+            (msg.sender == order.offerer && 
+             block.timestamp > order.endTime && 
+             order.srcEid == order.dstEid),
+            "Unauthorized cancel"
         );
+        
         _cancel(orderId);
     }
 
