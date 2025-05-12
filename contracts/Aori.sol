@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import { OApp, Origin, MessagingFee } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
@@ -297,11 +298,11 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         Order calldata order,
         bytes32 orderId
     ) internal {
-        balances[order.offerer][depositToken].lock(uint128(depositAmount));
+        balances[order.offerer][depositToken].lock(SafeCast.toUint128(depositAmount));
         orderStatus[orderId] = IAori.OrderStatus.Active;
         orders[orderId] = order;
         orders[orderId].inputToken = depositToken;
-        orders[orderId].inputAmount = uint128(depositAmount);
+        orders[orderId].inputAmount = SafeCast.toUint128(depositAmount);
 
         emit Deposit(orderId, order);
     }
