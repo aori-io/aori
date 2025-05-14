@@ -45,6 +45,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         ENDPOINT_ID = _eid;
         MAX_FILLS_PER_SETTLE = _maxFillsPerSettle;
         require(_owner != address(0), "Set owner");
+        isSupportedChain[_eid] = true;
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -59,6 +60,9 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
 
     // Stores orders by their unique hash
     mapping(bytes32 => Order) public orders;
+    
+    // Tracks supported chains by their endpoint IDs
+    mapping(uint32 => bool) public isSupportedChain;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                         DST STATE                          */
@@ -136,6 +140,64 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     }
 
     /**
+    * @notice Internal function to add a supported chain without access control
+    * @param eid The endpoint ID of the chain to add
+    * @return success Whether the chain was successfully added
+    */
+    function _supportChain(uint32 eid) internal returns (bool success) {
+        // Skip validation for the current chain's EID
+        if (eid == ENDPOINT_ID) {
+            isSupportedChain[eid] = true;
+            return true;
+        }
+        
+        // This will return false instead of reverting if validation fails
+        try this.quote(eid, 0, bytes(""), false, 0, address(0)) returns (uint256) {
+            isSupportedChain[eid] = true;
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    /**
+    * @notice Adds a supported chain by its endpoint ID with validation
+    * @param eid The endpoint ID of the chain to add
+    * @dev Only callable by the contract owner
+    */
+    function addSupportedChain(uint32 eid) external onlyOwner {
+        if (!_supportChain(eid)) {
+            revert("Invalid or unsupported LayerZero EID");
+        }
+    }
+
+    /**
+    * @notice Adds multiple supported chains by their endpoint IDs with validation
+    * @param eids Array of endpoint IDs of the chains to add
+    * @return results Array of booleans indicating which EIDs were successfully added
+    * @dev Only callable by the contract owner
+    */
+    function addSupportedChains(uint32[] calldata eids) external onlyOwner returns (bool[] memory results) {
+        uint256 length = eids.length;
+        results = new bool[](length);
+        
+        for (uint256 i = 0; i < length; i++) {
+            results[i] = _supportChain(eids[i]);
+        }
+        
+        return results;
+    }
+
+    /**
+     * @notice Removes a supported chain by its endpoint ID
+     * @param eid The endpoint ID of the chain to remove
+     * @dev Only callable by the contract owner
+     */
+    function removeSupportedChain(uint32 eid) external onlyOwner {
+        isSupportedChain[eid] = false;
+    }
+
+    /**
      * @notice Emergency function to extract tokens or ether from the contract
      * @dev Only callable by the contract owner
      * @param token The token address to withdraw
@@ -193,7 +255,8 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             signature,
             _hashOrder712(order),
             ENDPOINT_ID,
-            this.orderStatus
+            this.orderStatus,
+            this.isSupportedChain
         );
         IERC20(order.inputToken).safeTransferFrom(order.offerer, address(this), order.inputAmount);
         _postDeposit(order.inputToken, order.inputAmount, order, orderId);
@@ -216,7 +279,8 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             signature,
             _hashOrder712(order),
             ENDPOINT_ID,
-            this.orderStatus
+            this.orderStatus,
+            this.isSupportedChain
         );
 
         // Execute hook and handle single-chain or cross-chain logic

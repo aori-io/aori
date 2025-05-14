@@ -38,6 +38,7 @@ library ValidationUtils {
      * @param digest The EIP712 type hash digest of the order
      * @param endpointId The current chain's endpoint ID
      * @param orderStatus The status mapping function to check order status
+     * @param isSupportedChain A function to check if the destination chain is supported
      * @return orderId The calculated order hash
      */
     function validateDeposit(
@@ -45,10 +46,13 @@ library ValidationUtils {
         bytes calldata signature,
         bytes32 digest,
         uint32 endpointId,
-        function(bytes32) external view returns (IAori.OrderStatus) orderStatus
+        function(bytes32) external view returns (IAori.OrderStatus) orderStatus,
+        function(uint32) external view returns (bool) isSupportedChain
     ) internal view returns (bytes32 orderId) {
         orderId = keccak256(abi.encode(order));
         require(orderStatus(orderId) == IAori.OrderStatus.Unknown, "Order already exists");
+        require(isSupportedChain(order.dstEid), "Destination chain not supported");
+
 
         // Signature validation
         address recovered = ECDSA.recover(digest, signature);
