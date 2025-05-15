@@ -80,8 +80,6 @@ interface IAori {
 
     function withdraw(address token) external;
 
-    function emergencyWithdraw(address token, uint256 amount) external;
-
     function cancel(bytes32 orderId) external;
 
     event settlementFailed(bytes32 indexed orderId, uint32 expectedEid, uint32 submittedEid, string reason);

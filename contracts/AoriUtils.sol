@@ -148,6 +148,46 @@ library ValidationUtils {
     }
 
     /**
+     * @notice Validates cancellation of an order on the source chain
+     * @dev Only allows cancellation of single-chain orders or by solver (with expiry restriction for cross-chain)
+     * @param order The order details to cancel
+     * @param orderId The hash of the order to cancel
+     * @param endpointId The current chain's endpoint ID
+     * @param orderStatus The function to check order status
+     * @param sender The transaction sender address
+     * @param isAllowedSolver The function to check if an address is a whitelisted solver
+     */
+    function validateSourceChainCancel(
+        IAori.Order memory order,
+        bytes32 orderId,
+        uint32 endpointId,
+        function(bytes32) external view returns (IAori.OrderStatus) orderStatus,
+        address sender,
+        function(address) external view returns (bool) isAllowedSolver
+    ) internal view {
+        // Verify we're on the source chain
+        require(order.srcEid == endpointId, "Not on source chain");
+        
+        // Verify order exists and is active
+        require(orderStatus(orderId) == IAori.OrderStatus.Active, "Order not active");
+        
+        // For cross-chain orders: only solver can cancel, and only after expiry
+        if (order.srcEid != order.dstEid) {
+            require(
+                isAllowedSolver(sender) && block.timestamp > order.endTime,
+                "Cross-chain orders can only be cancelled by solver after expiry"
+            );
+        } else {
+            // For single-chain orders: solver can always cancel, offerer can cancel after expiry
+            require(
+                isAllowedSolver(sender) || 
+                (sender == order.offerer && block.timestamp > order.endTime),
+                "Only solver or offerer (after expiry) can cancel"
+            );
+        }
+    }
+
+    /**
      * @notice Checks if an order is a single-chain swap
      * @param order The order to check
      * @return True if the order is a single-chain swap

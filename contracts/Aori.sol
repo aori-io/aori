@@ -198,6 +198,15 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     }
 
     /**
+    * @notice Emergency function to cancel an order, bypassing normal restrictions
+    * @dev Only callable by the contract owner
+    * @param orderId The hash of the order to cancel
+    */
+    function emergencyCancel(bytes32 orderId) external onlyOwner {
+        _cancel(orderId);
+    }
+
+    /**
      * @notice Emergency function to extract tokens or ether from the contract
      * @dev Only callable by the contract owner
      * @param token The token address to withdraw
@@ -672,7 +681,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     /**
-     * @notice Allows cancellation of orders from the source chain
+     * @notice Allows cancellation of orders from the source chain for single chain swap orders
      * @dev Cancellation is permitted for:
      *      1. Whitelisted solvers (for any active order)
      *      2. Order offerers (for their own expired single-chain orders)
@@ -680,12 +689,13 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      */
     function cancel(bytes32 orderId) external whenNotPaused {
         Order memory order = orders[orderId];
-        require(
-            isAllowedSolver[msg.sender] || 
-            (msg.sender == order.offerer && 
-             block.timestamp > order.endTime && 
-             order.srcEid == order.dstEid),
-            "Unauthorized cancel"
+        
+        order.validateSourceChainCancel(
+            orderId,
+            ENDPOINT_ID,
+            this.orderStatus,
+            msg.sender,
+            this.isAllowedSolver
         );
         
         _cancel(orderId);
@@ -704,7 +714,6 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         bytes calldata extraOptions
     ) external payable nonReentrant whenNotPaused {
         require(hash(orderToCancel) == orderId, "Submitted order data doesn't match orderId");
-
         
         orderToCancel.validateCancel(
             orderId,
