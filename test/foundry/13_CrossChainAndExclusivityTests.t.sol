@@ -106,7 +106,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
 
         // Prepare settlement
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(uint128(GAS_LIMIT), 0);
-        uint256 fee = remoteAori.quote(localEid, 0, options, false, localEid, solver);
+        uint256 fee = remoteAori.quote(localEid, uint8(PayloadType.Settlement), options, false, localEid, solver);
 
         // Send settlement
         vm.deal(solver, fee);
@@ -176,6 +176,9 @@ contract CrossChainAndWhitelistTests is TestUtils {
         uint256 lockedBalance = localAori.getLockedBalances(userA, address(inputToken));
         assertEq(lockedBalance, order.inputAmount);
 
+        // Advance time past order expiry
+        vm.warp(order.endTime + 1);
+
         // Whitelisted solver cancels the order
         bytes32 orderHash = localAori.hash(order);
         vm.prank(solver);
@@ -206,10 +209,15 @@ contract CrossChainAndWhitelistTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
+        // Advance time past order expiry 
+        vm.warp(order.endTime + 1);
+
         // Non-whitelisted solver tries to cancel - should fail
         bytes32 orderHash = localAori.hash(order);
+        
+        // Place expectRevert directly before the call that should revert
         vm.prank(nonWhitelistedSolver);
-        vm.expectRevert("Only whitelisted solver can cancel from the source chain");
+        vm.expectRevert("Cross-chain orders can only be cancelled by solver after expiry");
         localAori.cancel(orderHash);
     }
 
@@ -221,7 +229,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(uint128(GAS_LIMIT), 0);
         
         // Get a fee quote
-        uint256 fee = localAori.quote(remoteEid, 0, options, false, localEid, solver);
+        uint256 fee = localAori.quote(remoteEid, uint8(PayloadType.Settlement), options, false, localEid, solver);
         
         // The fee should be non-zero
         assertGt(fee, 0, "Fee should be greater than zero");
@@ -261,7 +269,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         // Stay on remote chain where the fill happened
         // Try to cancel from the same chain where the fill occurred
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(uint128(GAS_LIMIT), 0);
-        uint256 fee = remoteAori.quote(localEid, 1, options, false, localEid, userA);
+        uint256 fee = remoteAori.quote(localEid, uint8(PayloadType.Cancellation), options, false, localEid, userA);
 
         // Try to cancel after fill - should revert
         vm.deal(userA, fee);
@@ -272,7 +280,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
             uint8(remoteAori.orderStatus(orderHash)), uint8(IAori.OrderStatus.Filled), "Order should be in filled state"
         );
         vm.expectRevert("Order not active");
-        remoteAori.cancel(orderHash, order, options);
+        remoteAori.cancel(orderHash, order, defaultOptions());
     }
 
     /**
@@ -302,7 +310,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
 
         // Cancel the order from the destination chain
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(uint128(GAS_LIMIT), 0);
-        uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, userA);
+        uint256 cancelFee = remoteAori.quote(localEid, uint8(PayloadType.Cancellation), options, false, localEid, userA);
 
         vm.deal(userA, cancelFee);
         vm.startPrank(userA);
@@ -318,7 +326,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
 
         // Simulate receiving the cancellation message on source chain
         vm.chainId(localEid);
-        bytes memory cancelPayload = abi.encodePacked(uint8(1), orderHash);
+        bytes memory cancelPayload = abi.encodePacked(uint8(PayloadType.Cancellation), orderHash);
         vm.prank(address(endpoints[localEid]));
         localAori.lzReceive(
             Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),

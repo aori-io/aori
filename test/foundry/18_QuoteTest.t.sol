@@ -74,7 +74,7 @@ contract QuoteTest is TestUtils {
         uint256 cancelFee = localAori.quote(
             remoteEid, // destination endpoint
             1, // message type (1 for cancel)
-            options, // LZ options
+            options,
             false, // payInLzToken
             0, // srcEid (not used for cancel)
             address(0) // filler (not used for cancel)
@@ -96,7 +96,7 @@ contract QuoteTest is TestUtils {
         uint256 emptyFee = remoteAori.quote(
             localEid, // destination endpoint
             0, // message type (0 for settle)
-            options, // LZ options
+            options,
             false, // payInLzToken
             localEid, // srcEid
             solver // whitelisted solver
@@ -130,7 +130,7 @@ contract QuoteTest is TestUtils {
             uint256 settleFee = remoteAori.quote(
                 localEid, // destination endpoint
                 0, // message type (0 for settle)
-                options, // LZ options
+                options,
                 false, // payInLzToken
                 localEid, // srcEid
                 solver // whitelisted solver
@@ -200,7 +200,7 @@ contract QuoteTest is TestUtils {
             fees[testCase] = remoteAori.quote(
                 localEid, // destination endpoint
                 0, // message type (0 for settle)
-                options, // LZ options
+                options,
                 false, // payInLzToken
                 localEid, // srcEid
                 solver // whitelisted solver
@@ -223,7 +223,7 @@ contract QuoteTest is TestUtils {
         uint256 cancelFee = localAori.quote(
             remoteEid, // destination endpoint
             1, // message type (1 for cancel)
-            options, // LZ options
+            options,
             false, // payInLzToken
             0, // srcEid
             address(0) // filler
@@ -248,7 +248,7 @@ contract QuoteTest is TestUtils {
         uint256 settleFee = remoteAori.quote(
             localEid, // destination endpoint
             0, // message type (0 for settle)
-            options, // LZ options
+            options,
             false, // payInLzToken
             localEid, // srcEid
             solver // whitelisted solver
@@ -268,7 +268,7 @@ contract QuoteTest is TestUtils {
         localAori.quote(
             remoteEid, // destination endpoint
             2, // Invalid message type (neither 0 for settlement nor 1 for cancellation)
-            options, // LZ options
+            options, 
             false, // payInLzToken
             localEid, // srcEid
             solver // filler
@@ -279,7 +279,7 @@ contract QuoteTest is TestUtils {
         localAori.quote(
             remoteEid, // destination endpoint
             255, // Another invalid message type
-            options, // LZ options
+            options,
             false, // payInLzToken
             localEid, // srcEid
             solver // filler

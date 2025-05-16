@@ -35,6 +35,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {OApp, Origin, MessagingFee} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
+import {PayloadType} from "../../contracts/AoriUtils.sol";
 import {MockERC20} from "../Mock/MockERC20.sol";
 import {MockHook} from "../Mock/MockHook.sol";
 
@@ -87,6 +88,43 @@ contract TestUtils is TestHelperOz5 {
         // Set peers between chains
         localAori.setPeer(remoteEid, bytes32(uint256(uint160(address(remoteAori)))));
         remoteAori.setPeer(localEid, bytes32(uint256(uint160(address(localAori)))));
+
+        // Setup chains as supported (local already done in constructor)
+        // Mock the quote call for remote chain
+        vm.mockCall(
+            address(localAori),
+            abi.encodeWithSelector(
+                localAori.quote.selector,
+                remoteEid,
+                uint8(PayloadType.Settlement),
+                bytes(""),
+                false,
+                0,
+                address(0)
+            ),
+            abi.encode(1 ether) // Return a mock fee
+        );
+        
+        // Add remote chain as supported on local contract
+        localAori.addSupportedChain(remoteEid);
+        
+        // Mock the quote call for local chain
+        vm.mockCall(
+            address(remoteAori),
+            abi.encodeWithSelector(
+                remoteAori.quote.selector,
+                localEid,
+                uint8(PayloadType.Settlement),
+                bytes(""),
+                false,
+                0,
+                address(0)
+            ),
+            abi.encode(1 ether) // Return a mock fee
+        );
+        
+        // Add local chain as supported on remote contract
+        remoteAori.addSupportedChain(localEid);
 
         // Setup test tokens
         inputToken = new MockERC20("Input", "IN");

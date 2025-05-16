@@ -454,6 +454,7 @@ contract SingleChainHookTest is TestUtils {
         assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Active), "Order should be active");
         
         // Cancel the order
+        vm.warp(order.endTime + 1);
         vm.prank(solver);
         localAori.cancel(orderId);
         

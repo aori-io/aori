@@ -35,6 +35,7 @@ pragma solidity 0.8.28;
 import "forge-std/Test.sol";
 import "./TestUtils.sol";
 import "../../contracts/AoriUtils.sol";
+import {IAori} from "../../contracts/IAori.sol";
 import "forge-std/console.sol";
 
 /**
@@ -127,8 +128,8 @@ contract PayloadPackingUnpackingTest is Test {
     PayloadTestWrapper public wrapper;
     
     // Constants
-    uint8 constant SETTLEMENT_TYPE = 0;
-    uint8 constant CANCELLATION_TYPE = 1;
+    uint8 constant SETTLEMENT_TYPE = uint8(PayloadType.Settlement);
+    uint8 constant CANCELLATION_TYPE = uint8(PayloadType.Cancellation);
     uint256 constant TEST_CANCELLATION_SIZE = 33; // 1 byte type + 32 bytes order hash
     
     // Test data

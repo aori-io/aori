@@ -146,6 +146,9 @@ contract PauseAndEmergencyFunctionsTest is TestUtils {
         // Get the order hash
         bytes32 orderHash = localAori.hash(order);
 
+        // Advance time past expiry BEFORE cancellation
+        vm.warp(order.endTime + 1);
+
         // Cancel the order using the whitelisted solver
         vm.prank(solver);
         localAori.cancel(orderHash);

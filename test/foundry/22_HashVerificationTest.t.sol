@@ -147,6 +147,17 @@ contract HashVerificationTest is TestUtils {
         Aori(ARBITRUM_CONTRACT_ADDRESS).transferOwnership(address(this));
         vm.stopPrank();
         
+        // ADD THIS CODE HERE - before any deposit operations
+        vm.startPrank(address(this));
+        // Mark Ethereum destination as supported
+        vm.mockCall(
+            ARBITRUM_CONTRACT_ADDRESS,
+            abi.encodeWithSelector(Aori(ARBITRUM_CONTRACT_ADDRESS).quote.selector, ETHEREUM_EID, 0, bytes(""), false, 0, address(0)),
+            abi.encode(1 ether)
+        );
+        Aori(ARBITRUM_CONTRACT_ADDRESS).addSupportedChain(ETHEREUM_EID);
+        vm.stopPrank();
+        
         console.log("Test contract: %s", ARBITRUM_CONTRACT_ADDRESS);
         console.log("Test contract EID: %d", ARBITRUM_EID);
         console.log("Signing Hash:           0x%s", toHexString(signingHash));

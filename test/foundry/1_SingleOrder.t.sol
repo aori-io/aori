@@ -56,6 +56,7 @@ contract SingleOrderSuccessTest is TestUtils {
         remoteAori.fill(order, defaultDstSolverData(order.outputAmount));
     }
 
+
     /**
      * @notice Helper function to settle order
      */

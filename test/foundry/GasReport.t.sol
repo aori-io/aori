@@ -108,6 +108,22 @@ contract GasReportTest is TestHelperOz5 {
         inputToken.approve(address(localAori), 1e18);
         vm.prank(solver);
         outputToken.approve(address(remoteAori), 2e18);
+
+        // Setup chains as supported
+        vm.mockCall(
+            address(localAori),
+            abi.encodeWithSelector(localAori.quote.selector, remoteEid, 0, bytes(""), false, 0, address(0)),
+            abi.encode(1 ether)
+        );
+        vm.mockCall(
+            address(remoteAori),
+            abi.encodeWithSelector(remoteAori.quote.selector, localEid, 0, bytes(""), false, 0, address(0)),
+            abi.encode(1 ether)
+        );
+
+        // Add support for chains
+        localAori.addSupportedChain(remoteEid);
+        remoteAori.addSupportedChain(localEid);
     }
 
     function testGasDeposit() public {
