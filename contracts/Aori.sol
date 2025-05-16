@@ -259,7 +259,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     function deposit(
         Order calldata order,
         bytes calldata signature
-    ) external payable nonReentrant whenNotPaused onlySolver {
+    ) external nonReentrant whenNotPaused onlySolver {
         bytes32 orderId = order.validateDeposit(
             signature,
             _hashOrder712(order),
@@ -282,7 +282,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         Order calldata order,
         bytes calldata signature,
         SrcHook calldata hook
-    ) external payable nonReentrant whenNotPaused onlySolver {
+    ) external nonReentrant whenNotPaused onlySolver {
         require(hook.isSome(), "Missing hook");
         bytes32 orderId = order.validateDeposit(
             signature,
@@ -389,7 +389,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      * @dev Direct fill path, does not use a hook contract call
      * @param order The order details to fill
      */
-    function fill(Order calldata order) external payable nonReentrant whenNotPaused onlySolver {
+    function fill(Order calldata order) external nonReentrant whenNotPaused onlySolver {
         bytes32 orderId = order.validateFill(
             ENDPOINT_ID,
             this.orderStatus
@@ -416,7 +416,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     function fill(
         Order calldata order,
         IAori.DstHook calldata hook
-    ) external payable nonReentrant whenNotPaused onlySolver {
+    ) external nonReentrant whenNotPaused onlySolver {
         // For single-chain swaps, this function should never be called
         require(!order.isSingleChainSwap(), "Use fill() without hook for single-chain swaps");
 
@@ -487,7 +487,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     function depositAndFill(
         Order calldata order,
         bytes calldata signature
-    ) external payable nonReentrant whenNotPaused onlySolver {
+    ) external nonReentrant whenNotPaused onlySolver {
         // This function is only for single-chain swaps
         require(order.isSingleChainSwap(), "Only for single-chain swaps");
         bytes32 orderId = order.validateDepositAndFill(

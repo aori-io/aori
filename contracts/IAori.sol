@@ -70,13 +70,13 @@ interface IAori {
     /*                        SRC FUNCTIONS                       */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    function deposit(Order calldata order, bytes calldata signature) external payable;
+    function deposit(Order calldata order, bytes calldata signature) external;
 
     function deposit(
         Order calldata order,
         bytes calldata signature,
         SrcHook calldata data
-    ) external payable;
+    ) external;
 
     function withdraw(address token) external;
 
@@ -89,9 +89,9 @@ interface IAori {
     /*                        DST FUNCTIONS                       */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    function fill(Order calldata order) external payable;
+    function fill(Order calldata order) external;
 
-    function fill(Order calldata order, DstHook calldata hook) external payable;
+    function fill(Order calldata order, DstHook calldata hook) external;
 
     function settle(uint32 srcEid, address filler, bytes calldata extraOptions) external payable;
 
@@ -105,7 +105,7 @@ interface IAori {
     /*                     SINGLE-CHAIN-SWAPS                     */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    function depositAndFill(Order calldata order, bytes calldata signature) external payable;
+    function depositAndFill(Order calldata order, bytes calldata signature) external;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                        UTILITY FUNCTIONS                   */
