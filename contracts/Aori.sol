@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import { OApp, Origin, MessagingFee } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
+import { OApp, Origin, MessagingFee, MessagingReceipt } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
@@ -35,7 +35,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     using SafeERC20 for IERC20;
     using BalanceUtils for Balance;
     using ValidationUtils for IAori.Order;
-
+    
     constructor(
         address _endpoint, // LayerZero endpoint address
         address _owner, // Contract owner address
@@ -540,8 +540,8 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         );
         bytes memory payload = arr.packSettlement(filler, fillCount);
 
-        _lzSend(srcEid, payload, extraOptions, MessagingFee(msg.value, 0), payable(msg.sender));
-        emit SettleSent(srcEid, filler, payload);
+        MessagingReceipt memory receipt = _lzSend(srcEid, payload, extraOptions, MessagingFee(msg.value, 0), payable(msg.sender));
+        emit SettleSent(srcEid, filler, payload, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 
     /**
@@ -723,9 +723,9 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             this.isAllowedSolver
         );
         bytes memory payload = PayloadPackUtils.packCancellation(orderId);
-        __lzSend(orderToCancel.srcEid, payload, extraOptions);
+        MessagingReceipt memory receipt = __lzSend(orderToCancel.srcEid, payload, extraOptions);
         orderStatus[orderId] = IAori.OrderStatus.Cancelled;
-        emit CancelSent(orderId);
+        emit CancelSent(orderId, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 
     /**
@@ -739,7 +739,8 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         Order memory order = orders[orderId];
         balances[order.offerer][order.inputToken].unlock(uint128(order.inputAmount));
 
-        emit CancelSent(orderId);
+        // When called internally without a cross-chain message, use empty values for the receipt
+        emit CancelSent(orderId, bytes32(0), 0, 0);
     }
 
     /**
@@ -778,13 +779,14 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      * @param eId The destination endpoint ID
      * @param payload The message payload
      * @param extraOptions Additional options
+     * @return receipt The messaging receipt containing transaction details
      */
     function __lzSend(
         uint32 eId, 
         bytes memory payload, 
         bytes calldata extraOptions
-        ) internal {
-        _lzSend(eId, payload, extraOptions, MessagingFee(msg.value, 0), payable(msg.sender));
+    ) internal returns (MessagingReceipt memory receipt) {
+        return _lzSend(eId, payload, extraOptions, MessagingFee(msg.value, 0), payable(msg.sender));
     }
 
     /**

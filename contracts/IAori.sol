@@ -63,8 +63,8 @@ interface IAori {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     event Fill(bytes32 indexed orderId, Order order);
-    event CancelSent(bytes32 indexed orderId);
-    event SettleSent(uint32 indexed srcEid, address indexed filler, bytes payload);
+    event CancelSent(bytes32 indexed orderId, bytes32 guid, uint64 nonce, uint256 fee);
+    event SettleSent(uint32 indexed srcEid, address indexed filler, bytes payload, bytes32 guid, uint64 nonce, uint256 fee);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                        SRC FUNCTIONS                       */
