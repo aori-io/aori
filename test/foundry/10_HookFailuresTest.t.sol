@@ -112,28 +112,30 @@ contract HookFailuresTest is TestUtils {
     }
 
     /**
-     * @notice Test that deposit with a hook fails when msg.value is sent but not expected
+     * @notice Test that deposit with a hook fails when called by a non-solver
+     * @dev Replaces the previous test that checked for unexpected ETH since deposit is no longer payable
      */
-    function testRevertDepositHookWithUnexpectedValue() public {
+    function testRevertDepositNonSolver() public {
         vm.chainId(localEid);
         IAori.Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
-        // Create SrcSolverData with a hook that doesn't expect ETH
+        // Create SrcSolverData with a valid hook
         IAori.SrcHook memory srcData = IAori.SrcHook({
             hookAddress: address(failingHook),
             preferredToken: address(outputToken),
-            minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount since no conversion
+            minPreferedTokenAmountOut: 1000,
             instructions: abi.encodeWithSelector(FailingHook.transfer.selector)
         });
 
-        // Fund the account with ETH
-        vm.deal(userA, 2 ether);
-
+        // Approve tokens
         vm.prank(userA);
-        // Sending ETH when it's not expected should revert
-        vm.expectRevert();
-        localAori.deposit{value: 1 ether}(order, signature, srcData);
+        inputToken.approve(address(localAori), order.inputAmount);
+
+        // Call directly from userA (not a solver)
+        vm.prank(userA);
+        vm.expectRevert("Invalid solver");
+        localAori.deposit(order, signature, srcData);
     }
 }
 
