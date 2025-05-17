@@ -14,15 +14,32 @@ import { IAori } from "./IAori.sol";
 import "./AoriUtils.sol";
 
 /**
+                              @@@@@@@@@@@@                                              
+                            @@         @@@@@@                     @@@@@                  
+                            @@           @@@@@                    @@@@@                  
+                            @@@                                                          
+                              @@@@                                                       
+                                @@@@@                                                   
+                                    @@@@@                                                
+      @@@@@@@@@    @@@@          @@@@@@@@@@    @@@@@@    @@@@@@@  @@@@@                  
+    @@@@      @@   @@@@      @@@@       @@@@@@@   @@@@ @@    @@@   @@@@                  
+   @@@@         @ @@@@     @@@@          @@@@@@   @@@@        @@   @@@@                  
+  @@@@@         @@@@@@   @@@@@            @@@@@@  @@@@         @   @@@@                  
+  @@@@@          @@@@    @@@@@   @    @    @@@@@  @@@@             @@@@                  
+  @@@@@          @@@@   @@@@@@   @@@@@@    @@@@@  @@@@             @@@@                  
+  @@@@@         @@@@@   @@@@@@   @    @    @@@@@  @@@@             @@@@                  
+  @@@@@         @@@@     @@@@@             @@@@   @@@@             @@@@                  
+   @@@@        @@@@@@    @@@@@@           @@@@    @@@@             @@@@                  
+    @@@@      @@@@  @@@@@@ @@@@@         @@@      @@@@             @@@@   @@             
+      @@@@@@@@@     @@@@@     @@@@@@@@@@@         @@@@               @@@@@      
+ */
+
+/**
  *•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*
  * @title Aori
- * @notice Aori implements a trust-minimized cross-chain intent settlement protocol
- * It enables users to deposit tokens on a source chain with signed intent parameters,
- * which solvers can fulfill on destination chains. The contract manages the full intent
- * lifecycle through secure token custody, EIP-712 signature verification, and LayerZero
- * messaging for cross-chain settlement. This architecture ensures that user intents are
- * executed precisely according to their signed parameters while maintaining security
- * through comprehensive validation and state management across the blockchain ecosystem.
+ * @notice Aori is a trust-minimized omnichain intent settlement protocol.
+ * Connecting users and solvers from any chain to any chain. 
+ *
  *•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*
  */
 
@@ -252,7 +269,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
 
     /**
      * @notice Deposits tokens to the contract without a hook call
-     * @dev Supports both direct deposits and hook-based token conversion
+     * @dev Takes tokens from offerer (not the caller) via transferFrom after signature verification
      * @param order The order details
      * @param signature The user's EIP712 signature over the order
      */
@@ -273,7 +290,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
 
     /**
      * @notice Deposits tokens to the contract with a hook call
-     * @dev This function executes a hook call before depositing the tokens
+     * @dev Executes a hook call for token conversion before deposit processing
      * @param order The order details
      * @param signature The user's EIP712 signature over the order
      * @param hook The pre-hook configuration
@@ -386,7 +403,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
 
     /**
      * @notice Fills an order by transferring output tokens from the filler
-     * @dev Direct fill path, does not use a hook contract call
+     * @dev Uses safeTransferFrom to move tokens directly from solver to recipient
      * @param order The order details to fill
      */
     function fill(Order calldata order) external nonReentrant whenNotPaused onlySolver {
@@ -409,7 +426,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
 
     /**
      * @notice Fills an order by converting preferred tokens from the filler to output tokens   
-     * @dev Requires a hook contract call
+     * @dev Utilizes a hook contract to perform the token conversion
      * @param order The order details to fill
      * @param hook The solver data including hook configuration
      */
@@ -480,7 +497,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
 
     /**
      * @notice Deposits and immediately fills a single-chain swap order in a single transaction
-     * @dev Only for single-chain swaps, combines deposit and fill steps
+     * @dev Only for single-chain swaps, combines deposit and fill steps with atomic settlement
      * @param order The order details
      * @param signature The user's EIP712 signature over the order
      */
@@ -522,6 +539,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
 
     /**
      * @notice Settles filled orders by batching order hashes into a payload and sending through LayerZero
+     * @dev Requires ETH to be sent for LayerZero fees
      * @param srcEid The source endpoint ID
      * @param filler The filler address
      * @param extraOptions Additional LayerZero options
@@ -703,7 +721,8 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
 
     /**
      * @notice Cancels an order from the destination chain by sending a cancellation message to the source chain
-     * @dev Before endTime, only whitelisted solvers can cancel. After endTime, either solver or offerer can cancel
+     * @dev Requires ETH to be sent for LayerZero fees. Before endTime, only whitelisted solvers can cancel.
+     * After endTime, either solver or offerer can cancel.
      * @param orderId The hash of the order to cancel
      * @param orderToCancel The order details to cancel
      * @param extraOptions Additional LayerZero options
@@ -776,10 +795,11 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
 
     /**
      * @notice Sends a message through LayerZero
+     * @dev Captures and returns the MessagingReceipt for event emission
      * @param eId The destination endpoint ID
      * @param payload The message payload
      * @param extraOptions Additional options
-     * @return receipt The messaging receipt containing transaction details
+     * @return receipt The messaging receipt containing transaction details (guid, nonce, fee)
      */
     function __lzSend(
         uint32 eId, 

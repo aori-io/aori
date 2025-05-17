@@ -63,7 +63,27 @@ interface IAori {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     event Fill(bytes32 indexed orderId, Order order);
+    
+    /**
+     * @notice Emitted when an order is cancelled from the destination chain
+     * @dev Contains MessagingReceipt data for cross-chain tracking
+     * @param orderId The hash of the cancelled order
+     * @param guid The unique identifier of the LayerZero message
+     * @param nonce The nonce of the LayerZero message
+     * @param fee The fee paid for the LayerZero message
+     */
     event CancelSent(bytes32 indexed orderId, bytes32 guid, uint64 nonce, uint256 fee);
+    
+    /**
+     * @notice Emitted when orders are settled from the destination chain
+     * @dev Contains MessagingReceipt data for cross-chain tracking
+     * @param srcEid The source endpoint ID
+     * @param filler The address of the filler
+     * @param payload The settlement payload
+     * @param guid The unique identifier of the LayerZero message
+     * @param nonce The nonce of the LayerZero message
+     * @param fee The fee paid for the LayerZero message
+     */
     event SettleSent(uint32 indexed srcEid, address indexed filler, bytes payload, bytes32 guid, uint64 nonce, uint256 fee);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/

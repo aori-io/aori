@@ -2,8 +2,8 @@
 pragma solidity 0.8.28;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IAori } from "./IAori.sol";
 import { ECDSA } from "solady/src/utils/ECDSA.sol";
+import { IAori } from "./IAori.sol";
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                          VALIDATION                        */
@@ -492,12 +492,14 @@ enum PayloadType {
 
 /**
  * @notice Library for packing LayerZero message payloads
- * @dev Provides functions to create properly formatted message payloads
+ * @dev Provides functions to create properly formatted message payloads for cross-chain messaging
+ * that will work with the MessagingReceipt tracking in the contract
  */
 library PayloadPackUtils {
     /**
      * @notice Packs a settlement payload with order hashes for LayerZero messaging
      * @dev Creates a settlement payload and clears the filled orders from storage
+     * The message will return a MessagingReceipt that is included in the SettleSent event
      * @param arr The array of order hashes to be packed
      * @param filler The address of the filler
      * @param takeSize The number of order hashes to take from the array
@@ -553,6 +555,7 @@ library PayloadPackUtils {
     /**
      * @notice Packs a cancellation payload for LayerZero messaging
      * @dev Creates a properly formatted cancellation message payload
+     * The message will return a MessagingReceipt that is included in the CancelSent event
      * @param orderHash The hash of the order to cancel
      * @return payload The packed cancellation payload
      */
@@ -685,6 +688,7 @@ uint256 constant CANCELLATION_PAYLOAD_SIZE = 33;
 library PayloadSizeUtils {
     /**
      * @notice Calculate payload size based on message type and other parameters
+     * @dev Used for fee estimation when sending messages via LayerZero
      * @param msgType Message type (0 for settlement, 1 for cancellation)
      * @param fillsLength Number of fills available for the filler
      * @param maxFillsPerSettle Maximum fills allowed per settlement
