@@ -5,7 +5,7 @@ pragma solidity 0.8.28;
  * SingleChainSwapTests - Comprehensive tests for all single-chain swap pathways
  *
  * This test suite covers all single-chain swap flows:
- * 1. Atomic path: depositAndFill for immediate settlement
+ * 1. Atomic path: swap for immediate settlement
  * 2. Two-step path: deposit followed by fill
  * 3. Hook-based path: deposit with hook for token conversion
  *
@@ -106,14 +106,14 @@ contract SingleChainSwapTests is TestUtils {
     }
     
     // =========================================================================
-    // PATH 1: ATOMIC depositAndFill TESTS
+    // PATH 1: ATOMIC swap TESTS
     // =========================================================================
     
     /**
-     * @notice Test successful depositAndFill with normal amounts
+     * @notice Test successful swap with normal amounts
      * @dev Tests the atomic single-transaction path
      */
-    function testDepositAndFillSuccess() public {
+    function testSwapSuccess() public {
         // Create order
         IAori.Order memory order = createSingleChainOrder(
             recipient,
@@ -135,10 +135,10 @@ contract SingleChainSwapTests is TestUtils {
         uint256 initialOutputBalance = outputToken.balanceOf(solver);
         uint256 initialRecipientBalance = outputToken.balanceOf(recipient);
         
-        // Execute depositAndFill
+        // Execute swap
         bytes32 orderId = localAori.hash(order);
         vm.prank(solver);
-        localAori.depositAndFill(order, signature);
+        localAori.swap(order, signature);
         
         // Verify balances
         assertEq(inputToken.balanceOf(userA), initialInputBalance - INPUT_AMOUNT, "Input token balance mismatch");
@@ -153,9 +153,9 @@ contract SingleChainSwapTests is TestUtils {
     }
     
     /**
-     * @notice Test depositAndFill with near maximum values
+     * @notice Test swap with near maximum values
      */
-    function testDepositAndFillNearMax() public {
+    function testSwapNearMax() public {
         // Create new tokens for large value test
         MockERC20 largeInputToken = new MockERC20("LargeInput", "LIN");
         MockERC20 largeOutputToken = new MockERC20("LargeOutput", "LOUT");
@@ -182,18 +182,18 @@ contract SingleChainSwapTests is TestUtils {
         vm.prank(solver);
         largeOutputToken.approve(address(localAori), type(uint256).max);
         
-        // Execute depositAndFill
+        // Execute swap
         vm.prank(solver);
-        localAori.depositAndFill(order, signature);
+        localAori.swap(order, signature);
         
         // Verify solver's unlocked balance
         assertEq(localAori.getUnlockedBalances(solver, address(largeInputToken)), nearMaxValue, "Solver should have near max unlocked balance");
     }
     
     /**
-     * @notice Test depositAndFill with values that would overflow uint128
+     * @notice Test swap with values that would overflow uint128
      */
-    function testDepositAndFillOverflow() public {
+    function testSwapOverflow() public {
         // First try exactly at MAX_UINT128
         MockERC20 overflowToken = new MockERC20("Overflow", "OVF");
         
@@ -223,7 +223,7 @@ contract SingleChainSwapTests is TestUtils {
         
         // Execute first - should work fine with MAX_UINT128
         vm.prank(cleanSolver);
-        localAori.depositAndFill(maxOrder, maxSignature);
+        localAori.swap(maxOrder, maxSignature);
         
         // Now create a new order and try to add 1 more token - this should trigger our check
         overflowToken.mint(userA, 1);
@@ -250,7 +250,7 @@ contract SingleChainSwapTests is TestUtils {
         // This should trigger our custom error
         vm.prank(cleanSolver);
         vm.expectRevert("Balance operation failed");
-        localAori.depositAndFill(tinyOrder, tinySignature);
+        localAori.swap(tinyOrder, tinySignature);
     }
     
     // =========================================================================
@@ -1005,8 +1005,8 @@ contract SingleChainSwapTests is TestUtils {
         vm.startPrank(solver);
         outputToken.approve(address(localAori), OUTPUT_AMOUNT * 3);
         
-        // Execute Path 1: depositAndFill
-        localAori.depositAndFill(order1, sig1);
+        // Execute Path 1: swap
+        localAori.swap(order1, sig1);
         
         // Execute Path 2: deposit
         localAori.deposit(order2, sig2);
@@ -1068,9 +1068,9 @@ contract SingleChainSwapTests is TestUtils {
         vm.prank(solver);
         minToken2.approve(address(localAori), 1);
         
-        // Execute depositAndFill
+        // Execute swap
         vm.prank(solver);
-        localAori.depositAndFill(order, signature);
+        localAori.swap(order, signature);
         
         // Verify settlement with minimal values
         bytes32 orderId = localAori.hash(order);

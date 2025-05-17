@@ -5,27 +5,27 @@ import "forge-std/Test.sol";
 import "./TestUtils.sol";
 
 /**
- * @title DepositAndFillTest
- * @notice Test suite for the depositAndFill function in Aori contract
+ * @title SwapTest
+ * @notice Test suite for the swap function in Aori contract
  *
- * This test file verifies the functionality of the depositAndFill function which
+ * This test file verifies the functionality of the swap function which
  * allows single-chain swaps to be executed in a single atomic transaction. It tests
  * successful execution, failure conditions, balance updates, and integration with
  * other contract components.
  *
  * Tests:
- * 1. testDepositAndFillSuccess - Tests basic successful execution of depositAndFill
- * 2. testDepositAndFillWithExactAmounts - Tests depositAndFill with exact token amounts
- * 3. testDepositAndFillReversionForCrossChainOrder - Tests reversion when used for cross-chain order
- * 4. testDepositAndFillSignatureValidation - Tests signature validation during depositAndFill
- * 5. testDepositAndFillOrderStatusTransition - Tests proper order status transitions
- * 6. testDepositAndFillEventEmission - Tests correct event emission
- * 7. testDepositAndFillBalanceUpdates - Tests accurate balance updates after execution
- * 8. testDepositAndFillWithPreviouslyUsedOrder - Tests prevention of order reuse
- * 9. testDepositAndFillPermissions - Tests solver permissions requirement
- * 10. testDepositAndFillWhenPaused - Tests behavior when contract is paused
+ * 1. testSwapSuccess - Tests basic successful execution of swap
+ * 2. testSwapWithExactAmounts - Tests swap with exact token amounts
+ * 3. testSwapReversionForCrossChainOrder - Tests reversion when used for cross-chain order
+ * 4. testSwapSignatureValidation - Tests signature validation during swap
+ * 5. testSwapOrderStatusTransition - Tests proper order status transitions
+ * 6. testSwapEventEmission - Tests correct event emission
+ * 7. testSwapBalanceUpdates - Tests accurate balance updates after execution
+ * 8. testSwapWithPreviouslyUsedOrder - Tests prevention of order reuse
+ * 9. testSwapPermissions - Tests solver permissions requirement
+ * 10. testSwapWhenPaused - Tests behavior when contract is paused
  */
-contract DepositAndFillTest is Test, TestUtils {
+contract SwapTest is Test, TestUtils {
     // Main test state variables are inherited from TestUtils
     uint256 private nonWhitelistedUserPrivKey = 0xCAFE;
     address private nonWhitelistedUser;
@@ -45,8 +45,8 @@ contract DepositAndFillTest is Test, TestUtils {
     /*        Success Cases           */
     /**********************************/
     
-    /// @notice Tests a basic successful depositAndFill operation with standard parameters
-    function testDepositAndFillSuccess() public {
+    /// @notice Tests a basic successful swap operation with standard parameters
+    function testSwapSuccess() public {
         // Prepare the test scenario
         IAori.Order memory order = createValidSingleChainOrder();
         bytes memory signature = signOrder(order);
@@ -64,9 +64,9 @@ contract DepositAndFillTest is Test, TestUtils {
         uint256 initialSolverInputBalance = inputToken.balanceOf(solver);
         uint256 initialSolverOutputBalance = outputToken.balanceOf(solver);
         
-        // Execute depositAndFill
+        // Execute swap
         vm.prank(solver);
-        localAori.depositAndFill(order, signature);
+        localAori.swap(order, signature);
         
         // Verify final balances
         uint256 finalUserAInputBalance = inputToken.balanceOf(userA);
@@ -89,8 +89,8 @@ contract DepositAndFillTest is Test, TestUtils {
         assertEq(uint8(localAori.orderStatus(orderHash)), uint8(IAori.OrderStatus.Settled), "Order status should be Settled");
     }
     
-    /// @notice Tests depositAndFill with exact token amounts (no dust or rounding)
-    function testDepositAndFillWithExactAmounts() public {
+    /// @notice Tests swap with exact token amounts (no dust or rounding)
+    function testSwapWithExactAmounts() public {
         // Create an order with exact, round amounts
         IAori.Order memory order = createValidSingleChainOrder();
         order.inputAmount = 1000 * 10**18; // Exact 1000 tokens
@@ -109,9 +109,9 @@ contract DepositAndFillTest is Test, TestUtils {
         vm.prank(solver);
         outputToken.approve(address(localAori), order.outputAmount);
         
-        // Execute depositAndFill
+        // Execute swap
         vm.prank(solver);
-        localAori.depositAndFill(order, signature);
+        localAori.swap(order, signature);
         
         // Verify final balances are exactly as expected
         assertEq(inputToken.balanceOf(userA), initialUserAInputBalance - order.inputAmount, "User A input balance incorrect");
@@ -126,8 +126,8 @@ contract DepositAndFillTest is Test, TestUtils {
     /*        Failure Cases           */
     /**********************************/
     
-    /// @notice Tests that depositAndFill reverts when used with a cross-chain order
-    function testDepositAndFillReversionForCrossChainOrder() public {
+    /// @notice Tests that swap reverts when used with a cross-chain order
+    function testSwapReversionForCrossChainOrder() public {
         // Create a cross-chain order
         IAori.Order memory order = createValidSingleChainOrder();
         order.dstEid = remoteEid; // Different from srcEid for cross-chain
@@ -141,14 +141,14 @@ contract DepositAndFillTest is Test, TestUtils {
         vm.prank(solver);
         outputToken.approve(address(localAori), order.outputAmount);
         
-        // Execute depositAndFill - should revert
+        // Execute swap - should revert
         vm.prank(solver);
         vm.expectRevert("Only for single-chain swaps");
-        localAori.depositAndFill(order, signature);
+        localAori.swap(order, signature);
     }
     
-    /// @notice Tests that depositAndFill validates signatures properly
-    function testDepositAndFillSignatureValidation() public {
+    /// @notice Tests that swap validates signatures properly
+    function testSwapSignatureValidation() public {
         // Create a valid order
         IAori.Order memory order = createValidSingleChainOrder();
         
@@ -162,14 +162,14 @@ contract DepositAndFillTest is Test, TestUtils {
         vm.prank(solver);
         outputToken.approve(address(localAori), order.outputAmount);
         
-        // Execute depositAndFill with invalid signature - should revert
+        // Execute swap with invalid signature - should revert
         vm.prank(solver);
         vm.expectRevert("InvalidSignature");
-        localAori.depositAndFill(order, invalidSignature);
+        localAori.swap(order, invalidSignature);
     }
     
-    /// @notice Tests that an order can't be used more than once with depositAndFill
-    function testDepositAndFillWithPreviouslyUsedOrder() public {
+    /// @notice Tests that an order can't be used more than once with swap
+    function testSwapWithPreviouslyUsedOrder() public {
         // Create a valid order
         IAori.Order memory order = createValidSingleChainOrder();
         bytes memory signature = signOrder(order);
@@ -181,18 +181,18 @@ contract DepositAndFillTest is Test, TestUtils {
         vm.prank(solver);
         outputToken.approve(address(localAori), order.outputAmount * 2);
         
-        // First depositAndFill should succeed
+        // First swap should succeed
         vm.prank(solver);
-        localAori.depositAndFill(order, signature);
+        localAori.swap(order, signature);
         
-        // Second depositAndFill with same order should fail
+        // Second swap with same order should fail
         vm.prank(solver);
         vm.expectRevert("Order already exists");
-        localAori.depositAndFill(order, signature);
+        localAori.swap(order, signature);
     }
     
-    /// @notice Tests that depositAndFill enforces solver permissions
-    function testDepositAndFillPermissions() public {
+    /// @notice Tests that swap enforces solver permissions
+    function testSwapPermissions() public {
         // Create a valid order
         IAori.Order memory order = createValidSingleChainOrder();
         bytes memory signature = signOrder(order);
@@ -204,14 +204,14 @@ contract DepositAndFillTest is Test, TestUtils {
         vm.prank(nonWhitelistedUser); // non-whitelisted user
         outputToken.approve(address(localAori), order.outputAmount);
         
-        // Try depositAndFill from non-solver - should revert
+        // Try swap from non-solver - should revert
         vm.prank(nonWhitelistedUser);
         vm.expectRevert("Invalid solver");
-        localAori.depositAndFill(order, signature);
+        localAori.swap(order, signature);
     }
     
-    /// @notice Tests that depositAndFill is blocked when contract is paused
-    function testDepositAndFillWhenPaused() public {
+    /// @notice Tests that swap is blocked when contract is paused
+    function testSwapWhenPaused() public {
         // Create a valid order
         IAori.Order memory order = createValidSingleChainOrder();
         bytes memory signature = signOrder(order);
@@ -227,27 +227,27 @@ contract DepositAndFillTest is Test, TestUtils {
         vm.prank(address(this)); // owner from TestUtils setup
         localAori.pause();
         
-        // Try depositAndFill while paused - should revert
+        // Try swap while paused - should revert
         vm.prank(solver);
         // Instead of expecting a specific string, we'll just expect any revert
         // since OpenZeppelin's newer versions use custom errors like EnforcedPause()
         vm.expectRevert();
-        localAori.depositAndFill(order, signature);
+        localAori.swap(order, signature);
         
         // Unpause and verify it works now
         vm.prank(address(this)); // owner from TestUtils setup
         localAori.unpause();
         
         vm.prank(solver);
-        localAori.depositAndFill(order, signature);
+        localAori.swap(order, signature);
     }
     
     /**********************************/
     /*        Behavioral Tests        */
     /**********************************/
     
-    /// @notice Tests the proper order status transition in depositAndFill
-    function testDepositAndFillOrderStatusTransition() public {
+    /// @notice Tests the proper order status transition in swap
+    function testSwapOrderStatusTransition() public {
         // Create a valid order
         IAori.Order memory order = createValidSingleChainOrder();
         bytes memory signature = signOrder(order);
@@ -263,16 +263,16 @@ contract DepositAndFillTest is Test, TestUtils {
         vm.prank(solver);
         outputToken.approve(address(localAori), order.outputAmount);
         
-        // Execute depositAndFill
+        // Execute swap
         vm.prank(solver);
-        localAori.depositAndFill(order, signature);
+        localAori.swap(order, signature);
         
         // Verify final status - jumps directly from Unknown to Settled
         assertEq(uint8(localAori.orderStatus(orderHash)), uint8(IAori.OrderStatus.Settled), "Final order status should be Settled");
     }
     
-    /// @notice Tests correct event emission during depositAndFill
-    function testDepositAndFillEventEmission() public {
+    /// @notice Tests correct event emission during swap
+    function testSwapEventEmission() public {
         // Create a valid order
         IAori.Order memory order = createValidSingleChainOrder();
         bytes memory signature = signOrder(order);
@@ -285,15 +285,15 @@ contract DepositAndFillTest is Test, TestUtils {
         vm.prank(solver);
         outputToken.approve(address(localAori), order.outputAmount);
         
-        // Execute depositAndFill and check for event
+        // Execute swap and check for event
         vm.prank(solver);
         vm.expectEmit(true, false, false, false);
         emit IAori.Settle(orderHash);
-        localAori.depositAndFill(order, signature);
+        localAori.swap(order, signature);
     }
     
-    /// @notice Tests accurate balance updates after depositAndFill execution
-    function testDepositAndFillBalanceUpdates() public {
+    /// @notice Tests accurate balance updates after swap execution
+    function testSwapBalanceUpdates() public {
         // Create a valid order
         IAori.Order memory order = createValidSingleChainOrder();
         bytes memory signature = signOrder(order);
@@ -311,9 +311,9 @@ contract DepositAndFillTest is Test, TestUtils {
         uint256 initialSolverLocked = localAori.getLockedBalances(solver, address(inputToken));
         uint256 initialSolverUnlocked = localAori.getUnlockedBalances(solver, address(inputToken));
         
-        // Execute depositAndFill
+        // Execute swap
         vm.prank(solver);
-        localAori.depositAndFill(order, signature);
+        localAori.swap(order, signature);
         
         // Verify balance changes
         // 1. Offerer balances shouldn't change in contract (tokens go from wallet, not contract)

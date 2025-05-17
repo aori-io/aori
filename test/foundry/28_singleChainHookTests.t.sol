@@ -15,7 +15,7 @@ pragma solidity 0.8.28;
  * 5. testSingleChainDepositWithHookFailure - Tests handling of hook execution failures
  * 6. testSingleChainDepositWithHookBalances - Tests balance updates after execution
  * 7. testSingleChainDepositWithHookCancel - Tests order cancellation with hooks
- * 8. testSingleChainDepositAndFill - Tests the direct depositAndFill method
+ * 8. testSingleChainSwap - Tests the direct swap method
  */
 import {Aori, IAori} from "../../contracts/Aori.sol";
 import {TestUtils} from "./TestUtils.sol";
@@ -243,9 +243,9 @@ contract SingleChainHookTest is TestUtils {
     }
     
     /**
-     * @notice Test the direct depositAndFill method for single-chain swaps
+     * @notice Test the direct swap method for single-chain swaps
      */
-    function testSingleChainDepositAndFill() public {
+    function testSingleChainSwap() public {
         // Create the order
         IAori.Order memory order = createSingleChainOrderWithHook(
             recipient,
@@ -253,7 +253,7 @@ contract SingleChainHookTest is TestUtils {
             inputAmount,
             address(outputToken),
             outputAmount,
-            address(0) // No hook needed for depositAndFill
+            address(0) // No hook needed for swap
         );
         
         // Generate signature
@@ -276,9 +276,9 @@ contract SingleChainHookTest is TestUtils {
         // Calculate order ID
         bytes32 orderId = localAori.hash(order);
         
-        // Execute depositAndFill
+        // Execute swap
         vm.prank(solver);
-        localAori.depositAndFill(order, signature);
+        localAori.swap(order, signature);
         
         // Verify order status
         assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Settled), "Order should be settled");
@@ -294,9 +294,9 @@ contract SingleChainHookTest is TestUtils {
     }
     
     /**
-     * @notice Test depositAndFill with extra output
+     * @notice Test swap with extra output
      */
-    function testSingleChainDepositAndFillExtraOutput() public {
+    function testSingleChainSwapExtraOutput() public {
         // Create the order
         IAori.Order memory order = createSingleChainOrderWithHook(
             recipient,
@@ -304,7 +304,7 @@ contract SingleChainHookTest is TestUtils {
             inputAmount,
             address(outputToken),
             outputAmount,
-            address(0) // No hook needed for depositAndFill
+            address(0) // No hook needed for swap
         );
         
         // Generate signature
@@ -325,9 +325,9 @@ contract SingleChainHookTest is TestUtils {
         uint256 initialOutputTokenSolver = outputToken.balanceOf(solver);
         uint256 initialOutputTokenRecipient = outputToken.balanceOf(recipient);
         
-        // Execute depositAndFill
+        // Execute swap
         vm.prank(solver);
-        localAori.depositAndFill(order, signature);
+        localAori.swap(order, signature);
         
         // Verify token transfers
         assertEq(inputToken.balanceOf(userA), initialInputTokenUserA - inputAmount, "UserA input token balance should decrease");
@@ -336,9 +336,9 @@ contract SingleChainHookTest is TestUtils {
     }
     
     /**
-     * @notice Test depositAndFill with insufficient approval
+     * @notice Test swap with insufficient approval
      */
-    function testSingleChainDepositAndFillInsufficientApproval() public {
+    function testSingleChainSwapInsufficientApproval() public {
         // Create the order
         IAori.Order memory order = createSingleChainOrderWithHook(
             recipient,
@@ -346,7 +346,7 @@ contract SingleChainHookTest is TestUtils {
             inputAmount,
             address(outputToken),
             outputAmount,
-            address(0) // No hook needed for depositAndFill
+            address(0) // No hook needed for swap
         );
         
         // Generate signature
@@ -362,13 +362,13 @@ contract SingleChainHookTest is TestUtils {
         // Should revert when solver hasn't approved the output tokens
         vm.prank(solver);
         vm.expectRevert(); // ERC20 approval error
-        localAori.depositAndFill(order, signature);
+        localAori.swap(order, signature);
     }
     
     /**
-     * @notice Test depositAndFill with non-whitelisted solver
+     * @notice Test swap with non-whitelisted solver
      */
-    function testSingleChainDepositAndFillNonWhitelistedSolver() public {
+    function testSingleChainSwapNonWhitelistedSolver() public {
         // Create a non-whitelisted solver
         address nonWhitelistedSolver = makeAddr("nonWhitelistedSolver");
         
@@ -379,7 +379,7 @@ contract SingleChainHookTest is TestUtils {
             inputAmount,
             address(outputToken),
             outputAmount,
-            address(0) // No hook needed for depositAndFill
+            address(0) // No hook needed for swap
         );
         
         // Generate signature
@@ -397,7 +397,7 @@ contract SingleChainHookTest is TestUtils {
         // Should revert with "Invalid solver"
         vm.prank(nonWhitelistedSolver);
         vm.expectRevert("Invalid solver");
-        localAori.depositAndFill(order, signature);
+        localAori.swap(order, signature);
     }
     
     /**

@@ -125,7 +125,7 @@ interface IAori {
     /*                     SINGLE-CHAIN-SWAPS                     */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    function depositAndFill(Order calldata order, bytes calldata signature) external;
+    function swap(Order calldata order, bytes calldata signature) external;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                        UTILITY FUNCTIONS                   */

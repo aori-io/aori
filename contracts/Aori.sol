@@ -501,13 +501,13 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      * @param order The order details
      * @param signature The user's EIP712 signature over the order
      */
-    function depositAndFill(
+    function swap(
         Order calldata order,
         bytes calldata signature
     ) external nonReentrant whenNotPaused onlySolver {
         // This function is only for single-chain swaps
         require(order.isSingleChainSwap(), "Only for single-chain swaps");
-        bytes32 orderId = order.validateDepositAndFill(
+        bytes32 orderId = order.validateSwap(
             signature,
             _hashOrder712(order),
             ENDPOINT_ID,

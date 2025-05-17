@@ -102,7 +102,7 @@ library ValidationUtils {
      * @param orderStatus The status mapping function to check order status
      * @return orderId The calculated order hash
      */
-    function validateDepositAndFill(
+    function validateSwap(
         IAori.Order calldata order,
         bytes calldata signature,
         bytes32 digest,
