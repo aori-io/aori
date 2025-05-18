@@ -169,7 +169,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         }
         
         // This will return false instead of reverting if validation fails
-        try this.quote(eid, 0, bytes(""), false, 0, address(0)) returns (uint256) {
+        try this.quote(eid, 0, bytes(""), false, ENDPOINT_ID, address(0)) returns (uint256) {
             isSupportedChain[eid] = true;
             return true;
         } catch {
