@@ -13,8 +13,7 @@ import { OApp } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
  * @notice Tests chain validation and support functionality for Aori contract
  * 
  * Test coverage:
- * - Adding valid supported chains with EID validation
- * - Preventing addition of invalid/unsupported EIDs
+ * - Adding supported chains
  * - Removing supported chains
  * - Deposit validation with supported/unsupported destination chains
  * - Permission checks for admin functions
@@ -25,7 +24,6 @@ contract SupportedChainTest is TestUtils {
     uint32 constant ETHEREUM_EID = 30101;   // Ethereum Mainnet
     uint32 constant AVALANCHE_EID = 30106;  // Avalanche Mainnet  
     uint32 constant ARBITRUM_EID = 30110;   // Arbitrum Mainnet
-    uint32 constant INVALID_EID = 999999;   // Non-existent EID
     
     function setUp() public override {
         // Call the parent setup to initialize the test environment
@@ -43,13 +41,6 @@ contract SupportedChainTest is TestUtils {
      * @notice Tests adding a valid supported chain
      */
     function testAddValidSupportedChain() public {
-        // Mock successful quote call for a real chain
-        vm.mockCall(
-            address(localAori),
-            abi.encodeWithSelector(localAori.quote.selector, ETHEREUM_EID, 0, bytes(""), false, 0, address(0)),
-            abi.encode(1 ether) // Return a mock fee
-        );
-        
         // Add Ethereum as supported chain
         vm.prank(address(this)); // TestUtils is the owner
         localAori.addSupportedChain(ETHEREUM_EID);
@@ -60,37 +51,10 @@ contract SupportedChainTest is TestUtils {
     }
     
     /**
-     * @notice Tests adding an invalid chain ID
-     */
-    function testAddInvalidChain() public {
-        // Mock a failing quote call for invalid chain
-        vm.mockCallRevert(
-            address(localAori),
-            abi.encodeWithSelector(localAori.quote.selector, INVALID_EID, 0, bytes(""), false, 0, address(0)),
-            abi.encode("LayerZero: invalid endpoint")
-        );
-        
-        // Attempt to add invalid chain should revert
-        vm.prank(address(this)); // TestUtils is the owner
-        vm.expectRevert("Invalid or unsupported LayerZero EID");
-        localAori.addSupportedChain(INVALID_EID);
-        
-        // Verify chain is not supported
-        bool isSupported = localAori.isSupportedChain(INVALID_EID);
-        assertFalse(isSupported, "Invalid chain should not be supported");
-    }
-    
-    /**
      * @notice Tests removing a supported chain
      */
     function testRemoveSupportedChain() public {
         // First add a chain
-        vm.mockCall(
-            address(localAori),
-            abi.encodeWithSelector(localAori.quote.selector, AVALANCHE_EID, 0, bytes(""), false, 0, address(0)),
-            abi.encode(1 ether)
-        );
-        
         vm.startPrank(address(this)); // TestUtils is the owner
         localAori.addSupportedChain(AVALANCHE_EID);
         
@@ -142,12 +106,6 @@ contract SupportedChainTest is TestUtils {
      */
     function testDepositWithSupportedDestination() public {
         // Add the remote chain as supported
-        vm.mockCall(
-            address(localAori),
-            abi.encodeWithSelector(localAori.quote.selector, remoteEid, 0, bytes(""), false, 0, address(0)),
-            abi.encode(1 ether)
-        );
-        
         vm.prank(address(this));
         localAori.addSupportedChain(remoteEid);
         
@@ -197,7 +155,7 @@ contract SupportedChainTest is TestUtils {
     }
     
     /**
-     * @notice Tests that current chain's EID is always valid without quote validation when re-added
+     * @notice Tests that current chain's EID is always valid when re-added
      */
     function testCurrentChainAlwaysValid() public {
         // Create a fresh instance with local EID not supported
@@ -205,7 +163,7 @@ contract SupportedChainTest is TestUtils {
         localAori.removeSupportedChain(localEid);
         assertFalse(localAori.isSupportedChain(localEid), "Chain should not be supported after removal");
         
-        // Add current chain without mocking quote call - should work without validation
+        // Add current chain - should work
         vm.prank(address(this));
         localAori.addSupportedChain(localEid);
         
@@ -214,34 +172,14 @@ contract SupportedChainTest is TestUtils {
     }
     
     /**
-     * @notice Tests batch adding of supported chains with mixed valid and invalid EIDs
+     * @notice Tests batch adding of supported chains
      */
     function testAddSupportedChainsBatch() public {
-        // Create an array with valid and invalid EIDs
-        uint32[] memory eids = new uint32[](4);
-        eids[0] = ETHEREUM_EID;  // Valid
-        eids[1] = INVALID_EID;   // Invalid
-        eids[2] = AVALANCHE_EID; // Valid
-        eids[3] = localEid;      // Valid (current chain)
-        
-        // Mock successful quote calls for valid chains
-        vm.mockCall(
-            address(localAori),
-            abi.encodeWithSelector(localAori.quote.selector, ETHEREUM_EID, 0, bytes(""), false, 0, address(0)),
-            abi.encode(1 ether)
-        );
-        vm.mockCall(
-            address(localAori),
-            abi.encodeWithSelector(localAori.quote.selector, AVALANCHE_EID, 0, bytes(""), false, 0, address(0)),
-            abi.encode(1 ether)
-        );
-        
-        // Mock failing quote call for invalid chain
-        vm.mockCallRevert(
-            address(localAori),
-            abi.encodeWithSelector(localAori.quote.selector, INVALID_EID, 0, bytes(""), false, 0, address(0)),
-            abi.encode("LayerZero: invalid endpoint")
-        );
+        // Create an array with multiple valid EIDs
+        uint32[] memory eids = new uint32[](3);
+        eids[0] = ETHEREUM_EID;
+        eids[1] = AVALANCHE_EID;
+        eids[2] = localEid;
         
         // Call the batch function
         vm.prank(address(this));
@@ -249,17 +187,12 @@ contract SupportedChainTest is TestUtils {
         
         // Verify results array
         assertTrue(results[0], "ETHEREUM_EID should be added successfully");
-        assertFalse(results[1], "INVALID_EID should fail to add");
-        assertTrue(results[2], "AVALANCHE_EID should be added successfully");
-        assertTrue(results[3], "localEid should be added successfully");
+        assertTrue(results[1], "AVALANCHE_EID should be added successfully");
+        assertTrue(results[2], "localEid should be added successfully");
         
         // Verify mapping state reflects results
         assertTrue(localAori.isSupportedChain(ETHEREUM_EID), "ETHEREUM_EID should be supported");
-        assertFalse(localAori.isSupportedChain(INVALID_EID), "INVALID_EID should not be supported");
         assertTrue(localAori.isSupportedChain(AVALANCHE_EID), "AVALANCHE_EID should be supported");
         assertTrue(localAori.isSupportedChain(localEid), "localEid should be supported");
-        
-        // Additional check: verify transaction didn't revert despite one invalid EID
-        assertTrue(true, "Transaction completed successfully despite invalid EID");
     }
 }
