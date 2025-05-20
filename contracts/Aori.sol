@@ -317,8 +317,9 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             // Save the order details
             orders[orderId] = order;
             
-            // Settle the order immediately with hook flag set to true
-            _settleSingleChainSwap(orderId, order, msg.sender, amountReceived, true);
+            // Update order status directly (no need for _settleSingleChainSwap)
+            orderStatus[orderId] = IAori.OrderStatus.Settled;
+            emit Settle(orderId);
         } else {
             // Process the cross-chain deposit
             _postDeposit(tokenReceived, amountReceived, order, orderId);
@@ -359,6 +360,16 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             
             // Set token received to the output token
             tokenReceived = order.outputToken;
+            
+            // Handle token distribution for single-chain swaps here
+            // 1. Transfer agreed amount to recipient
+            IERC20(order.outputToken).safeTransfer(order.recipient, order.outputAmount);
+            
+            // 2. Return any surplus to the solver
+            uint256 surplus = amountReceived - order.outputAmount;
+            if (surplus > 0) {
+                IERC20(order.outputToken).safeTransfer(msg.sender, surplus);
+            }
         } else {
             // For cross-chain swaps, observe balance changes in the preferred token
             amountReceived = ExecutionUtils.observeBalChg(
@@ -415,8 +426,8 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
 
         // single-chain swap path
         if (order.isSingleChainSwap()) {
-            uint256 amountReceived = order.outputAmount;
-            _settleSingleChainSwap(orderId, order, msg.sender, amountReceived, false);
+            // Use simplified settlement without hook flag since we know it's a direct fill
+            _settleSingleChainSwap(orderId, order, msg.sender);
             return;
         }
 
@@ -618,79 +629,48 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     }
 
     /**
-     * @notice Handles settlement of same-chain swaps
+     * @notice Handles settlement of same-chain swaps without hooks
      * @dev Performs immediate settlement without cross-chain messaging for same-chain orders
      * @param orderId The unique identifier for the order
      * @param order The order details
      * @param solver The address of the solver
-     * @param amountReceived The actual output amount (may be more than order.outputAmount)
      */
     function _settleSingleChainSwap(
         bytes32 orderId,
         Order memory order,
-        address solver,
-        uint256 amountReceived,
-        bool withHook
+        address solver
     ) internal {
         // Capture initial balance state for validation
         uint128 initialOffererLocked = balances[order.offerer][order.inputToken].locked;
         uint128 initialSolverUnlocked = balances[solver][order.inputToken].unlocked;
-
-        // Only transfer output tokens if this is a hook-based settlement
-        if (withHook) {
-            // Transfer the output token to the recipient (only in hook flow)
-            IERC20(order.outputToken).safeTransfer(order.recipient, order.outputAmount);
-
-            // Return any surplus to the solver
-            uint256 surplus = amountReceived - order.outputAmount;
-            if (surplus > 0) {
-                IERC20(order.outputToken).safeTransfer(solver, surplus);
-            }
-        }
-
-        // Credit tokens to solver - with different accounting based on path
-        if (!withHook) {
-            // Standard fill path - deduct from locked balance
-            if (balances[order.offerer][order.inputToken].locked >= order.inputAmount) {
-                
-                // Unlock the tokens from offerer's balance
-                bool successLock = balances[order.offerer][order.inputToken].decreaseLockedNoRevert(
-                    uint128(order.inputAmount)
-                );
-                
-                // Credit the tokens directly to the solver's unlocked balance
-                bool successUnlock = balances[solver][order.inputToken].increaseUnlockedNoRevert(
-                    uint128(order.inputAmount)
-                );
-                
-                // Verify both operations succeeded
-                require(successLock && successUnlock, "Balance operation failed");
-            }
+        
+        // Move tokens from offerer's locked balance to solver's unlocked balance
+        if (balances[order.offerer][order.inputToken].locked >= order.inputAmount) {
+            bool successLock = balances[order.offerer][order.inputToken].decreaseLockedNoRevert(
+                uint128(order.inputAmount)
+            );
             
-            // Validate balance transfer for standard path
-            uint128 finalOffererLocked = balances[order.offerer][order.inputToken].locked;
-            uint128 finalSolverUnlocked = balances[solver][order.inputToken].unlocked;
-
-            balances[order.offerer][order.inputToken].validateBalanceTransferOrRevert(
-                initialOffererLocked,
-                finalOffererLocked,
-                initialSolverUnlocked,
-                finalSolverUnlocked,
+            bool successUnlock = balances[solver][order.inputToken].increaseUnlockedNoRevert(
                 uint128(order.inputAmount)
             );
-        } else {
-            // Hook path - tokens already transferred to hook
-            // Just credit the solver directly
-            bool success = balances[solver][order.inputToken].increaseUnlockedNoRevert(
-                uint128(order.inputAmount)
-            );
-            require(success, "Balance operation failed");
+            
+            require(successLock && successUnlock, "Balance operation failed");
         }
+        
+        // Validate balance transfer
+        uint128 finalOffererLocked = balances[order.offerer][order.inputToken].locked;
+        uint128 finalSolverUnlocked = balances[solver][order.inputToken].unlocked;
 
-        // Order is immediately settled (in both paths)
+        balances[order.offerer][order.inputToken].validateBalanceTransferOrRevert(
+            initialOffererLocked,
+            finalOffererLocked,
+            initialSolverUnlocked,
+            finalSolverUnlocked,
+            uint128(order.inputAmount)
+        );
+
+        // Order is immediately settled
         orderStatus[orderId] = IAori.OrderStatus.Settled;
-
-        // Emit event
         emit Settle(orderId);
     }
 
