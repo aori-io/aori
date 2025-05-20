@@ -807,8 +807,9 @@ contract SingleChainSwapTests is TestUtils {
         // Verify order status
         assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Settled), "Order should be settled immediately");
         
-        // Verify solver has received credit for the input amount
-        assertEq(localAori.getUnlockedBalances(solver, address(inputToken)), INPUT_AMOUNT, "Solver should have unlocked balance");
+        // In the hook path, solver does NOT receive credit for input tokens
+        // since they went directly to the hook, not through the contract
+        assertEq(localAori.getUnlockedBalances(solver, address(inputToken)), 0, "Solver should NOT have unlocked balance in hook path");
     }
     
     /**
@@ -975,11 +976,12 @@ contract SingleChainSwapTests is TestUtils {
             recipient, address(inputToken), INPUT_AMOUNT + 2, address(outputToken), OUTPUT_AMOUNT
         );
         
-        // Calculate accurate total
-        uint256 expectedTotal = INPUT_AMOUNT + (INPUT_AMOUNT + 1) + (INPUT_AMOUNT + 2);
+        // Calculate accurate total - only paths 1 and 2 credit solver with input tokens
+        // Path 3 (hook path) doesn't credit solver with input tokens
+        uint256 expectedTotal = INPUT_AMOUNT + (INPUT_AMOUNT + 1);
         
         // Ensure userA has enough tokens
-        inputToken.mint(userA, expectedTotal);
+        inputToken.mint(userA, INPUT_AMOUNT + (INPUT_AMOUNT + 1) + (INPUT_AMOUNT + 2));
         
         // Sign all orders
         bytes memory sig1 = signOrder(order1);
@@ -988,7 +990,7 @@ contract SingleChainSwapTests is TestUtils {
         
         // Approve tokens for all paths - explicit larger amounts
         vm.startPrank(userA);
-        inputToken.approve(address(localAori), expectedTotal);
+        inputToken.approve(address(localAori), type(uint256).max);
         vm.stopPrank();
         
         // Setup hook for path 3
@@ -1024,8 +1026,8 @@ contract SingleChainSwapTests is TestUtils {
         // Get solver unlocked balances for all paths
         uint256 balance1 = localAori.getUnlockedBalances(solver, address(inputToken));
         
-        // Verify all paths resulted in the same credit to the solver
-        assertEq(balance1, expectedTotal, "All paths should credit solver the correct total amount");
+        // Verify paths 1 and 2 credit solver, but path 3 (hook) doesn't
+        assertEq(balance1, expectedTotal, "Only non-hook paths should credit solver with input tokens");
         
         // Verify recipient received the same amount each time (3 * OUTPUT_AMOUNT)
         assertEq(outputToken.balanceOf(recipient), OUTPUT_AMOUNT * 3, "Recipient should receive the same amount from all paths");
