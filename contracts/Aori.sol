@@ -733,13 +733,28 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      */
     function _cancel(bytes32 orderId) internal {
         require(orderStatus[orderId] == IAori.OrderStatus.Active, "Can only cancel active orders");
-        orderStatus[orderId] = IAori.OrderStatus.Cancelled;
-
+        
+        // Get order details and amount before changing state
         Order memory order = orders[orderId];
-        balances[order.offerer][order.inputToken].unlock(uint128(order.inputAmount));
-
-        // When called internally without a cross-chain message, use empty values for the receipt
-        emit CancelSent(orderId, bytes32(0), 0, 0);
+        uint128 amountToReturn = uint128(order.inputAmount);
+        address tokenAddress = order.inputToken;
+        address recipient = order.offerer;
+        
+        // CRITICAL: Validate contract has sufficient tokens before any state changes
+        require(IERC20(tokenAddress).balanceOf(address(this)) >= amountToReturn, "Insufficient contract balance");
+        
+        // Update state first (checks-effects)
+        orderStatus[orderId] = IAori.OrderStatus.Cancelled;
+        
+        // Decrease locked balance
+        bool successDecrease = balances[recipient][tokenAddress].decreaseLockedNoRevert(amountToReturn);
+        require(successDecrease, "Failed to decrease locked balance");
+        
+        // Transfer tokens directly to offerer (interactions)
+        IERC20(tokenAddress).safeTransfer(recipient, amountToReturn);
+        
+        // Emit the Cancel event from IAori interface
+        emit Cancel(orderId);
     }
 
     /**
@@ -931,8 +946,8 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             MAX_FILLS_PER_SETTLE
         );
 
-        // Get the quote from LayerZero
-        MessagingFee memory messagingFee = _quote(
+    // Get the quote from LayerZero
+    MessagingFee memory messagingFee = _quote(
             _dstEid,
             new bytes(payloadSize),
             _options,

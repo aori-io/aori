@@ -404,6 +404,9 @@ contract SingleChainHookTest is TestUtils {
      * @notice Test order cancellation after deposit (for cross-chain orders)
      */
     function testSingleChainDepositWithHookCancel() public {
+        // Store user's initial token balance
+        uint256 initialUserBalance = convertedToken.balanceOf(userA);
+        
         // Create a normal order but don't use immediate settlement
         // This requires modifying our test to use cross-chain setup to avoid immediate settlement
         
@@ -461,15 +464,14 @@ contract SingleChainHookTest is TestUtils {
         // Verify order is cancelled
         assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Cancelled), "Order should be cancelled");
         
-        // Verify unlocked balance
-        assertEq(localAori.getUnlockedBalances(userA, address(convertedToken)), inputAmount, "Tokens should be unlocked");
+        // Verify tokens were transferred directly back to the user
+        uint256 finalUserBalance = convertedToken.balanceOf(userA);
+        assertEq(finalUserBalance, initialUserBalance + inputAmount, "Tokens should be returned directly to offerer");
         
-        // Withdraw the unlocked tokens
-        vm.prank(userA);
-        localAori.withdraw(address(convertedToken));
+        // Verify no unlocked balance exists
+        assertEq(localAori.getUnlockedBalances(userA, address(convertedToken)), 0, "No unlocked balance should exist with direct transfer");
         
-        // Verify tokens were transferred back
-        assertEq(convertedToken.balanceOf(userA), inputAmount, "Tokens should be returned to offerer");
+        // No withdrawal needed since tokens were transferred directly
     }
     
     /**

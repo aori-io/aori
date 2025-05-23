@@ -43,9 +43,12 @@ contract WithdrawTest is TestUtils {
 
     /**
      * @notice Tests the full cross-chain flow of depositing, canceling via destination chain,
-     * receiving the cancellation message, and withdrawing unlocked tokens.
+     * receiving the cancellation message, and verifying direct token transfer.
      */
     function testWithdrawUnlockedFunds() public {
+        // Store user's initial token balance
+        uint256 initialUserBalance = inputToken.balanceOf(userA);
+        
         // PHASE 1: Deposit on the Source Chain
         vm.chainId(localEid);
         IAori.Order memory order = createCrossChainOrder();
@@ -74,7 +77,7 @@ contract WithdrawTest is TestUtils {
         
         // Prepare cancellation options
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-                uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, solver);
+        uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, solver);
 
         
         // Execute cancellation from destination chain
@@ -97,26 +100,17 @@ contract WithdrawTest is TestUtils {
             bytes("")
         );
 
-        // Verify balances after cancellation
+        // Verify balances after cancellation - tokens should be transferred directly back to user
         uint256 lockedAfterCancel = localAori.getLockedBalances(userA, address(inputToken));
         uint256 unlockedAfterCancel = localAori.getUnlockedBalances(userA, address(inputToken));
+        uint256 finalUserBalance = inputToken.balanceOf(userA);
+        
         assertEq(lockedAfterCancel, 0, "Locked balance should be zero after cancellation");
-        assertEq(
-            unlockedAfterCancel, order.inputAmount, "Unlocked balance should equal order inputAmount after cancellation"
-        );
+        assertEq(unlockedAfterCancel, 0, "Unlocked balance should remain zero with direct transfer");
+        assertEq(finalUserBalance, initialUserBalance, "User should have received their tokens back directly");
 
-        // PHASE 4: Withdraw the unlocked funds
-        uint256 userInitialBalance = inputToken.balanceOf(userA);
-        vm.prank(userA);
-        localAori.withdraw(address(inputToken));
-
-        // Verify balances after withdrawal
-        uint256 unlockedAfterWithdraw = localAori.getUnlockedBalances(userA, address(inputToken));
-        assertEq(unlockedAfterWithdraw, 0, "Unlocked balance should be zero after withdrawal");
-
-        uint256 userFinalBalance = inputToken.balanceOf(userA);
-        assertEq(
-            userFinalBalance, userInitialBalance + order.inputAmount, "User balance should increase by withdrawn amount"
-        );
+        // PHASE 4: Since tokens were transferred directly, no withdrawal needed
+        // The test demonstrates that cross-chain cancellation now provides immediate token return
+        // without requiring a separate withdrawal transaction
     }
 }

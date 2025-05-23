@@ -160,7 +160,7 @@ contract MessagingReceiptTest is TestUtils {
     }
     
     /**
-     * @notice Tests that local cancellations use empty receipt information
+     * @notice Tests that local cancellations use the Cancel event instead of CancelSent
      */
     function testLocalCancelEmptyReceiptInfo() public {
         // Create and deposit a single-chain order (for local cancellation)
@@ -189,27 +189,31 @@ contract MessagingReceiptTest is TestUtils {
         // Get the logs
         Vm.Log[] memory logs = vm.getRecordedLogs();
         
-        // Look for CancelSent event
-        bool foundEvent = false;
+        // Look for Cancel event (not CancelSent) since this is a local cancellation
+        bool foundCancelEvent = false;
         for (uint i = 0; i < logs.length; i++) {
-            // Check if this is our event's topic
-            if (logs[i].topics[0] == keccak256("CancelSent(bytes32,bytes32,uint64,uint256)")) {
-                // Extract parameters from data
-                bytes32 guid = abi.decode(slice(logs[i].data, 0, 32), (bytes32));
-                uint64 nonce = abi.decode(slice(logs[i].data, 32, 64), (uint64));
-                uint256 fee = abi.decode(slice(logs[i].data, 64, 96), (uint256));
-                
-                // Check fields - should be empty/zero
-                assertEq(guid, bytes32(0), "GUID should be empty");
-                assertEq(nonce, 0, "Nonce should be zero");
-                assertEq(fee, 0, "Fee should be zero");
-                
-                foundEvent = true;
+            // Check if this is a Cancel event topic
+            if (logs[i].topics[0] == keccak256("Cancel(bytes32)")) {
+                // Verify the orderId matches
+                bytes32 eventOrderId = logs[i].topics[1]; // First indexed parameter
+                assertEq(eventOrderId, orderId, "Cancel event should contain correct order ID");
+                foundCancelEvent = true;
                 break;
             }
         }
         
-        assertTrue(foundEvent, "CancelSent event with empty receipt info not found");
+        assertTrue(foundCancelEvent, "Cancel event not found for local cancellation");
+        
+        // Also verify that NO CancelSent event was emitted for local cancellation
+        bool foundCancelSentEvent = false;
+        for (uint i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] == keccak256("CancelSent(bytes32,bytes32,uint64,uint256)")) {
+                foundCancelSentEvent = true;
+                break;
+            }
+        }
+        
+        assertFalse(foundCancelSentEvent, "CancelSent event should not be emitted for local cancellation");
     }
     
     /**

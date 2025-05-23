@@ -82,6 +82,9 @@ contract CrossChainCancelAndSettleTest is TestUtils {
      * @notice Test that offerer can cancel after endTime
      */
     function testDestinationCancelByUser() public {
+        // Store user's initial token balance
+        uint256 initialUserBalance = inputToken.balanceOf(userA);
+        
         // PHASE 1: Deposit on Source Chain
         vm.chainId(localEid);
         IAori.Order memory order = createValidOrder();
@@ -146,20 +149,15 @@ contract CrossChainCancelAndSettleTest is TestUtils {
         );
 
         // PHASE 4: Verification
-        // The order should now be cancelled on the source chain, unlocking the deposit
+        // The order should now be cancelled on the source chain, with tokens transferred directly back to user
         uint256 lockedAfter = localAori.getLockedBalances(userA, address(inputToken));
         uint256 unlockedAfter = localAori.getUnlockedBalances(userA, address(inputToken));
+        uint256 finalUserBalance = inputToken.balanceOf(userA);
 
-        assertEq(lockedAfter, 0, "Order not unlocked after remote cancellation");
-        assertEq(unlockedAfter, order.inputAmount, "Funds not credited to user after cancellation");
+        assertEq(lockedAfter, 0, "Order should be unlocked after remote cancellation");
+        assertEq(unlockedAfter, 0, "Unlocked balance should remain zero with direct transfer");
+        assertEq(finalUserBalance, initialUserBalance, "User should receive their tokens back directly");
 
-        // Withdraw the unlocked funds
-        uint256 initialBalance = inputToken.balanceOf(userA);
-        vm.prank(userA);
-        localAori.withdraw(address(inputToken));
-
-        // Verify withdrawal
-        uint256 finalBalance = inputToken.balanceOf(userA);
-        assertEq(finalBalance, initialBalance + order.inputAmount, "Withdrawal failed after cancellation");
+        // No withdrawal needed since tokens were transferred directly
     }
 }

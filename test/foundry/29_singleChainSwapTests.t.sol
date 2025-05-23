@@ -387,6 +387,9 @@ contract SingleChainSwapTests is TestUtils {
      * @notice Test deposit, cancel, and attempted fill (should fail)
      */
     function testDepositThenCancelThenFill() public {
+        // Store user's initial balance
+        uint256 initialUserBalance = inputToken.balanceOf(userA);
+        
         // Create the order
         IAori.Order memory order = createSingleChainOrder(
             recipient,
@@ -418,8 +421,12 @@ contract SingleChainSwapTests is TestUtils {
         // Verify order status after cancel
         assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Cancelled), "Order should be cancelled");
         
-        // Verify input tokens have been unlocked
-        assertEq(localAori.getUnlockedBalances(userA, address(inputToken)), INPUT_AMOUNT, "Input tokens should be unlocked after cancel");
+        // Verify input tokens have been transferred directly back to user
+        uint256 finalUserBalance = inputToken.balanceOf(userA);
+        assertEq(finalUserBalance, initialUserBalance, "Input tokens should be returned directly to user after cancel");
+        
+        // Verify no unlocked balance exists
+        assertEq(localAori.getUnlockedBalances(userA, address(inputToken)), 0, "No unlocked balance should exist with direct transfer");
         
         // Step 3: Simulate solver sourcing the output tokens
         vm.startPrank(liquiditySource);
@@ -594,16 +601,14 @@ contract SingleChainSwapTests is TestUtils {
         // Verify order status after cancellation
         assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Cancelled), "Order should be cancelled");
         
-        // Verify tokens are unlocked and available to the user
+        // Verify tokens are transferred directly back to the user
         assertEq(localAori.getLockedBalances(userA, address(inputToken)), 0, "No tokens should remain locked");
-        assertEq(localAori.getUnlockedBalances(userA, address(inputToken)), INPUT_AMOUNT, "Tokens should be unlocked for the user");
-        
-        // User withdraws their tokens
-        vm.prank(userA);
-        localAori.withdraw(address(inputToken));
+        assertEq(localAori.getUnlockedBalances(userA, address(inputToken)), 0, "No unlocked balance should exist with direct transfer");
         
         // Verify tokens returned to the user - check against initial balance
-        assertEq(inputToken.balanceOf(userA), initialUserBalance, "User should receive their tokens back");
+        assertEq(inputToken.balanceOf(userA), initialUserBalance, "User should receive their tokens back directly");
+        
+        // No withdrawal needed since tokens were transferred directly
     }
     
     /**

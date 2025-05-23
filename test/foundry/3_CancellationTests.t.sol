@@ -82,6 +82,9 @@ contract CancellationTests is TestUtils {
         IAori.Order memory order = createSingleChainOrder();
         bytes memory signature = signOrder(order);
 
+        // Store user's initial balance
+        uint256 initialUserBalance = inputToken.balanceOf(userA);
+
         // Approve and deposit
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
@@ -97,11 +100,14 @@ contract CancellationTests is TestUtils {
         vm.prank(solver);
         localAori.cancel(orderHash);
 
-        // Verify balances and order status
+        // Verify balances and order status - tokens should be transferred directly back to user
         uint256 lockedAfter = localAori.getLockedBalances(userA, address(inputToken));
         uint256 unlockedAfter = localAori.getUnlockedBalances(userA, address(inputToken));
+        uint256 finalUserBalance = inputToken.balanceOf(userA);
+        
         assertEq(lockedAfter, 0, "Locked balance should be zero after cancellation");
-        assertEq(unlockedAfter, order.inputAmount, "Unlocked balance should increase");
+        assertEq(unlockedAfter, 0, "Unlocked balance should remain zero with direct transfer");
+        assertEq(finalUserBalance, initialUserBalance, "User should have received their tokens back directly");
         assertEq(
             uint8(localAori.orderStatus(orderHash)),
             uint8(IAori.OrderStatus.Cancelled),
@@ -116,6 +122,9 @@ contract CancellationTests is TestUtils {
         vm.chainId(localEid);
         IAori.Order memory order = createSingleChainOrder();
         bytes memory signature = signOrder(order);
+
+        // Store user's initial balance
+        uint256 initialUserBalance = inputToken.balanceOf(userA);
 
         // Approve and deposit
         vm.prank(userA);
@@ -137,11 +146,14 @@ contract CancellationTests is TestUtils {
         vm.prank(userA);
         localAori.cancel(orderHash);
         
-        // Verify balances and status
+        // Verify balances and status - tokens should be transferred directly back to user
         uint256 lockedAfter = localAori.getLockedBalances(userA, address(inputToken));
         uint256 unlockedAfter = localAori.getUnlockedBalances(userA, address(inputToken));
+        uint256 finalUserBalance = inputToken.balanceOf(userA);
+        
         assertEq(lockedAfter, 0, "Locked balance should be zero after cancellation");
-        assertEq(unlockedAfter, order.inputAmount, "Unlocked balance should increase");
+        assertEq(unlockedAfter, 0, "Unlocked balance should remain zero with direct transfer");
+        assertEq(finalUserBalance, initialUserBalance, "User should have received their tokens back directly");
         assertEq(
             uint8(localAori.orderStatus(orderHash)),
             uint8(IAori.OrderStatus.Cancelled),
@@ -156,6 +168,9 @@ contract CancellationTests is TestUtils {
         vm.chainId(localEid);
         IAori.Order memory order = createCrossChainOrder();
         bytes memory signature = signOrder(order);
+
+        // Store user's initial balance
+        uint256 initialUserBalance = inputToken.balanceOf(userA);
 
         // Approve and deposit
         vm.prank(userA);
@@ -177,11 +192,14 @@ contract CancellationTests is TestUtils {
         vm.prank(solver);
         localAori.cancel(orderHash);
         
-        // Verify balances and status
+        // Verify balances and status - tokens should be transferred directly back to user
         uint256 lockedAfter = localAori.getLockedBalances(userA, address(inputToken));
         uint256 unlockedAfter = localAori.getUnlockedBalances(userA, address(inputToken));
+        uint256 finalUserBalance = inputToken.balanceOf(userA);
+        
         assertEq(lockedAfter, 0, "Locked balance should be zero after cancellation");
-        assertEq(unlockedAfter, order.inputAmount, "Unlocked balance should increase");
+        assertEq(unlockedAfter, 0, "Unlocked balance should remain zero with direct transfer");
+        assertEq(finalUserBalance, initialUserBalance, "User should have received their tokens back directly");
         assertEq(
             uint8(localAori.orderStatus(orderHash)),
             uint8(IAori.OrderStatus.Cancelled),
@@ -196,6 +214,9 @@ contract CancellationTests is TestUtils {
         vm.chainId(localEid);
         IAori.Order memory order = createCrossChainOrder();
         bytes memory signature = signOrder(order);
+
+        // Store user's initial balance
+        uint256 initialUserBalance = inputToken.balanceOf(userA);
 
         // Approve and deposit
         vm.prank(userA);
@@ -214,11 +235,14 @@ contract CancellationTests is TestUtils {
         // Owner can cancel without restriction (even cross-chain orders before expiry)
         localAori.emergencyCancel(orderHash);
         
-        // Verify balances and status
+        // Verify balances and status - tokens should be transferred directly back to user
         uint256 lockedAfter = localAori.getLockedBalances(userA, address(inputToken));
         uint256 unlockedAfter = localAori.getUnlockedBalances(userA, address(inputToken));
+        uint256 finalUserBalance = inputToken.balanceOf(userA);
+        
         assertEq(lockedAfter, 0, "Locked balance should be zero after cancellation");
-        assertEq(unlockedAfter, order.inputAmount, "Unlocked balance should increase");
+        assertEq(unlockedAfter, 0, "Unlocked balance should remain zero with direct transfer");
+        assertEq(finalUserBalance, initialUserBalance, "User should have received their tokens back directly");
         assertEq(
             uint8(localAori.orderStatus(orderHash)),
             uint8(IAori.OrderStatus.Cancelled),
@@ -287,6 +311,68 @@ contract CancellationTests is TestUtils {
         vm.prank(solver);
         vm.expectRevert("Order not active");
         localAori.cancel(singleChainId); // Try to cancel again
+    }
+
+    /**
+     * @notice Tests that cancellation fails when contract has insufficient token balance
+     * @dev Verifies the balance validation prevents state corruption
+     */
+    function testCancelFailsWithInsufficientContractBalance() public {
+        vm.chainId(localEid);
+        
+        // Create and deposit an order
+        IAori.Order memory order = createSingleChainOrder();
+        bytes memory signature = signOrder(order);
+        
+        // Approve and deposit
+        vm.prank(userA);
+        inputToken.approve(address(localAori), order.inputAmount);
+        vm.prank(solver);
+        localAori.deposit(order, signature);
+        
+        bytes32 orderId = localAori.hash(order);
+        
+        // Verify order is active and tokens are locked
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Active), "Order should be active");
+        assertEq(localAori.getLockedBalances(userA, address(inputToken)), order.inputAmount, "Tokens should be locked");
+        
+        // Check contract's token balance before manipulation
+        uint256 contractBalanceBefore = inputToken.balanceOf(address(localAori));
+        assertEq(contractBalanceBefore, order.inputAmount, "Contract should have the deposited tokens");
+        
+        // CRITICAL TEST: Use emergencyWithdraw to remove tokens, creating insufficient balance
+        // This simulates scenarios where contract balance doesn't match internal accounting
+        uint256 tokensToRemove = order.inputAmount / 2; // Remove half the tokens
+        localAori.emergencyWithdraw(address(inputToken), tokensToRemove);
+        
+        // Verify contract now has insufficient balance
+        uint256 contractBalanceAfter = inputToken.balanceOf(address(localAori));
+        assertLt(contractBalanceAfter, order.inputAmount, "Contract should have insufficient tokens");
+        
+        // Verify internal accounting still shows locked tokens (accounting inconsistency)
+        assertEq(localAori.getLockedBalances(userA, address(inputToken)), order.inputAmount, "Internal accounting should still show locked tokens");
+        
+        // Attempt to cancel should fail with balance validation error
+        vm.prank(solver);
+        vm.expectRevert("Insufficient contract balance");
+        localAori.cancel(orderId);
+        
+        // Verify order status hasn't changed (transaction reverted cleanly)
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Active), "Order should still be active after failed cancel");
+        
+        // Verify locked balance hasn't changed (no state corruption)
+        assertEq(localAori.getLockedBalances(userA, address(inputToken)), order.inputAmount, "Locked balance should be unchanged");
+        
+        // RECOVERY TEST: Restore sufficient balance and verify cancellation works
+        inputToken.mint(address(localAori), tokensToRemove); // Restore the missing tokens
+        
+        // Now cancellation should succeed
+        vm.prank(solver);
+        localAori.cancel(orderId);
+        
+        // Verify successful cancellation
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Cancelled), "Order should be cancelled");
+        assertEq(localAori.getLockedBalances(userA, address(inputToken)), 0, "Locked balance should be zero");
     }
 
     /************************************
@@ -435,11 +521,14 @@ contract CancellationTests is TestUtils {
             bytes("")
         );
         
-        // Verify balances and status on source chain
+        // Verify balances and status on source chain - tokens should be transferred directly back to user
         uint256 lockedAfter = localAori.getLockedBalances(userA, address(inputToken));
         uint256 unlockedAfter = localAori.getUnlockedBalances(userA, address(inputToken));
+        uint256 finalUserBalance = inputToken.balanceOf(userA);
+        
         assertEq(lockedAfter, 0, "Locked balance should be zero after cancellation");
-        assertEq(unlockedAfter, order.inputAmount, "Unlocked balance should increase");
+        assertEq(unlockedAfter, 0, "Unlocked balance should remain zero with direct transfer");
+        assertEq(finalUserBalance, initialUserBalance, "User should have received their tokens back directly");
         
         assertEq(
             uint8(localAori.orderStatus(orderHash)),
@@ -447,15 +536,8 @@ contract CancellationTests is TestUtils {
             "Order should be cancelled on source chain"
         );
         
-        // PHASE 4: Verify withdrawal works
-        vm.prank(userA);
-        localAori.withdraw(address(inputToken));
-        
-        assertEq(
-            inputToken.balanceOf(userA),
-            initialUserBalance,
-            "User should receive back their tokens"
-        );
+        // PHASE 4: No withdrawal needed since tokens were transferred directly
+        // User already has their tokens back
     }
     
     /**

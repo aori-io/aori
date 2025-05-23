@@ -159,6 +159,9 @@ contract CrossChainAndWhitelistTests is TestUtils {
     function testCancellationByWhitelistedSolver() public {
         vm.chainId(localEid);
 
+        // Store user's initial token balance
+        uint256 initialUserBalance = inputToken.balanceOf(userA);
+
         // Create a valid order
         IAori.Order memory order = createValidOrder();
 
@@ -184,9 +187,17 @@ contract CrossChainAndWhitelistTests is TestUtils {
         vm.prank(solver);
         localAori.cancel(orderHash);
 
-        // Verify funds are now unlocked for the offerer
+        // Verify tokens were transferred directly back to the offerer
+        uint256 finalUserBalance = inputToken.balanceOf(userA);
+        assertEq(finalUserBalance, initialUserBalance, "User should have received their tokens back directly");
+        
+        // Verify locked balance is now 0
+        uint256 lockedAfter = localAori.getLockedBalances(userA, address(inputToken));
+        assertEq(lockedAfter, 0, "Locked balance should be zero after cancellation");
+        
+        // Verify unlocked balance remains 0 (since tokens were transferred directly)
         uint256 unlockedBalance = localAori.getUnlockedBalances(userA, address(inputToken));
-        assertEq(unlockedBalance, order.inputAmount);
+        assertEq(unlockedBalance, 0, "Unlocked balance should remain 0 with direct transfer");
     }
 
     /**
