@@ -100,6 +100,8 @@ interface IAori {
 
     function withdraw(address token) external;
 
+    function withdraw(address token, uint256 amount) external;
+
     function cancel(bytes32 orderId) external;
 
     event settlementFailed(bytes32 indexed orderId, uint32 expectedEid, uint32 submittedEid, string reason);
@@ -149,4 +151,24 @@ interface IAori {
         uint32 _srcEid,
         address _filler
     ) external view returns (uint256 fee);
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                        HOOK EVENTS                         */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /**
+     * @notice Emitted when a source hook is executed during deposit
+     * @param orderId The hash of the order being processed
+     * @param preferredToken The token address that was received from the hook
+     * @param amountReceived The amount of tokens received from hook execution
+     */
+    event SrcHookExecuted(bytes32 indexed orderId, address indexed preferredToken, uint256 amountReceived);
+
+    /**
+     * @notice Emitted when a destination hook is executed during fill
+     * @param orderId The hash of the order being processed
+     * @param preferredToken The token address that was converted by the hook
+     * @param amountReceived The amount of output tokens received from hook execution
+     */
+    event DstHookExecuted(bytes32 indexed orderId, address indexed preferredToken, uint256 amountReceived);
 }
