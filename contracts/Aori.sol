@@ -157,39 +157,17 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     }
 
     /**
-    * @notice Internal function to add a supported chain without access control
-    * @param eid The endpoint ID of the chain to add
-    * @return success Whether the chain was successfully added
-    */
-    function _supportChain(uint32 eid) internal returns (bool success) {
-        // Skip validation for the current chain's EID
-        if (eid == ENDPOINT_ID) {
-            isSupportedChain[eid] = true;
-            return true;
-        }
-        
-        // This will return false instead of reverting if validation fails
-        try this.quote(eid, 0, bytes(""), false, ENDPOINT_ID, address(0)) returns (uint256) {
-            isSupportedChain[eid] = true;
-            return true;
-        } catch {
-            return false;
-        }
-    }
-
-    /**
-    * @notice Adds a supported chain by its endpoint ID with validation
+    * @notice Adds a single chain to the supported chains list
     * @param eid The endpoint ID of the chain to add
     * @dev Only callable by the contract owner
     */
     function addSupportedChain(uint32 eid) external onlyOwner {
-        if (!_supportChain(eid)) {
-            revert("Invalid or unsupported LayerZero EID");
-        }
+        isSupportedChain[eid] = true;
+        emit ChainSupported(eid);
     }
 
     /**
-    * @notice Adds multiple supported chains by their endpoint IDs with validation
+    * @notice Adds multiple chains to the supported chains list
     * @param eids Array of endpoint IDs of the chains to add
     * @return results Array of booleans indicating which EIDs were successfully added
     * @dev Only callable by the contract owner
@@ -199,7 +177,9 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         results = new bool[](length);
         
         for (uint256 i = 0; i < length; i++) {
-            results[i] = _supportChain(eids[i]);
+            isSupportedChain[eids[i]] = true;
+            emit ChainSupported(eids[i]);
+            results[i] = true;
         }
         
         return results;
@@ -212,7 +192,12 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      */
     function removeSupportedChain(uint32 eid) external onlyOwner {
         isSupportedChain[eid] = false;
+        emit ChainRemoved(eid);
     }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                    EMERGENCY FUNCTIONS                     */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     /**
     * @notice Emergency function to cancel an order, bypassing normal restrictions
@@ -225,7 +210,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
 
     /**
      * @notice Emergency function to extract tokens or ether from the contract
-     * @dev Only callable by the contract owner
+     * @dev Only callable by the contract owner. Does not update user balances - use for direct contract withdrawals.
      * @param token The token address to withdraw
      * @param amount The amount of tokens to withdraw
      */
@@ -238,6 +223,41 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         if (amount > 0) {
             IERC20(token).safeTransfer(owner(), amount);
         }
+    }
+
+    /**
+     * @notice Emergency function to extract tokens from a specific user's balance while maintaining accounting consistency
+     * @dev Only callable by the contract owner. Updates user balances to maintain internal accounting state.
+     * @param token The token address to withdraw
+     * @param amount The amount of tokens to withdraw
+     * @param user The user address whose balance to withdraw from
+     * @param isLocked Whether to withdraw from locked (true) or unlocked (false) balance
+     * @param recipient The address to send the withdrawn tokens to
+     */
+    function emergencyWithdraw(
+        address token, 
+        uint256 amount, 
+        address user, 
+        bool isLocked,
+        address recipient
+    ) external onlyOwner {
+        require(amount > 0, "Amount must be greater than zero");
+        require(user != address(0), "Invalid user address");
+        require(recipient != address(0), "Invalid recipient address");
+        
+        if (isLocked) {
+            uint256 lockedBalance = balances[user][token].locked;
+            require(lockedBalance >= amount, "Insufficient locked balance");
+            bool success = balances[user][token].decreaseLockedNoRevert(uint128(amount));
+            require(success, "Failed to decrease locked balance");
+        } else {
+            uint256 unlockedBalance = balances[user][token].unlocked;
+            require(unlockedBalance >= amount, "Insufficient unlocked balance");
+            balances[user][token].unlocked = uint128(unlockedBalance - amount);
+        }
+        
+        IERC20(token).safeTransfer(recipient, amount);
+        emit Withdraw(user, token, amount);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -870,7 +890,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         override
         returns (string memory name, string memory version)
     {
-        return ("Aori", "1");
+        return ("Aori", "0.3.0");
     }
 
     /**

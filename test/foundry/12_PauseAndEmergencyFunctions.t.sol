@@ -222,4 +222,120 @@ contract PauseAndEmergencyFunctionsTest is TestUtils {
         vm.expectRevert();
         localAori.emergencyWithdraw(address(inputToken), 5e18);
     }
+
+    /**
+     * @notice Test emergency withdrawal from user balance while maintaining accounting consistency
+     */
+    function testEmergencyWithdrawFromUserBalance() public {
+        // Setup: Create and deposit an order to establish user balance
+        IAori.Order memory order = createValidOrder();
+        bytes memory signature = signOrder(order);
+
+        // Approve and deposit tokens
+        vm.prank(userA);
+        inputToken.approve(address(localAori), order.inputAmount);
+        
+        vm.prank(solver);
+        localAori.deposit(order, signature);
+
+        // Verify locked balance was created
+        uint256 lockedBefore = localAori.getLockedBalances(userA, address(inputToken));
+        assertEq(lockedBefore, order.inputAmount, "User should have locked tokens");
+
+        // Test emergency withdraw from locked balance
+        address recipient = makeAddr("emergency-recipient");
+        uint256 withdrawAmount = order.inputAmount / 2;
+        
+        uint256 recipientBalanceBefore = inputToken.balanceOf(recipient);
+        
+        // Emergency withdraw from user's locked balance
+        localAori.emergencyWithdraw(
+            address(inputToken),
+            withdrawAmount,
+            userA,
+            true, // from locked balance
+            recipient
+        );
+
+        // Verify balances updated correctly
+        uint256 lockedAfter = localAori.getLockedBalances(userA, address(inputToken));
+        uint256 recipientBalanceAfter = inputToken.balanceOf(recipient);
+        
+        assertEq(lockedAfter, lockedBefore - withdrawAmount, "User's locked balance should decrease");
+        assertEq(recipientBalanceAfter, recipientBalanceBefore + withdrawAmount, "Recipient should receive tokens");
+    }
+
+    /**
+     * @notice Test emergency withdrawal from unlocked balance
+     */
+    function testEmergencyWithdrawFromUnlockedBalance() public {
+        // Use a different approach - create unlocked balance directly using the swap function
+        IAori.Order memory swapOrder = createValidOrder();
+        swapOrder.offerer = userA;
+        swapOrder.srcEid = localEid;
+        swapOrder.dstEid = localEid; // Single chain swap to avoid cross-chain restrictions
+        bytes memory swapSignature = signOrder(swapOrder);
+
+        // Setup tokens for swap
+        vm.prank(userA);
+        inputToken.approve(address(localAori), swapOrder.inputAmount);
+        vm.prank(solver);
+        outputToken.approve(address(localAori), swapOrder.outputAmount);
+
+        // Execute swap to create unlocked balance for solver
+        vm.prank(solver);
+        localAori.swap(swapOrder, swapSignature);
+
+        // Verify solver has unlocked balance
+        uint256 unlockedBefore = localAori.getUnlockedBalances(solver, address(inputToken));
+        assertEq(unlockedBefore, swapOrder.inputAmount, "Solver should have unlocked tokens");
+
+        // Test emergency withdraw from unlocked balance
+        address recipient = makeAddr("emergency-recipient-2");
+        uint256 withdrawAmount = swapOrder.inputAmount / 2;
+        
+        uint256 recipientBalanceBefore = inputToken.balanceOf(recipient);
+        
+        // Emergency withdraw from solver's unlocked balance
+        localAori.emergencyWithdraw(
+            address(inputToken),
+            withdrawAmount,
+            solver,
+            false, // from unlocked balance
+            recipient
+        );
+
+        // Verify balances updated correctly
+        uint256 unlockedAfter = localAori.getUnlockedBalances(solver, address(inputToken));
+        uint256 recipientBalanceAfter = inputToken.balanceOf(recipient);
+        
+        assertEq(unlockedAfter, unlockedBefore - withdrawAmount, "Solver's unlocked balance should decrease");
+        assertEq(recipientBalanceAfter, recipientBalanceBefore + withdrawAmount, "Recipient should receive tokens");
+    }
+
+    /**
+     * @notice Test that only admin can use the overloaded emergency withdraw
+     */
+    function testEmergencyWithdrawFromUserBalanceOnlyAdmin() public {
+        // Setup user balance first
+        IAori.Order memory order = createValidOrder();
+        bytes memory signature = signOrder(order);
+
+        vm.prank(userA);
+        inputToken.approve(address(localAori), order.inputAmount);
+        
+        vm.prank(solver);
+        localAori.deposit(order, signature);
+
+        // Non-admin cannot use overloaded emergency withdraw
+        vm.prank(nonAdmin);
+        vm.expectRevert();
+        localAori.emergencyWithdraw(
+            address(inputToken),
+            order.inputAmount,
+            userA,
+            true,
+            nonAdmin
+        );
+    }
 }

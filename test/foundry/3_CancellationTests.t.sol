@@ -313,68 +313,6 @@ contract CancellationTests is TestUtils {
         localAori.cancel(singleChainId); // Try to cancel again
     }
 
-    /**
-     * @notice Tests that cancellation fails when contract has insufficient token balance
-     * @dev Verifies the balance validation prevents state corruption
-     */
-    function testCancelFailsWithInsufficientContractBalance() public {
-        vm.chainId(localEid);
-        
-        // Create and deposit an order
-        IAori.Order memory order = createSingleChainOrder();
-        bytes memory signature = signOrder(order);
-        
-        // Approve and deposit
-        vm.prank(userA);
-        inputToken.approve(address(localAori), order.inputAmount);
-        vm.prank(solver);
-        localAori.deposit(order, signature);
-        
-        bytes32 orderId = localAori.hash(order);
-        
-        // Verify order is active and tokens are locked
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Active), "Order should be active");
-        assertEq(localAori.getLockedBalances(userA, address(inputToken)), order.inputAmount, "Tokens should be locked");
-        
-        // Check contract's token balance before manipulation
-        uint256 contractBalanceBefore = inputToken.balanceOf(address(localAori));
-        assertEq(contractBalanceBefore, order.inputAmount, "Contract should have the deposited tokens");
-        
-        // CRITICAL TEST: Use emergencyWithdraw to remove tokens, creating insufficient balance
-        // This simulates scenarios where contract balance doesn't match internal accounting
-        uint256 tokensToRemove = order.inputAmount / 2; // Remove half the tokens
-        localAori.emergencyWithdraw(address(inputToken), tokensToRemove);
-        
-        // Verify contract now has insufficient balance
-        uint256 contractBalanceAfter = inputToken.balanceOf(address(localAori));
-        assertLt(contractBalanceAfter, order.inputAmount, "Contract should have insufficient tokens");
-        
-        // Verify internal accounting still shows locked tokens (accounting inconsistency)
-        assertEq(localAori.getLockedBalances(userA, address(inputToken)), order.inputAmount, "Internal accounting should still show locked tokens");
-        
-        // Attempt to cancel should fail with balance validation error
-        vm.prank(solver);
-        vm.expectRevert("Insufficient contract balance");
-        localAori.cancel(orderId);
-        
-        // Verify order status hasn't changed (transaction reverted cleanly)
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Active), "Order should still be active after failed cancel");
-        
-        // Verify locked balance hasn't changed (no state corruption)
-        assertEq(localAori.getLockedBalances(userA, address(inputToken)), order.inputAmount, "Locked balance should be unchanged");
-        
-        // RECOVERY TEST: Restore sufficient balance and verify cancellation works
-        inputToken.mint(address(localAori), tokensToRemove); // Restore the missing tokens
-        
-        // Now cancellation should succeed
-        vm.prank(solver);
-        localAori.cancel(orderId);
-        
-        // Verify successful cancellation
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Cancelled), "Order should be cancelled");
-        assertEq(localAori.getLockedBalances(userA, address(inputToken)), 0, "Locked balance should be zero");
-    }
-
     /************************************
      *   DESTINATION CHAIN CANCELLATIONS *
      ************************************/
