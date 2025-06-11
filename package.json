@@ -1,6 +1,6 @@
 {
-  "name": "@layerzerolabs/oapp-example",
-  "version": "0.5.5",
+  "name": "aori",
+  "version": "0.3.0",
   "private": true,
   "license": "MIT",
   "scripts": {
@@ -15,13 +15,7 @@
     "test": "forge test",
     "test:forge": "forge test",
     "hardhat:deploy": "npx hardhat lz:deploy",
-    "hardhat:wire": "npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts",
-    "whitelist-solver": "node whitelist_solver.js",
-    "whitelist-hooks": "node whitelist_hooks.js",
-    "whitelist-all": "node whitelist_solver.js && node whitelist_hooks.js",
-    "aori": "cd cli && node src/index.js",
-    "postinstall": "npm run cli:setup",
-    "cli:setup": "cd cli && npm install"
+    "hardhat:wire": "npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts"
   },
   "resolutions": {
     "ethers": "^5.7.2",

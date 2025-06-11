@@ -1,10 +1,10 @@
 <div align="center">
-  <img src="https://github.com/aori-io/.github/blob/main/assets/aori.png" alt="Banner Image" width="600"/>
+  <img src="https://github.com/aori-io/.github/blob/main/assets/aori.png" alt="Banner Image" />
 </div>
 
 ---
 
-Aori is designed to securely facilitate performant cross chain trading, with trust minimized settlement. To accomplish this, Aori uses a combination of off-chain infrastructure, on-chain settlement contracts, and LayerZero messaging.
+Aori is designed to securely facilitate omnichain trading, with low latency execution, amd trust minimized settlement. To accomplish this, Aori uses a combination of off-chain infrastructure, on-chain settlement contracts, and LayerZero messaging.
 
 Solvers can expose a simple API to ingest and process orderflow directly to their trading system. The Aori Protocol's smart contracts ensure that the user's intents are satisfied by the Solver on the destination chain according to the parameters of a user signed intent submitted on the source chain.
 
@@ -234,45 +234,6 @@ forge build
 
 ```bash
 forge test
-```
-
-#### Running Aori Contracts cli
-```bash
-pnpm run aori
-```
-
-## Deploying Contracts
-
-Set up deployer wallet/account:
-
-- Rename `.env.example` -> `.env`
-- Choose your preferred means of setting up your deployer wallet/account:
-
-```
-MNEMONIC="test test test test test test test test test test test junk"
-or...
-PRIVATE_KEY="0xabc...def"
-```
-
-To deploy your contracts to your desired blockchains, run the following command in your project's folder:
-
-```bash
-npx hardhat lz:deploy
-```
-
-
-## Configuring Contracts
-
-Initialize your contracts by running:
-
-```bash
-npx hardhat lz:oapp:config:init --contract-name Aori --oapp-config layerzero.config.ts
-```
-
-Wire your deployed contracts by running:
-
-```bash
-npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
 ```
 
 ## Coverage Report

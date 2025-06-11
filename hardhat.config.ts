@@ -1,14 +1,9 @@
-// Get the environment configuration from .env file
-//
-// To make use of automatic environment setup:
-// - Duplicate .env.example file and name it .env
-// - Fill in the environment variables
 import 'dotenv/config'
 import 'hardhat-deploy'
 import 'hardhat-contract-sizer'
 import '@nomiclabs/hardhat-ethers'
 import '@layerzerolabs/toolbox-hardhat'
-import '@tenderly/hardhat-tenderly' // Import the Tenderly plugin v1.x style
+import '@tenderly/hardhat-tenderly'
 import { HardhatUserConfig, HttpNetworkAccountsUserConfig } from 'hardhat/types'
 
 // Set your preferred authentication method
@@ -46,8 +41,9 @@ const config: HardhatUserConfig = {
                 settings: {
                     optimizer: {
                         enabled: true,
-                        runs: 200,
+                        runs: 2000,
                     },
+                    viaIR: true,
                 },
             },
         ],
@@ -89,7 +85,7 @@ const config: HardhatUserConfig = {
     },
     namedAccounts: {
         deployer: {
-            default: 0, // Address at index[0] from the mnemonic in .env
+            default: 0, 
         },
     },
 }
