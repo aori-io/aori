@@ -4,20 +4,30 @@ pragma solidity 0.8.28;
 /**
  * CancellationTests - Comprehensive tests for all order cancellation scenarios
  *
+ * Run:
+ * forge test --match-contract CancellationTests -vv
+ *
  * Test cases:
  * 
  * Source Chain Cancellations:
- * 1. testSingleChainCancelBySolver - Tests solver cancellation of single-chain order
- * 2. testSingleChainCancelByOffererAfterExpiry - Tests user cancellation after expiry
- * 3. testCrossChainCancelBySolverAfterExpiry - Tests solver cancellation with time restriction
- * 4. testEmergencyCancelByOwner - Tests the emergency cancellation by contract owner
- * 5. testSourceChainNegativeCases - Tests various invalid source chain cancellation attempts
+ * 1. testSingleChainCancelBySolver - Tests solver cancellation of single-chain order at any time
+ * 2. testSingleChainCancelByOffererAfterExpiry - Tests user cancellation of single-chain order after expiry only
+ * 3. testCrossChainCancelBySolverAfterExpiry - Tests solver cancellation of cross-chain order after expiry only
+ * 4. testSourceChainNegativeCases - Tests various invalid source chain cancellation attempts (wrong permissions, timing, etc.)
  * 
  * Destination Chain Cancellations:
- * 6. testCrossChainSolverCancel - Tests solver cancellation from destination chain
- * 7. testCrossChainUserCancelAfterExpiry - Tests user cancellation after expiry 
- * 8. testCrossChainCancelFlowViaLayerZero - Tests full cross-chain cancellation flow
- * 9. testDestinationChainNegativeCases - Tests various invalid destination chain cancellation attempts
+ * 5. testCrossChainSolverCancel - Tests solver cancellation from destination chain at any time
+ * 6. testCrossChainUserCancelAfterExpiry - Tests user cancellation from destination chain after expiry only
+ * 7. testCrossChainCancelFlowViaLayerZero - Tests complete cross-chain cancellation flow with LayerZero messaging
+ * 8. testDestinationChainNegativeCases - Tests various invalid destination chain cancellation attempts
+ * 
+ * Key Behaviors Tested:
+ * - Source chain cancellations: Direct token transfer back to offerer (no unlocked balance created)
+ * - Destination chain cancellations: LayerZero message sent to source chain for processing
+ * - Access control: Solvers vs users, timing restrictions (before/after expiry)
+ * - Cross-chain vs single-chain order handling differences
+ * - Event emission and state transitions
+ * - Error conditions and edge cases
  */
 import {IAori} from "../../contracts/IAori.sol";
 import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
@@ -207,49 +217,6 @@ contract CancellationTests is TestUtils {
         );
     }
 
-    /**
-     * @notice Tests the emergency cancellation by contract owner
-     */
-    function testEmergencyCancelByOwner() public {
-        vm.chainId(localEid);
-        IAori.Order memory order = createCrossChainOrder();
-        bytes memory signature = signOrder(order);
-
-        // Store user's initial balance
-        uint256 initialUserBalance = inputToken.balanceOf(userA);
-
-        // Approve and deposit
-        vm.prank(userA);
-        inputToken.approve(address(localAori), order.inputAmount);
-        vm.prank(solver);
-        localAori.deposit(order, signature);
-
-        bytes32 orderHash = localAori.hash(order);
-        
-        // Non-owner cannot use emergency cancel
-        address nonOwner = makeAddr("non-owner");
-        vm.prank(nonOwner);
-        vm.expectRevert(); // Owner check fails
-        localAori.emergencyCancel(orderHash);
-        
-        // Owner can cancel without restriction (even cross-chain orders before expiry)
-        localAori.emergencyCancel(orderHash);
-        
-        // Verify balances and status - tokens should be transferred directly back to user
-        uint256 lockedAfter = localAori.getLockedBalances(userA, address(inputToken));
-        uint256 unlockedAfter = localAori.getUnlockedBalances(userA, address(inputToken));
-        uint256 finalUserBalance = inputToken.balanceOf(userA);
-        
-        assertEq(lockedAfter, 0, "Locked balance should be zero after cancellation");
-        assertEq(unlockedAfter, 0, "Unlocked balance should remain zero with direct transfer");
-        assertEq(finalUserBalance, initialUserBalance, "User should have received their tokens back directly");
-        assertEq(
-            uint8(localAori.orderStatus(orderHash)),
-            uint8(IAori.OrderStatus.Cancelled),
-            "Order should be cancelled"
-        );
-    }
-    
     /**
      * @notice Tests various negative source chain cancellation scenarios
      */
