@@ -39,7 +39,7 @@ contract ReentrantAttacker {
     // This is called during deposit and attempts to reenter
     function attackHook() external {
         // Try to reenter by calling withdraw
-        aori.withdraw(targetOrder.inputToken);
+        aori.withdraw(targetOrder.inputToken, 0);
 
         // Make sure hook doesn't revert
         IERC20(targetOrder.inputToken).transfer(address(aori), targetOrder.inputAmount);

@@ -34,10 +34,10 @@ import {IAori} from "../../contracts/IAori.sol";
 import "./TestUtils.sol";
 
 /**
- * @title EmergencyWithdrawTests
+ * @title EmergencyTests
  * @notice Comprehensive test suite for emergency withdrawal functionality in the Aori contract
  */
-contract EmergencyWithdrawTests is TestUtils {
+contract EmergencyTests is TestUtils {
     
     // Test addresses
     address public admin;
