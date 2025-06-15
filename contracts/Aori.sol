@@ -14,34 +14,36 @@ import { IAori } from "./IAori.sol";
 import "./AoriUtils.sol";
 
 /**
-                              @@@@@@@@@@@@                                              
-                            @@         @@@@@@                     @@@@@                  
-                            @@           @@@@@                    @@@@@                  
-                            @@@                                                          
-                              @@@@                                                       
-                                @@@@@                                                   
-                                    @@@@@                                                
-      @@@@@@@@@    @@@@          @@@@@@@@@@    @@@@@@    @@@@@@@  @@@@@                  
-    @@@@      @@   @@@@      @@@@       @@@@@@@   @@@@ @@    @@@   @@@@                  
-   @@@@         @ @@@@     @@@@          @@@@@@   @@@@        @@   @@@@                  
-  @@@@@         @@@@@@   @@@@@            @@@@@@  @@@@         @   @@@@                  
-  @@@@@          @@@@    @@@@@   @    @    @@@@@  @@@@             @@@@                  
-  @@@@@          @@@@   @@@@@@   @@@@@@    @@@@@  @@@@             @@@@                  
-  @@@@@         @@@@@   @@@@@@   @    @    @@@@@  @@@@             @@@@                  
-  @@@@@         @@@@     @@@@@             @@@@   @@@@             @@@@                  
-   @@@@        @@@@@@    @@@@@@           @@@@    @@@@             @@@@                  
-    @@@@      @@@@  @@@@@@ @@@@@         @@@      @@@@             @@@@   @@             
-      @@@@@@@@@     @@@@@     @@@@@@@@@@@         @@@@               @@@@@      
+                               @@@@@@@@@@@@                                              
+                             @@         @@@@@@                     @@@@@                  
+                             @@           @@@@@                    @@@@@                  
+                             @@@                                                          
+                               @@@@                                                       
+                                 @@@@@                                                   
+                                     @@@@@                                                
+       @@@@@@@@@    @@@@          @@@@@@@@@@    @@@@@@    @@@@@@@  @@@@@                  
+     @@@@      @@   @@@@      @@@@       @@@@@@@   @@@@ @@    @@@   @@@@                  
+    @@@@         @ @@@@     @@@@          @@@@@@   @@@@        @@   @@@@                  
+   @@@@@         @@@@@@   @@@@@            @@@@@@  @@@@         @   @@@@                  
+   @@@@@          @@@@    @@@@@   @    @    @@@@@  @@@@             @@@@                  
+   @@@@@          @@@@   @@@@@@   @@@@@@    @@@@@  @@@@             @@@@                  
+   @@@@@         @@@@@   @@@@@@   @    @    @@@@@  @@@@             @@@@                  
+   @@@@@         @@@@     @@@@@             @@@@   @@@@             @@@@                  
+    @@@@        @@@@@@    @@@@@@           @@@@    @@@@             @@@@                  
+     @@@@      @@@@  @@@@@@ @@@@@         @@@      @@@@             @@@@   @@             
+       @@@@@@@@@     @@@@@     @@@@@@@@@@@         @@@@               @@@@@
  */
 
 /**
  *•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*
- * @title Aori
+ * @title Aori  
+ * @dev version 0.3.1 
  * @notice Aori is a trust-minimized omnichain intent settlement protocol.
- * Connecting users and solvers from any chain to any chain. 
- *
+ * Connecting users and solvers from any chain to any chain,
+ * facilitating peer to peer exchange from any token to any token.
  *•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*
  */
+
 
 contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     using PayloadPackUtils for bytes32[];
@@ -798,26 +800,18 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     /**
      * @notice Allows users to withdraw their unlocked token balances
      * @param token The token address to withdraw
-     */
-    function withdraw(address token) external nonReentrant whenNotPaused {
-        address holder = msg.sender;
-        uint256 amount = balances[holder][token].unlocked;
-        require(amount > 0, "Non-zero balance required");
-        IERC20(token).safeTransfer(holder, amount);
-        balances[holder][token].unlocked = 0;
-        emit Withdraw(holder, token, amount);
-    }
-
-    /**
-     * @notice Allows users to withdraw a specific amount from their unlocked token balances
-     * @param token The token address to withdraw
-     * @param amount The specific amount to withdraw
+     * @param amount The amount to withdraw (use 0 to withdraw full balance)
      */
     function withdraw(address token, uint256 amount) external nonReentrant whenNotPaused {
         address holder = msg.sender;
         uint256 unlockedBalance = balances[holder][token].unlocked;
-        require(amount > 0, "Amount must be greater than zero");
-        require(unlockedBalance >= amount, "Insufficient unlocked balance");
+        require(unlockedBalance > 0, "Non-zero balance required");
+        
+        if (amount == 0) {
+            amount = unlockedBalance;
+        } else {
+            require(unlockedBalance >= amount, "Insufficient unlocked balance");
+        }
         
         IERC20(token).safeTransfer(holder, amount);
         balances[holder][token].unlocked = uint128(unlockedBalance - amount);
