@@ -105,8 +105,6 @@ interface IAori {
         SrcHook calldata data
     ) external;
 
-    function withdraw(address token) external;
-
     function withdraw(address token, uint256 amount) external;
 
     function cancel(bytes32 orderId) external;
