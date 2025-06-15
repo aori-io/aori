@@ -122,7 +122,8 @@ library ValidationUtils {
     }
 
     /**
-     * @notice Validates the cancellation of an order
+     * @notice Validates the cancellation of a cross-chain order from the destination chain
+     * @dev Allows whitelisted solvers (anytime), offerers (after expiry), and recipients (after expiry) to cancel
      * @param order The order details to cancel
      * @param orderId The hash of the order to cancel
      * @param endpointId The current chain's endpoint ID
@@ -142,8 +143,9 @@ library ValidationUtils {
         require(orderStatus(orderId) == IAori.OrderStatus.Unknown, "Order not active");
         require(
             (isAllowedSolver(sender)) ||
-                (sender == order.offerer && block.timestamp > order.endTime),
-            "Only whitelisted solver or offerer(after expiry) can cancel"
+                (sender == order.offerer && block.timestamp > order.endTime) ||
+                (sender == order.recipient && block.timestamp > order.endTime),
+            "Only whitelisted solver, offerer, or recipient (after expiry) can cancel"
         );
     }
 
@@ -171,20 +173,16 @@ library ValidationUtils {
         // Verify order exists and is active
         require(orderStatus(orderId) == IAori.OrderStatus.Active, "Order not active");
         
-        // For cross-chain orders: only solver can cancel, and only after expiry
-        if (order.srcEid != order.dstEid) {
-            require(
-                isAllowedSolver(sender) && block.timestamp > order.endTime,
-                "Cross-chain orders can only be cancelled by solver after expiry"
-            );
-        } else {
-            // For single-chain orders: solver can always cancel, offerer can cancel after expiry
-            require(
-                isAllowedSolver(sender) || 
-                (sender == order.offerer && block.timestamp > order.endTime),
-                "Only solver or offerer (after expiry) can cancel"
-            );
-        }
+        // Cross-chain orders cannot be cancelled from the source chain to prevent race conditions
+        // with settlement messages. Use emergencyCancel for emergency situations.
+        require(order.srcEid == order.dstEid, "Cross-chain orders must be cancelled from destination chain");
+        
+        // For single-chain orders: solver can always cancel, offerer can cancel after expiry
+        require(
+            isAllowedSolver(sender) || 
+            (sender == order.offerer && block.timestamp > order.endTime),
+            "Only solver or offerer (after expiry) can cancel"
+        );
     }
 
     /**
