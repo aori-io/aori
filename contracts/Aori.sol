@@ -13,8 +13,7 @@ import { ECDSA } from "solady/src/utils/ECDSA.sol";
 import { IAori } from "./IAori.sol";
 import "./AoriUtils.sol";
 
-/**
-                               @@@@@@@@@@@@                                              
+/**                            @@@@@@@@@@@@                                              
                              @@         @@@@@@                     @@@@@                  
                              @@           @@@@@                    @@@@@                  
                              @@@                                                          
@@ -33,17 +32,13 @@ import "./AoriUtils.sol";
      @@@@      @@@@  @@@@@@ @@@@@         @@@      @@@@             @@@@   @@             
        @@@@@@@@@     @@@@@     @@@@@@@@@@@         @@@@               @@@@@
  */
-
 /**
- *•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*
  * @title Aori  
  * @dev version 0.3.1 
  * @notice Aori is a trust-minimized omnichain intent settlement protocol.
  * Connecting users and solvers from any chain to any chain,
  * facilitating peer to peer exchange from any token to any token.
- *•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*
  */
-
 
 contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     using PayloadPackUtils for bytes32[];
@@ -203,13 +198,30 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
 
     /**
     * @notice Emergency function to cancel an order, bypassing normal restrictions
-    * @dev Only callable by the contract owner
+    * @dev Only callable by the contract owner. Always transfers tokens to maintain accounting consistency.
     * @param orderId The hash of the order to cancel
+    * @param recipient The address to send tokens to
     */
-    function emergencyCancel(bytes32 orderId) external onlyOwner {
-        _cancel(orderId);
+    function emergencyCancel(bytes32 orderId, address recipient) external onlyOwner {
+        require(orderStatus[orderId] == IAori.OrderStatus.Active, "Can only cancel active orders");
+        require(recipient != address(0), "Invalid recipient address");
+        
+        Order memory order = orders[orderId];
+        require(order.srcEid == ENDPOINT_ID, "Emergency cancel only allowed on source chain");
+        
+        address tokenAddress = order.inputToken;
+        uint128 amountToReturn = uint128(order.inputAmount);
+        require(IERC20(tokenAddress).balanceOf(address(this)) >= amountToReturn, "Insufficient contract balance");
+        
+        orderStatus[orderId] = IAori.OrderStatus.Cancelled;
+        bool success = balances[order.offerer][tokenAddress].decreaseLockedNoRevert(amountToReturn);
+        require(success, "Failed to decrease locked balance");
+        
+        IERC20(tokenAddress).safeTransfer(recipient, amountToReturn);
+        emit Cancel(orderId);
+        emit Withdraw(recipient, tokenAddress, amountToReturn);
     }
-
+ 
     /**
      * @notice Emergency function to extract tokens or ether from the contract
      * @dev Only callable by the contract owner. Does not update user balances - use for direct contract withdrawals.
@@ -248,8 +260,6 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         require(recipient != address(0), "Invalid recipient address");
         
         if (isLocked) {
-            uint256 lockedBalance = balances[user][token].locked;
-            require(lockedBalance >= amount, "Insufficient locked balance");
             bool success = balances[user][token].decreaseLockedNoRevert(uint128(amount));
             require(success, "Failed to decrease locked balance");
         } else {
@@ -766,15 +776,15 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         address tokenAddress = order.inputToken;
         address recipient = order.offerer;
         
-        // CRITICAL: Validate contract has sufficient tokens before any state changes
+        // Validate contract has sufficient tokens before any state changes
         require(IERC20(tokenAddress).balanceOf(address(this)) >= amountToReturn, "Insufficient contract balance");
         
         // Update state first (checks-effects)
         orderStatus[orderId] = IAori.OrderStatus.Cancelled;
         
         // Decrease locked balance
-        bool successDecrease = balances[recipient][tokenAddress].decreaseLockedNoRevert(amountToReturn);
-        require(successDecrease, "Failed to decrease locked balance");
+        bool success = balances[recipient][tokenAddress].decreaseLockedNoRevert(amountToReturn);
+        require(success, "Failed to decrease locked balance");
         
         // Transfer tokens directly to offerer (interactions)
         IERC20(tokenAddress).safeTransfer(recipient, amountToReturn);
