@@ -162,8 +162,9 @@ contract CrossChainAndWhitelistTests is TestUtils {
         // Store user's initial token balance
         uint256 initialUserBalance = inputToken.balanceOf(userA);
 
-        // Create a valid order
+        // Create a valid SINGLE-CHAIN order (not cross-chain)
         IAori.Order memory order = createValidOrder();
+        order.dstEid = localEid; // Make it single-chain to allow source chain cancellation
 
         // Sign and deposit the order
         bytes memory signature = signOrder(order);
@@ -207,8 +208,9 @@ contract CrossChainAndWhitelistTests is TestUtils {
     function testNonWhitelistedSolverCannotCancel() public {
         vm.chainId(localEid);
 
-        // Create a valid order
+        // Create a valid SINGLE-CHAIN order (not cross-chain)
         IAori.Order memory order = createValidOrder();
+        order.dstEid = localEid; // Make it single-chain to allow source chain cancellation
 
         // Sign and deposit the order
         bytes memory signature = signOrder(order);
@@ -228,7 +230,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         
         // Place expectRevert directly before the call that should revert
         vm.prank(nonWhitelistedSolver);
-        vm.expectRevert("Cross-chain orders can only be cancelled by solver after expiry");
+        vm.expectRevert("Only solver or offerer (after expiry) can cancel");
         localAori.cancel(orderHash);
     }
 

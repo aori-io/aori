@@ -134,8 +134,9 @@ contract PauseAndEmergencyFunctionsTest is TestUtils {
         uint256 initialUserBalance = inputToken.balanceOf(userA);
         
         // First set up some balance for userA
-        // Create a valid order
+        // Create a valid SINGLE-CHAIN order (not cross-chain)
         IAori.Order memory order = createValidOrder();
+        order.dstEid = localEid; // Make it single-chain to allow source chain cancellation
         bytes memory signature = signOrder(order);
 
         // Approve token transfer from userA to contract
