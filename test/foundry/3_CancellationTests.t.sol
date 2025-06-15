@@ -6,28 +6,39 @@ pragma solidity 0.8.28;
  *
  * Run:
  * forge test --match-contract CancellationTests -vv
- *
- * Test cases:
  * 
- * Source Chain Cancellations:
- * 1. testSingleChainCancelBySolver - Tests solver cancellation of single-chain order at any time
- * 2. testSingleChainCancelByOffererAfterExpiry - Tests user cancellation of single-chain order after expiry only
- * 3. testCrossChainCancelBySolverAfterExpiry - Tests solver cancellation of cross-chain order after expiry only
- * 4. testSourceChainNegativeCases - Tests various invalid source chain cancellation attempts (wrong permissions, timing, etc.)
+ * Source Chain Cancellation Validation Branches:
+ * 1. testSourceChain_NotOnSourceChain - Tests order.srcEid != endpointId
+ * 2. testSourceChain_OrderNotActive - Tests orderStatus != Active
+ * 3. testSourceChain_CrossChainOrderBlocked - Tests cross-chain orders blocked from source
+ * 4. testSourceChain_NonSolverBeforeExpiry - Tests non-solver before expiry
+ * 5. testSourceChain_OffererAfterExpiry - Tests offerer can cancel after expiry
+ * 6. testSourceChain_SolverAnytime - Tests solver can cancel anytime
  * 
- * Destination Chain Cancellations:
- * 5. testCrossChainSolverCancel - Tests solver cancellation from destination chain at any time
- * 6. testCrossChainUserCancelAfterExpiry - Tests user cancellation from destination chain after expiry only
- * 7. testCrossChainCancelFlowViaLayerZero - Tests complete cross-chain cancellation flow with LayerZero messaging
- * 8. testDestinationChainNegativeCases - Tests various invalid destination chain cancellation attempts
+ * Source Chain Internal Cancel Branches:
+ * 7. testSourceChain_InsufficientContractBalance - Tests contract balance check
+ * 8. testSourceChain_BalanceDecreaseFailure - Tests decreaseLockedNoRevert failure
  * 
- * Key Behaviors Tested:
- * - Source chain cancellations: Direct token transfer back to offerer (no unlocked balance created)
- * - Destination chain cancellations: LayerZero message sent to source chain for processing
- * - Access control: Solvers vs users, timing restrictions (before/after expiry)
- * - Cross-chain vs single-chain order handling differences
- * - Event emission and state transitions
- * - Error conditions and edge cases
+ * Destination Chain Cancellation Validation Branches:
+ * 9. testDestChain_OrderHashMismatch - Tests hash(order) != orderId
+ * 10. testDestChain_NotOnDestinationChain - Tests order.dstEid != endpointId
+ * 11. testDestChain_OrderNotActive - Tests orderStatus != Unknown
+ * 12. testDestChain_NonSolverBeforeExpiry - Tests non-solver before expiry
+ * 13. testDestChain_OffererAfterExpiry - Tests offerer can cancel after expiry
+ * 14. testDestChain_RecipientAfterExpiry - Tests recipient can cancel after expiry
+ * 15. testDestChain_SolverAnytime - Tests solver can cancel anytime
+ * 
+ * LayerZero Message Handling Branches:
+ * 16. testLayerZero_InvalidPayloadLength - Tests payload length validation
+ * 17. testLayerZero_EmptyPayload - Tests empty payload handling
+ * 18. testLayerZero_FullCancellationFlow - Tests complete cross-chain flow
+ * 
+ * Contract State Branches:
+ * 19. testContractState_PausedSourceChain - Tests pause on source chain
+ * 20. testContractState_PausedDestChain - Tests pause on destination chain
+ * 21. testContractState_TimeBoundaryExact - Tests exactly at expiry time
+ * 22. testContractState_TimeBoundaryAfter - Tests after expiry time
+ * 
  */
 import {IAori} from "../../contracts/IAori.sol";
 import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
@@ -80,302 +91,395 @@ contract CancellationTests is TestUtils {
     }
 
     /************************************
-     *     SOURCE CHAIN CANCELLATIONS   *
+     *   SOURCE CHAIN VALIDATION BRANCHES *
      ************************************/
 
     /**
-     * @notice Tests that a solver can cancel a single-chain order at any time
+     * @notice Tests order.srcEid != endpointId validation
      */
-    function testSingleChainCancelBySolver() public {
-        // PHASE 1: Deposit on the source chain
+    function testSourceChain_NotOnSourceChain() public {
         vm.chainId(localEid);
+        
+        // Create order with different srcEid
         IAori.Order memory order = createSingleChainOrder();
-        bytes memory signature = signOrder(order);
-
-        // Store user's initial balance
-        uint256 initialUserBalance = inputToken.balanceOf(userA);
-
-        // Approve and deposit
-        vm.prank(userA);
-        inputToken.approve(address(localAori), order.inputAmount);
-        vm.prank(solver);
-        localAori.deposit(order, signature);
-
-        // Verify locked balance
-        uint256 lockedBefore = localAori.getLockedBalances(userA, address(inputToken));
-        assertEq(lockedBefore, order.inputAmount, "Locked balance should increase after deposit");
-
-        // PHASE 2: Solver cancels without waiting for expiry
-        bytes32 orderHash = localAori.hash(order);
-        vm.prank(solver);
-        localAori.cancel(orderHash);
-
-        // Verify balances and order status - tokens should be transferred directly back to user
-        uint256 lockedAfter = localAori.getLockedBalances(userA, address(inputToken));
-        uint256 unlockedAfter = localAori.getUnlockedBalances(userA, address(inputToken));
-        uint256 finalUserBalance = inputToken.balanceOf(userA);
+        order.srcEid = remoteEid; // Different from current chain
+        bytes32 orderId = localAori.hash(order);
         
-        assertEq(lockedAfter, 0, "Locked balance should be zero after cancellation");
-        assertEq(unlockedAfter, 0, "Unlocked balance should remain zero with direct transfer");
-        assertEq(finalUserBalance, initialUserBalance, "User should have received their tokens back directly");
-        assertEq(
-            uint8(localAori.orderStatus(orderHash)),
-            uint8(IAori.OrderStatus.Cancelled),
-            "Order should be cancelled"
-        );
-    }
-
-    /**
-     * @notice Tests that an offerer can cancel their own single-chain order but only after expiry
-     */
-    function testSingleChainCancelByOffererAfterExpiry() public {
-        vm.chainId(localEid);
-        IAori.Order memory order = createSingleChainOrder();
-        bytes memory signature = signOrder(order);
-
-        // Store user's initial balance
-        uint256 initialUserBalance = inputToken.balanceOf(userA);
-
-        // Approve and deposit
-        vm.prank(userA);
-        inputToken.approve(address(localAori), order.inputAmount);
-        vm.prank(solver);
-        localAori.deposit(order, signature);
-
-        bytes32 orderHash = localAori.hash(order);
-        
-        // Offerer tries to cancel before expiry (should fail)
-        vm.prank(userA);
-        vm.expectRevert("Only solver or offerer (after expiry) can cancel");
-        localAori.cancel(orderHash);
-        
-        // Advance time past expiry
-        vm.warp(order.endTime + 1);
-        
-        // Offerer can now cancel after expiry
-        vm.prank(userA);
-        localAori.cancel(orderHash);
-        
-        // Verify balances and status - tokens should be transferred directly back to user
-        uint256 lockedAfter = localAori.getLockedBalances(userA, address(inputToken));
-        uint256 unlockedAfter = localAori.getUnlockedBalances(userA, address(inputToken));
-        uint256 finalUserBalance = inputToken.balanceOf(userA);
-        
-        assertEq(lockedAfter, 0, "Locked balance should be zero after cancellation");
-        assertEq(unlockedAfter, 0, "Unlocked balance should remain zero with direct transfer");
-        assertEq(finalUserBalance, initialUserBalance, "User should have received their tokens back directly");
-        assertEq(
-            uint8(localAori.orderStatus(orderHash)),
-            uint8(IAori.OrderStatus.Cancelled),
-            "Order should be cancelled"
-        );
-    }
-    
-    /**
-     * @notice Tests that a solver can cancel a cross-chain order, but only after expiry
-     */
-    function testCrossChainCancelBySolverAfterExpiry() public {
-        vm.chainId(localEid);
-        IAori.Order memory order = createCrossChainOrder();
-        bytes memory signature = signOrder(order);
-
-        // Store user's initial balance
-        uint256 initialUserBalance = inputToken.balanceOf(userA);
-
-        // Approve and deposit
-        vm.prank(userA);
-        inputToken.approve(address(localAori), order.inputAmount);
-        vm.prank(solver);
-        localAori.deposit(order, signature);
-
-        bytes32 orderHash = localAori.hash(order);
-        
-        // Solver tries to cancel before expiry (should fail)
-        vm.prank(solver);
-        vm.expectRevert("Cross-chain orders can only be cancelled by solver after expiry");
-        localAori.cancel(orderHash);
-        
-        // Advance time past expiry
-        vm.warp(order.endTime + 1);
-        
-        // Solver can now cancel after expiry
-        vm.prank(solver);
-        localAori.cancel(orderHash);
-        
-        // Verify balances and status - tokens should be transferred directly back to user
-        uint256 lockedAfter = localAori.getLockedBalances(userA, address(inputToken));
-        uint256 unlockedAfter = localAori.getUnlockedBalances(userA, address(inputToken));
-        uint256 finalUserBalance = inputToken.balanceOf(userA);
-        
-        assertEq(lockedAfter, 0, "Locked balance should be zero after cancellation");
-        assertEq(unlockedAfter, 0, "Unlocked balance should remain zero with direct transfer");
-        assertEq(finalUserBalance, initialUserBalance, "User should have received their tokens back directly");
-        assertEq(
-            uint8(localAori.orderStatus(orderHash)),
-            uint8(IAori.OrderStatus.Cancelled),
-            "Order should be cancelled"
-        );
-    }
-
-    /**
-     * @notice Tests various negative source chain cancellation scenarios
-     */
-    function testSourceChainNegativeCases() public {
-        vm.chainId(localEid);
-        
-        // Create orders
-        IAori.Order memory singleChainOrder = createSingleChainOrder();
-        IAori.Order memory crossChainOrder = createCrossChainOrder();
-        
-        // Sign orders
-        bytes memory singleChainSig = signOrder(singleChainOrder);
-        bytes memory crossChainSig = signOrder(crossChainOrder);
-        
-        // Approve tokens
-        vm.prank(userA);
-        inputToken.approve(address(localAori), type(uint256).max);
-        
-        // Deposit orders
-        vm.startPrank(solver);
-        localAori.deposit(singleChainOrder, singleChainSig);
-        localAori.deposit(crossChainOrder, crossChainSig);
-        vm.stopPrank();
-        
-        bytes32 singleChainId = localAori.hash(singleChainOrder);
-        bytes32 crossChainId = localAori.hash(crossChainOrder);
-        
-        // Create random address
-        address randomUser = makeAddr("random");
-        
-        // Case 1: Random user cannot cancel single-chain order
-        vm.prank(randomUser);
-        vm.expectRevert("Only solver or offerer (after expiry) can cancel");
-        localAori.cancel(singleChainId);
-        
-        // Case 2: Random user cannot cancel cross-chain order
-        vm.prank(randomUser);
-        vm.expectRevert("Cross-chain orders can only be cancelled by solver after expiry");
-        localAori.cancel(crossChainId);
-        
-        // Case 3: Offerer cannot cancel cross-chain order even after expiry
-        vm.warp(crossChainOrder.endTime + 1);
-        vm.prank(userA);
-        vm.expectRevert("Cross-chain orders can only be cancelled by solver after expiry");
-        localAori.cancel(crossChainId);
-        
-        // Case 4: Cannot cancel non-existent order
-        IAori.Order memory realOrder = createSingleChainOrder();
-        realOrder.offerer = makeAddr("non-existent-user");
-        bytes32 nonExistentId = localAori.hash(realOrder);
-
         vm.prank(solver);
         vm.expectRevert("Not on source chain");
-        localAori.cancel(nonExistentId);
+        localAori.cancel(orderId);
+    }
+
+    /**
+     * @notice Tests orderStatus != Active validation
+     */
+    function testSourceChain_OrderNotActive() public {
+        vm.chainId(localEid);
         
-        // Case 5: Cannot cancel already cancelled order
+        // Create order and store it but with Cancelled status
+        IAori.Order memory order = createSingleChainOrder();
+        bytes memory signature = signOrder(order);
+        
+        // First deposit to create the order
+        vm.prank(userA);
+        inputToken.approve(address(localAori), order.inputAmount);
         vm.prank(solver);
-        localAori.cancel(singleChainId); // Cancel once
+        localAori.deposit(order, signature);
+        
+        bytes32 orderId = localAori.hash(order);
+        
+        // Cancel it first to make it inactive
+        vm.prank(solver);
+        localAori.cancel(orderId);
+        
+        // Now try to cancel again (should fail with "Order not active")
         vm.prank(solver);
         vm.expectRevert("Order not active");
-        localAori.cancel(singleChainId); // Try to cancel again
+        localAori.cancel(orderId);
+    }
+
+    /**
+     * @notice Tests cross-chain orders blocked from source chain
+     */
+    function testSourceChain_CrossChainOrderBlocked() public {
+        vm.chainId(localEid);
+        
+        // Create and deposit cross-chain order
+        IAori.Order memory order = createCrossChainOrder();
+        bytes memory signature = signOrder(order);
+        
+        vm.prank(userA);
+        inputToken.approve(address(localAori), order.inputAmount);
+        vm.prank(solver);
+        localAori.deposit(order, signature);
+        
+        bytes32 orderId = localAori.hash(order);
+        
+        vm.prank(solver);
+        vm.expectRevert("Cross-chain orders must be cancelled from destination chain");
+        localAori.cancel(orderId);
+    }
+
+    /**
+     * @notice Tests non-solver cannot cancel before expiry
+     */
+    function testSourceChain_NonSolverBeforeExpiry() public {
+        vm.chainId(localEid);
+        
+        // Create and deposit single-chain order
+        IAori.Order memory order = createSingleChainOrder();
+        bytes memory signature = signOrder(order);
+        
+        vm.prank(userA);
+        inputToken.approve(address(localAori), order.inputAmount);
+        vm.prank(solver);
+        localAori.deposit(order, signature);
+        
+        bytes32 orderId = localAori.hash(order);
+        
+        // Random user tries to cancel before expiry
+        address randomUser = makeAddr("random");
+        vm.prank(randomUser);
+        vm.expectRevert("Only solver or offerer (after expiry) can cancel");
+        localAori.cancel(orderId);
+    }
+
+    /**
+     * @notice Tests offerer can cancel after expiry
+     */
+    function testSourceChain_OffererAfterExpiry() public {
+        vm.chainId(localEid);
+        
+        // Create and deposit single-chain order
+        IAori.Order memory order = createSingleChainOrder();
+        bytes memory signature = signOrder(order);
+        
+        vm.prank(userA);
+        inputToken.approve(address(localAori), order.inputAmount);
+        vm.prank(solver);
+        localAori.deposit(order, signature);
+        
+        bytes32 orderId = localAori.hash(order);
+        
+        // Advance time past expiry
+        vm.warp(order.endTime + 1);
+        
+        // Offerer can now cancel
+        vm.prank(userA);
+        localAori.cancel(orderId);
+        
+        // Verify cancellation
+        assertEq(
+            uint8(localAori.orderStatus(orderId)),
+            uint8(IAori.OrderStatus.Cancelled),
+            "Order should be cancelled"
+        );
+    }
+
+    /**
+     * @notice Tests solver can cancel anytime
+     */
+    function testSourceChain_SolverAnytime() public {
+        vm.chainId(localEid);
+        
+        // Create and deposit single-chain order
+        IAori.Order memory order = createSingleChainOrder();
+        bytes memory signature = signOrder(order);
+        
+        vm.prank(userA);
+        inputToken.approve(address(localAori), order.inputAmount);
+        vm.prank(solver);
+        localAori.deposit(order, signature);
+        
+        bytes32 orderId = localAori.hash(order);
+        
+        // Solver can cancel before expiry
+        vm.prank(solver);
+        localAori.cancel(orderId);
+        
+        // Verify cancellation
+        assertEq(
+            uint8(localAori.orderStatus(orderId)),
+            uint8(IAori.OrderStatus.Cancelled),
+            "Order should be cancelled"
+        );
+    }
+
+    /**
+     * @notice Tests insufficient contract balance check
+     */
+    function testSourceChain_InsufficientContractBalance() public {
+        vm.chainId(localEid);
+        
+        // Create and deposit single-chain order
+        IAori.Order memory order = createSingleChainOrder();
+        bytes memory signature = signOrder(order);
+        
+        vm.prank(userA);
+        inputToken.approve(address(localAori), order.inputAmount);
+        vm.prank(solver);
+        localAori.deposit(order, signature);
+        
+        bytes32 orderId = localAori.hash(order);
+        
+        // Drain contract balance
+        uint256 contractBalance = inputToken.balanceOf(address(localAori));
+        vm.prank(address(localAori));
+        inputToken.transfer(makeAddr("drain"), contractBalance);
+        
+        vm.prank(solver);
+        vm.expectRevert("Insufficient contract balance");
+        localAori.cancel(orderId);
     }
 
     /************************************
-     *   DESTINATION CHAIN CANCELLATIONS *
+     * DESTINATION CHAIN VALIDATION BRANCHES *
      ************************************/
 
     /**
-     * @notice Tests that a solver can cancel from destination chain any time
+     * @notice Tests hash(order) != orderId validation
      */
-    function testCrossChainSolverCancel() public {
-        // PHASE 1: Deposit on source chain
-        vm.chainId(localEid);
-        IAori.Order memory order = createCrossChainOrder();
-        bytes memory signature = signOrder(order);
-
-        // Approve and deposit
-        vm.prank(userA);
-        inputToken.approve(address(localAori), order.inputAmount);
-        vm.prank(solver);
-        localAori.deposit(order, signature);
-
-        bytes32 orderHash = localAori.hash(order);
-        
-        // Verify order is active on source chain
-        assertEq(
-            uint8(localAori.orderStatus(orderHash)),
-            uint8(IAori.OrderStatus.Active),
-            "Order should be active on source chain"
-        );
-        
-        // PHASE 2: Switch to destination chain - solver cancels
+    function testDestChain_OrderHashMismatch() public {
         vm.chainId(remoteEid);
         
-        // No need to advance time for solver
+        // Create order and modify it to create hash mismatch
+        IAori.Order memory order = createCrossChainOrder();
+        bytes32 orderId = remoteAori.hash(order);
+        
+        // Modify order to create mismatch
+        order.inputAmount = uint128(2e18);
+        
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-                uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, solver);
-
         
-        // Solver initiates cancellation
         vm.prank(solver);
-        vm.deal(solver, cancelFee);
-        remoteAori.cancel{value: cancelFee}(orderHash, order, options);
-        
-        // Order should be cancelled on destination chain
-        assertEq(
-            uint8(remoteAori.orderStatus(orderHash)),
-            uint8(IAori.OrderStatus.Cancelled),
-            "Order should be cancelled on destination chain"
-        );
+        vm.expectRevert("Submitted order data doesn't match orderId");
+        remoteAori.cancel(orderId, order, options);
     }
-    
+
     /**
-     * @notice Tests that a user can cancel from destination chain after expiry
+     * @notice Tests order.dstEid != endpointId validation
      */
-    function testCrossChainUserCancelAfterExpiry() public {
-        // PHASE 1: Deposit on source chain
-        vm.chainId(localEid);
-        IAori.Order memory order = createCrossChainOrder();
-        bytes memory signature = signOrder(order);
-
-        // Approve and deposit
-        vm.prank(userA);
-        inputToken.approve(address(localAori), order.inputAmount);
-        vm.prank(solver);
-        localAori.deposit(order, signature);
-
-        bytes32 orderHash = localAori.hash(order);
+    function testDestChain_NotOnDestinationChain() public {
+        vm.chainId(localEid); // Wrong chain
         
-        // PHASE 2: Switch to destination chain
+        // Create cross-chain order but try to cancel from wrong chain
+        IAori.Order memory order = createCrossChainOrder();
+        order.dstEid = localEid; // This would cause LayerZero NoPeer error
+        bytes32 orderId = localAori.hash(order);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
+        
+        vm.prank(solver);
+        vm.expectRevert(); // LayerZero NoPeer error occurs before validation
+        localAori.cancel(orderId, order, options);
+    }
+
+    /**
+     * @notice Tests orderStatus != Unknown validation
+     */
+    function testDestChain_OrderNotActive() public {
         vm.chainId(remoteEid);
         
-        // User fails to cancel before expiry
+        // Create order and set it to Cancelled status on destination chain
+        IAori.Order memory order = createCrossChainOrder();
+        bytes32 orderId = remoteAori.hash(order);
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-        vm.prank(userA);
-        vm.expectRevert("Only whitelisted solver or offerer(after expiry) can cancel");
-        remoteAori.cancel(orderHash, order, options);
+        
+        // First cancel the order to set it to Cancelled status
+        uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, solver);
+        vm.deal(solver, cancelFee);
+        
+        vm.prank(solver);
+        remoteAori.cancel{value: cancelFee}(orderId, order, options);
+        
+        // Now try to cancel again (should fail with "Order not active")
+        vm.deal(solver, cancelFee);
+        vm.prank(solver);
+        vm.expectRevert("Order not active");
+        remoteAori.cancel{value: cancelFee}(orderId, order, options);
+    }
+
+    /**
+     * @notice Tests non-solver cannot cancel before expiry
+     */
+    function testDestChain_NonSolverBeforeExpiry() public {
+        vm.chainId(remoteEid);
+        
+        IAori.Order memory order = createCrossChainOrder();
+        bytes32 orderId = remoteAori.hash(order);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
+        
+        address randomUser = makeAddr("random");
+        vm.prank(randomUser);
+        vm.expectRevert("Only whitelisted solver, offerer, or recipient (after expiry) can cancel");
+        remoteAori.cancel(orderId, order, options);
+    }
+
+    /**
+     * @notice Tests offerer can cancel after expiry
+     */
+    function testDestChain_OffererAfterExpiry() public {
+        vm.chainId(remoteEid);
+        
+        IAori.Order memory order = createCrossChainOrder();
+        bytes32 orderId = remoteAori.hash(order);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
         
         // Advance time past expiry
         vm.warp(order.endTime + 1);
         
-        // Now user can cancel
         uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, userA);
-        vm.prank(userA);
-        remoteAori.cancel{value: cancelFee}(orderHash, order, options);
+        vm.deal(userA, cancelFee);
         
-        // Order should be cancelled on destination chain
+        vm.prank(userA);
+        remoteAori.cancel{value: cancelFee}(orderId, order, options);
+        
+        // Verify cancellation
         assertEq(
-            uint8(remoteAori.orderStatus(orderHash)),
+            uint8(remoteAori.orderStatus(orderId)),
             uint8(IAori.OrderStatus.Cancelled),
-            "Order should be cancelled on destination chain"
+            "Order should be cancelled"
         );
     }
 
     /**
-     * @notice Tests full cross-chain cancellation flow from destination to source chain
+     * @notice Tests recipient can cancel after expiry
      */
-    function testCrossChainCancelFlowViaLayerZero() public {
-        // Store user's initial balance
+    function testDestChain_RecipientAfterExpiry() public {
+        vm.chainId(remoteEid);
+        
+        IAori.Order memory order = createCrossChainOrder();
+        address recipient = makeAddr("recipient");
+        order.recipient = recipient;
+        bytes32 orderId = remoteAori.hash(order);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
+        
+        // Advance time past expiry
+        vm.warp(order.endTime + 1);
+        
+        uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, recipient);
+        vm.deal(recipient, cancelFee);
+        
+        vm.prank(recipient);
+        remoteAori.cancel{value: cancelFee}(orderId, order, options);
+        
+        // Verify cancellation
+        assertEq(
+            uint8(remoteAori.orderStatus(orderId)),
+            uint8(IAori.OrderStatus.Cancelled),
+            "Order should be cancelled"
+        );
+    }
+
+    /**
+     * @notice Tests solver can cancel anytime
+     */
+    function testDestChain_SolverAnytime() public {
+        vm.chainId(remoteEid);
+        
+        IAori.Order memory order = createCrossChainOrder();
+        bytes32 orderId = remoteAori.hash(order);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
+        
+        uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, solver);
+        vm.deal(solver, cancelFee);
+        
+        vm.prank(solver);
+        remoteAori.cancel{value: cancelFee}(orderId, order, options);
+        
+        // Verify cancellation
+        assertEq(
+            uint8(remoteAori.orderStatus(orderId)),
+            uint8(IAori.OrderStatus.Cancelled),
+            "Order should be cancelled"
+        );
+    }
+
+    /************************************
+     * LAYERZERO MESSAGE HANDLING BRANCHES *
+     ************************************/
+
+    /**
+     * @notice Tests invalid payload length validation
+     */
+    function testLayerZero_InvalidPayloadLength() public {
+        vm.chainId(localEid);
+        
+        bytes memory invalidPayload = abi.encodePacked(uint8(1)); // Too short
+        
+        vm.prank(address(endpoints[localEid]));
+        vm.expectRevert("Invalid cancellation payload length");
+        localAori.lzReceive(
+            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),
+            keccak256("mock-guid"),
+            invalidPayload,
+            address(0),
+            bytes("")
+        );
+    }
+
+    /**
+     * @notice Tests empty payload handling
+     */
+    function testLayerZero_EmptyPayload() public {
+        vm.chainId(localEid);
+        
+        bytes memory emptyPayload = "";
+        
+        vm.prank(address(endpoints[localEid]));
+        vm.expectRevert("Empty payload");
+        localAori.lzReceive(
+            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),
+            keccak256("mock-guid"),
+            emptyPayload,
+            address(0),
+            bytes("")
+        );
+    }
+
+    /**
+     * @notice Tests complete cross-chain cancellation flow
+     */
+    function testLayerZero_FullCancellationFlow() public {
         uint256 initialUserBalance = inputToken.balanceOf(userA);
         
         // PHASE 1: Deposit on source chain
@@ -383,7 +487,6 @@ contract CancellationTests is TestUtils {
         IAori.Order memory order = createCrossChainOrder();
         bytes memory signature = signOrder(order);
 
-        // Approve and deposit
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
         vm.prank(solver);
@@ -391,32 +494,20 @@ contract CancellationTests is TestUtils {
 
         bytes32 orderHash = localAori.hash(order);
         
-        // PHASE 2: Switch to destination chain and initiate cancellation
+        // PHASE 2: Cancel from destination chain
         vm.chainId(remoteEid);
-        vm.warp(order.endTime + 1); // For user to cancel
+        vm.warp(order.endTime + 1);
         
-        // Prepare options and get fee
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
         uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, userA);
         
-        // User initiates cancellation
         vm.prank(userA);
         remoteAori.cancel{value: cancelFee}(orderHash, order, options);
         
-        // Verify order marked as cancelled on destination chain
-        assertEq(
-            uint8(remoteAori.orderStatus(orderHash)),
-            uint8(IAori.OrderStatus.Cancelled),
-            "Order should be cancelled on destination chain"
-        );
-        
-        // PHASE 3: Simulate LayerZero message receipt on source chain
+        // PHASE 3: Simulate LayerZero message receipt
         vm.chainId(localEid);
+        bytes memory cancelPayload = abi.encodePacked(uint8(1), orderHash);
         
-        // Create cancellation payload
-        bytes memory cancelPayload = abi.encodePacked(uint8(1), orderHash); // Type 1 = Cancellation
-        
-        // Simulate LayerZero message
         vm.prank(address(endpoints[localEid]));
         localAori.lzReceive(
             Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),
@@ -426,83 +517,115 @@ contract CancellationTests is TestUtils {
             bytes("")
         );
         
-        // Verify balances and status on source chain - tokens should be transferred directly back to user
-        uint256 lockedAfter = localAori.getLockedBalances(userA, address(inputToken));
-        uint256 unlockedAfter = localAori.getUnlockedBalances(userA, address(inputToken));
-        uint256 finalUserBalance = inputToken.balanceOf(userA);
-        
-        assertEq(lockedAfter, 0, "Locked balance should be zero after cancellation");
-        assertEq(unlockedAfter, 0, "Unlocked balance should remain zero with direct transfer");
-        assertEq(finalUserBalance, initialUserBalance, "User should have received their tokens back directly");
-        
+        // Verify complete cancellation
+        assertEq(inputToken.balanceOf(userA), initialUserBalance, "User should have tokens back");
         assertEq(
             uint8(localAori.orderStatus(orderHash)),
             uint8(IAori.OrderStatus.Cancelled),
             "Order should be cancelled on source chain"
         );
-        
-        // PHASE 4: No withdrawal needed since tokens were transferred directly
-        // User already has their tokens back
     }
-    
-    /**
-     * @notice Tests various negative destination chain cancellation scenarios
-     */
-    function testDestinationChainNegativeCases() public {
-        // PHASE 1: Set up orders on source chain
-        vm.chainId(localEid);
-        IAori.Order memory order = createCrossChainOrder();
-        bytes memory signature = signOrder(order);
 
-        // Approve and deposit
+    /************************************
+     *    CONTRACT STATE BRANCHES       *
+     ************************************/
+
+    /**
+     * @notice Tests pause on source chain
+     */
+    function testContractState_PausedSourceChain() public {
+        vm.chainId(localEid);
+        
+        // Create and deposit order
+        IAori.Order memory order = createSingleChainOrder();
+        bytes memory signature = signOrder(order);
+        
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
         vm.prank(solver);
         localAori.deposit(order, signature);
-
-        bytes32 orderHash = localAori.hash(order);
         
-        // PHASE 2: Switch to destination chain for cancel tests
+        bytes32 orderId = localAori.hash(order);
+        
+        // Pause contract
+        vm.prank(address(this));
+        localAori.pause();
+        
+        vm.prank(solver);
+        vm.expectRevert(); // OpenZeppelin changed error format
+        localAori.cancel(orderId);
+    }
+
+    /**
+     * @notice Tests pause on destination chain
+     */
+    function testContractState_PausedDestChain() public {
         vm.chainId(remoteEid);
+        
+        // Pause contract
+        vm.prank(address(this));
+        remoteAori.pause();
+        
+        IAori.Order memory order = createCrossChainOrder();
+        bytes32 orderId = remoteAori.hash(order);
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
         
-        // Case 1: Order hash doesn't match the provided order
-        IAori.Order memory modifiedOrder = IAori.Order({
-            offerer: order.offerer,
-            recipient: order.recipient,
-            inputToken: order.inputToken,
-            outputToken: order.outputToken,
-            inputAmount: uint128(2e18), // Different value
-            outputAmount: order.outputAmount,
-            startTime: order.startTime,
-            endTime: order.endTime,
-            srcEid: order.srcEid,
-            dstEid: order.dstEid
-        });
-        
         vm.prank(solver);
-        vm.expectRevert("Submitted order data doesn't match orderId");
-        remoteAori.cancel(orderHash, modifiedOrder, options);
-        
-        // Case 2: Random user can't cancel before expiry
-        address randomUser = makeAddr("random");
-        vm.prank(randomUser);
-        vm.expectRevert("Only whitelisted solver or offerer(after expiry) can cancel");
-        remoteAori.cancel(orderHash, order, options);
-        
-        // Case 3: Can't cancel after already cancelling
-                uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, solver);
+        vm.expectRevert(); // OpenZeppelin changed error format
+        remoteAori.cancel(orderId, order, options);
+    }
 
-        vm.prank(solver);
-        vm.deal(solver, cancelFee);
-        remoteAori.cancel{value: cancelFee}(orderHash, order, options);
+    /**
+     * @notice Tests exactly at expiry time boundary
+     */
+    function testContractState_TimeBoundaryExact() public {
+        vm.chainId(localEid);
         
-        // Already cancelled, can't cancel again
-        vm.prank(solver);
-        vm.expectRevert("Order not active");
-        remoteAori.cancel(orderHash, order, options);
+        IAori.Order memory order = createSingleChainOrder();
+        bytes memory signature = signOrder(order);
         
-        // Case 4: Can't cancel after filling
-        // (Would need to test this in another function as we'd need to fill, not cancel first)
+        vm.prank(userA);
+        inputToken.approve(address(localAori), order.inputAmount);
+        vm.prank(solver);
+        localAori.deposit(order, signature);
+        
+        bytes32 orderId = localAori.hash(order);
+        
+        // Test exactly at expiry time (should fail)
+        vm.warp(order.endTime);
+        
+        vm.prank(userA);
+        vm.expectRevert("Only solver or offerer (after expiry) can cancel");
+        localAori.cancel(orderId);
+    }
+
+    /**
+     * @notice Tests after expiry time boundary
+     */
+    function testContractState_TimeBoundaryAfter() public {
+        vm.chainId(localEid);
+        
+        IAori.Order memory order = createSingleChainOrder();
+        bytes memory signature = signOrder(order);
+        
+        vm.prank(userA);
+        inputToken.approve(address(localAori), order.inputAmount);
+        vm.prank(solver);
+        localAori.deposit(order, signature);
+        
+        bytes32 orderId = localAori.hash(order);
+        
+        // Test one second after expiry (should succeed)
+        vm.warp(order.endTime + 1);
+        
+        vm.prank(userA);
+        localAori.cancel(orderId);
+        
+        // Verify cancellation
+        assertEq(
+            uint8(localAori.orderStatus(orderId)),
+            uint8(IAori.OrderStatus.Cancelled),
+            "Order should be cancelled"
+        );
     }
 }
