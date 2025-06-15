@@ -178,7 +178,6 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             emit ChainSupported(eids[i]);
             results[i] = true;
         }
-        
         return results;
     }
 
@@ -715,9 +714,10 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     /**
-     * @notice Allows cancellation of orders from the source chain for single chain swap orders
-     * @dev Cancellation is permitted for:
-     *      1. Whitelisted solvers (for any active order)
+     * @notice Allows cancellation of single-chain orders from the source chain
+     * @dev Cross-chain orders must be cancelled from the destination chain to prevent race conditions.
+     * Cancellation is permitted for:
+     *      1. Whitelisted solvers (for any active single-chain order)
      *      2. Order offerers (for their own expired single-chain orders)
      * @param orderId The hash of the order to cancel
      */
@@ -736,9 +736,12 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     }
 
     /**
-     * @notice Cancels an order from the destination chain by sending a cancellation message to the source chain
-     * @dev Requires ETH to be sent for LayerZero fees. Before endTime, only whitelisted solvers can cancel.
-     * After endTime, either solver or offerer can cancel.
+     * @notice Cancels a cross-chain order from the destination chain by sending a cancellation message to the source chain
+     * @dev This is the required method for cancelling cross-chain orders to prevent race conditions with settlement.
+     * Requires ETH to be sent for LayerZero fees. Cancellation is permitted for:
+     *      1. Whitelisted solvers (anytime before settlement)
+     *      2. Order offerers (after expiry)
+     *      3. Order recipients (after expiry)
      * @param orderId The hash of the order to cancel
      * @param orderToCancel The order details to cancel
      * @param extraOptions Additional LayerZero options
