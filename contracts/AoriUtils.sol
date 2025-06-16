@@ -2,6 +2,7 @@
 pragma solidity 0.8.28;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ECDSA } from "solady/src/utils/ECDSA.sol";
 import { IAori } from "./IAori.sol";
 
@@ -95,6 +96,7 @@ library ValidationUtils {
     /**
      * @notice Validates deposit and fill parameters for single-chain swaps
      * @dev Combines validation for both deposit and fill in a single function
+     * @dev Restricts to ERC20 tokens only - native tokens should use deposit/fill with hooks
      * @param order The order to validate
      * @param signature The EIP712 signature to verify
      * @param digest The EIP712 type hash digest of the order
@@ -119,6 +121,10 @@ library ValidationUtils {
         validateCommonOrderParams(order);
         require(order.srcEid == endpointId && order.dstEid == endpointId, "Chain mismatch");
         require(order.inputToken != order.outputToken, "Invalid Pair");
+        
+        // Restrict to ERC20 tokens only - native tokens should use deposit/fill with hooks
+        require(!NativeTokenUtils.isNativeToken(order.inputToken), "Native input tokens not supported in swap");
+        require(!NativeTokenUtils.isNativeToken(order.outputToken), "Native output tokens not supported in swap");
     }
 
     /**
@@ -429,17 +435,21 @@ library ExecutionUtils {
      * @param target The target contract address to call
      * @param data The calldata to send to the target
      * @param observedToken The token address to observe balance changes for
-     * @return The balance change (typically positive if tokens are received)
+     * @return The balance change (positive if tokens increased, reverts if decreased)
      */
     function observeBalChg(
         address target,
         bytes calldata data,
         address observedToken
     ) internal returns (uint256) {
-        uint256 balBefore = IERC20(observedToken).balanceOf(address(this));
+        uint256 balBefore = NativeTokenUtils.balanceOf(observedToken, address(this));
         (bool success, ) = target.call(data);
         require(success, "Call failed");
-        uint256 balAfter = IERC20(observedToken).balanceOf(address(this));
+        uint256 balAfter = NativeTokenUtils.balanceOf(observedToken, address(this));
+        
+        // Prevent underflow and provide clear error message
+        require(balAfter >= balBefore, "Hook decreased contract balance");
+        
         return balAfter - balBefore;
     }
 }
@@ -709,6 +719,72 @@ library PayloadSizeUtils {
             return settlementPayloadSize(fillCount);
         } else {
             revert("Invalid message type");
+        }
+    }
+}
+
+/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+/*                    NATIVE TOKEN UTILS                     */
+/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+// Native token address constant
+address constant NATIVE_TOKEN = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
+/**
+ * @notice Library for native token operations
+ * @dev Provides utilities for handling native ETH alongside ERC20 tokens
+ */
+library NativeTokenUtils {
+    using SafeERC20 for IERC20;
+    
+    /**
+     * @notice Checks if a token address represents native ETH
+     * @param token The token address to check
+     * @return True if the token is the native token address
+     */
+    function isNativeToken(address token) internal pure returns (bool) {
+        return token == NATIVE_TOKEN;
+    }
+
+    /**
+     * @notice Safely transfers tokens (native or ERC20) to a recipient
+     * @param token The token address (use NATIVE_TOKEN for ETH)
+     * @param to The recipient address
+     * @param amount The amount to transfer
+     */
+    function safeTransfer(address token, address to, uint256 amount) internal {
+        if (isNativeToken(token)) {
+            (bool success, ) = payable(to).call{value: amount}("");
+            require(success, "Native transfer failed");
+        } else {
+            IERC20(token).safeTransfer(to, amount);
+        }
+    }
+
+    /**
+     * @notice Gets the balance of a token for a specific address
+     * @param token The token address (use NATIVE_TOKEN for ETH)
+     * @param account The account to check balance for
+     * @return The token balance
+     */
+    function balanceOf(address token, address account) internal view returns (uint256) {
+        if (isNativeToken(token)) {
+            return account.balance;
+        } else {
+            return IERC20(token).balanceOf(account);
+        }
+    }
+
+    /**
+     * @notice Validates that the contract has sufficient balance for a transfer
+     * @param token The token address (use NATIVE_TOKEN for ETH)
+     * @param amount The amount to validate
+     */
+    function validateSufficientBalance(address token, uint256 amount) internal view {
+        if (isNativeToken(token)) {
+            require(address(this).balance >= amount, "Insufficient contract native balance");
+        } else {
+            require(IERC20(token).balanceOf(address(this)) >= amount, "Insufficient contract balance");
         }
     }
 }
