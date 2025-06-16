@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 /**
- * PauseAndEmergencyFunctionsTest - Tests administrative functions for pausing and emergency operations
+ * PausedTests - Tests administrative functions for pausing and emergency operations
  *
  * Test cases:
  * 1. testPauseOnlyAdmin - Tests that only the admin can pause the contract
@@ -23,10 +23,10 @@ import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/Option
 import "./TestUtils.sol";
 
 /**
- * @title PauseAndEmergencyFunctionsTest
+ * @title PausedTests
  * @notice Tests for pause, unpause, and emergency withdrawal functionality in the Aori contract
  */
-contract PauseAndEmergencyFunctionsTest is TestUtils {
+contract PausedTests is TestUtils {
     using OptionsBuilder for bytes;
 
     // Admin and non-admin addresses for testing access control
