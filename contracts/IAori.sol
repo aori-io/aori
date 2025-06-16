@@ -105,6 +105,8 @@ interface IAori {
         SrcHook calldata data
     ) external;
 
+    function depositNative(Order calldata order, bytes calldata signature) external payable;
+
     function withdraw(address token, uint256 amount) external;
 
     function cancel(bytes32 orderId) external;
@@ -116,9 +118,9 @@ interface IAori {
     /*                        DST FUNCTIONS                       */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    function fill(Order calldata order) external;
+    function fill(Order calldata order) external payable;
 
-    function fill(Order calldata order, DstHook calldata hook) external;
+    function fill(Order calldata order, DstHook calldata hook) external payable;
 
     function settle(uint32 srcEid, address filler, bytes calldata extraOptions) external payable;
 
