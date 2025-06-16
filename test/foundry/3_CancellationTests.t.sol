@@ -263,8 +263,8 @@ contract CancellationTests is TestUtils {
         bytes32 orderId = localAori.hash(order);
         
         // Drain contract balance
-        uint256 contractBalance = inputToken.balanceOf(address(localAori));
-        vm.prank(address(localAori));
+        uint256 contractBalance = inputToken.balanceOf(payable(address(localAori)));
+        vm.prank(payable(address(localAori)));
         inputToken.transfer(makeAddr("drain"), contractBalance);
         
         vm.prank(solver);

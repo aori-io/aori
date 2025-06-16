@@ -14,6 +14,9 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract MockHook {
     address public sourceToken;
     address public targetToken;
+    
+    // Native token address constant
+    address constant NATIVE_TOKEN = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     constructor() {
         sourceToken = address(0);
@@ -21,13 +24,25 @@ contract MockHook {
     }
 
     function handleHook(address tokenToReturn, uint256 expectedAmount) external {
-        uint256 available = IERC20(tokenToReturn).balanceOf(address(this));
-        require(available >= expectedAmount, "Insufficient funds in hook");
-        IERC20(tokenToReturn).transfer(msg.sender, expectedAmount);
+        if (tokenToReturn == NATIVE_TOKEN) {
+            // Handle native token
+            uint256 available = address(this).balance;
+            require(available >= expectedAmount, "Insufficient native funds in hook");
+            (bool success, ) = payable(msg.sender).call{value: expectedAmount}("");
+            require(success, "Native transfer failed");
+        } else {
+            // Handle ERC20 token
+            uint256 available = IERC20(tokenToReturn).balanceOf(address(this));
+            require(available >= expectedAmount, "Insufficient funds in hook");
+            IERC20(tokenToReturn).transfer(msg.sender, expectedAmount);
+        }
     }
 
     function execute() external {
         // Simple function that can be called to test hooks without token transfers
         // This doesn't need to do anything for our test cases
     }
+    
+    // Allow the contract to receive native tokens
+    receive() external payable {}
 }
