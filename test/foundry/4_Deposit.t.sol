@@ -439,13 +439,13 @@ contract DepositTests is TestUtils {
         IAori.Order memory order = createValidTestOrder();
         order.startTime = uint32(block.timestamp);
         bytes memory signature = signOrder(order);
-        
+
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
-        
+
         vm.prank(solver);
         localAori.deposit(order, signature);
-        
+
         bytes32 orderHash = localAori.hash(order);
         assertEq(uint8(localAori.orderStatus(orderHash)), uint8(IAori.OrderStatus.Active));
     }
@@ -457,13 +457,13 @@ contract DepositTests is TestUtils {
         IAori.Order memory order = createValidTestOrder();
         order.endTime = uint32(block.timestamp + 1);
         bytes memory signature = signOrder(order);
-        
+
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
-        
+
         vm.prank(solver);
         localAori.deposit(order, signature);
-        
+
         bytes32 orderHash = localAori.hash(order);
         assertEq(uint8(localAori.orderStatus(orderHash)), uint8(IAori.OrderStatus.Active));
     }

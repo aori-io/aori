@@ -9,7 +9,7 @@ contract ReentrantAttacker {
     Aori public aori;
     IAori.Order public targetOrder;
 
-    constructor(address _aori) {
+    constructor(address payable _aori) {
         aori = Aori(_aori);
     }
 

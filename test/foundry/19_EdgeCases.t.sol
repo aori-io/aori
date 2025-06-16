@@ -60,7 +60,7 @@ contract EdgeCasesTest is TestUtils {
         feeToken = new FeeOnTransferToken("Fee Token", "FEET", 100); // 1% fee
 
         // Deploy attacker for reentrancy testing
-        attacker = new ReentrantAttacker(address(localAori));
+        attacker = new ReentrantAttacker(payable(address(localAori)));
 
         // Mint tokens to maker, taker, and solver
         revertingToken.mint(maker, 1000 ether);
