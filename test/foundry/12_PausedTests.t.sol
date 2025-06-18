@@ -283,9 +283,11 @@ contract PausedTests is TestUtils {
         vm.prank(solver);
         outputToken.approve(address(localAori), swapOrder.outputAmount);
 
-        // Execute swap to create unlocked balance for solver
+        // Execute deposit+fill to create unlocked balance for solver
         vm.prank(solver);
-        localAori.swap(swapOrder, swapSignature);
+        localAori.deposit(swapOrder, swapSignature);
+        vm.prank(solver);
+        localAori.fill(swapOrder);
 
         // Verify solver has unlocked balance
         uint256 unlockedBefore = localAori.getUnlockedBalances(solver, address(inputToken));
