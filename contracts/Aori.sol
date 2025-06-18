@@ -536,13 +536,6 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         Order calldata order,
         IAori.DstHook calldata hook
     ) external payable nonReentrant whenNotPaused onlySolver {
-        // For single-chain swaps, only allow if native tokens are involved
-        if (order.isSingleChainSwap()) {
-            require(
-                order.inputToken.isNativeToken() || order.outputToken.isNativeToken(),
-                "Single-chain swaps with hooks only allowed for native tokens"
-            );
-        }
 
         bytes32 orderId = order.validateFill(
             ENDPOINT_ID,
@@ -625,54 +618,6 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         orderStatus[orderId] = IAori.OrderStatus.Filled;
         srcEidToFillerFills[order.srcEid][msg.sender].push(orderId);
         emit Fill(orderId, order);
-    }
-
-    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                      Single-chain-swap                     */
-    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-    /**
-     * @notice Deposits and immediately fills a single-chain swap order in a single transaction
-     * @dev Only for single-chain ERC20 swaps, combines deposit and fill steps with atomic settlement
-     * @dev For native token swaps, use deposit() with srcHook or fill() with dstHook instead
-     * @param order The order details
-     * @param signature The user's EIP712 signature over the order
-     */
-    function swap(
-        Order calldata order,
-        bytes calldata signature
-    ) external nonReentrant whenNotPaused onlySolver {
-        // This function is only for single-chain swaps
-        require(order.isSingleChainSwap(), "Only for single-chain swaps");
-        
-        // Restrict to ERC20 tokens only - native tokens should use deposit/fill with hooks
-        require(!order.inputToken.isNativeToken(), "Native input tokens not supported in swap - use deposit with srcHook");
-        require(!order.outputToken.isNativeToken(), "Native output tokens not supported in swap - use fill with dstHook");
-        
-        bytes32 orderId = order.validateSwap(
-            signature,
-            _hashOrder712(order),
-            ENDPOINT_ID,
-            this.orderStatus
-        );
-        // Transfer input token from offerer to this contract
-        IERC20(order.inputToken).safeTransferFrom(order.offerer, address(this), order.inputAmount);
-        
-        // Transfer output token from solver to recipient
-        IERC20(order.outputToken).safeTransferFrom(msg.sender, order.recipient, order.outputAmount);
-        
-        // Credit the input token directly to the solver's unlocked balance
-        bool success = balances[msg.sender][order.inputToken].increaseUnlockedNoRevert(
-            SafeCast.toUint128(order.inputAmount)
-        );
-        require(success, "Balance operation failed");
-        
-        // Order is immediately settled
-        orderStatus[orderId] = IAori.OrderStatus.Settled;
-        orders[orderId] = order;
-        
-        // Emit event
-        emit Settle(orderId);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
