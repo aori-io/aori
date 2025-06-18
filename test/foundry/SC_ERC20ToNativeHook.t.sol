@@ -552,3 +552,4 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         assertEq(localAori.getLockedBalances(userSC, address(inputToken)), 0, "User should have no locked balance after both swaps");
     }
 }
+   
