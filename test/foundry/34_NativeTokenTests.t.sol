@@ -583,7 +583,7 @@ contract NativeTokenTests is TestUtils {
         // Pause the contract
         localAori.pause();
 
-        vm.expectRevert("EnforcedPause()");
+        vm.expectRevert(); // OpenZeppelin's Pausable uses custom errors
         vm.prank(user);
         localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
     }

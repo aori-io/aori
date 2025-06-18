@@ -441,7 +441,9 @@ contract EmergencyTests is TestUtils {
         outputToken.approve(address(localAori), order.outputAmount);
 
         vm.prank(solver);
-        localAori.swap(order, signature);
+        localAori.deposit(order, signature);
+        vm.prank(solver);
+        localAori.fill(order);
 
         uint256 recipientBalanceBefore = inputToken.balanceOf(customRecipient);
         uint256 withdrawAmount = order.inputAmount / 2;
@@ -622,7 +624,9 @@ contract EmergencyTests is TestUtils {
         outputToken.approve(address(localAori), swapOrder.outputAmount);
 
         vm.prank(solver);
-        localAori.swap(swapOrder, swapSig);
+        localAori.deposit(swapOrder, swapSig);
+        vm.prank(solver);
+        localAori.fill(swapOrder);
 
         bytes32 swapOrderId = localAori.hash(swapOrder);
         assertEq(uint8(localAori.orderStatus(swapOrderId)), uint8(IAori.OrderStatus.Settled), "Swap should be settled");

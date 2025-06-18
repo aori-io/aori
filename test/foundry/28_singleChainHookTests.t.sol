@@ -15,7 +15,6 @@ pragma solidity 0.8.28;
  * 5. testSingleChainDepositWithHookFailure - Tests handling of hook execution failures
  * 6. testSingleChainDepositWithHookBalances - Tests balance updates after execution
  * 7. testSingleChainDepositWithHookCancel - Tests order cancellation with hooks
- * 8. testSingleChainSwap - Tests the direct swap method
  */
 import {Aori, IAori} from "../../contracts/Aori.sol";
 import {TestUtils} from "./TestUtils.sol";
@@ -242,163 +241,13 @@ contract SingleChainHookTest is TestUtils {
         }
     }
     
-    /**
-     * @notice Test the direct swap method for single-chain swaps
-     */
-    function testSingleChainSwap() public {
-        // Create the order
-        IAori.Order memory order = createSingleChainOrderWithHook(
-            recipient,
-            address(inputToken),
-            inputAmount,
-            address(outputToken),
-            outputAmount,
-            address(0) // No hook needed for swap
-        );
-        
-        // Generate signature
-        bytes memory signature = signOrder(order);
-        
-        // Approve tokens for transfer
-        vm.prank(userA);
-        inputToken.approve(address(localAori), type(uint256).max);
-        
-        // Mint output tokens to solver and approve
-        outputToken.mint(solver, outputAmount);
-        vm.prank(solver);
-        outputToken.approve(address(localAori), type(uint256).max);
-        
-        // Record balances before operation
-        uint256 initialInputTokenUserA = inputToken.balanceOf(userA);
-        uint256 initialOutputTokenSolver = outputToken.balanceOf(solver);
-        uint256 initialOutputTokenRecipient = outputToken.balanceOf(recipient);
-        
-        // Calculate order ID
-        bytes32 orderId = localAori.hash(order);
-        
-        // Execute swap
-        vm.prank(solver);
-        localAori.swap(order, signature);
-        
-        // Verify order status
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Settled), "Order should be settled");
-        
-        // Verify token transfers
-        assertEq(inputToken.balanceOf(userA), initialInputTokenUserA - inputAmount, "UserA input token balance should decrease");
-        assertEq(outputToken.balanceOf(solver), initialOutputTokenSolver - outputAmount, "Solver output token balance should decrease");
-        assertEq(outputToken.balanceOf(recipient), initialOutputTokenRecipient + outputAmount, "Output tokens should be transferred to recipient");
-        
-        // Verify contract balances
-        uint256 solverUnlocked = localAori.getUnlockedBalances(solver, address(inputToken));
-        assertEq(solverUnlocked, inputAmount, "Solver should receive unlocked input tokens");
-    }
+
     
-    /**
-     * @notice Test swap with extra output
-     */
-    function testSingleChainSwapExtraOutput() public {
-        // Create the order
-        IAori.Order memory order = createSingleChainOrderWithHook(
-            recipient,
-            address(inputToken),
-            inputAmount,
-            address(outputToken),
-            outputAmount,
-            address(0) // No hook needed for swap
-        );
-        
-        // Generate signature
-        bytes memory signature = signOrder(order);
-        
-        // Approve tokens for transfer
-        vm.prank(userA);
-        inputToken.approve(address(localAori), type(uint256).max);
-        
-        // Mint extra output tokens to solver and approve
-        uint256 extraAmount = outputAmount + 1 ether;
-        outputToken.mint(solver, extraAmount);
-        vm.prank(solver);
-        outputToken.approve(address(localAori), type(uint256).max);
-        
-        // Record balances before operation
-        uint256 initialInputTokenUserA = inputToken.balanceOf(userA);
-        uint256 initialOutputTokenSolver = outputToken.balanceOf(solver);
-        uint256 initialOutputTokenRecipient = outputToken.balanceOf(recipient);
-        
-        // Execute swap
-        vm.prank(solver);
-        localAori.swap(order, signature);
-        
-        // Verify token transfers
-        assertEq(inputToken.balanceOf(userA), initialInputTokenUserA - inputAmount, "UserA input token balance should decrease");
-        assertEq(outputToken.balanceOf(solver), initialOutputTokenSolver - outputAmount, "Solver output token balance should decrease by exact output amount");
-        assertEq(outputToken.balanceOf(recipient), initialOutputTokenRecipient + outputAmount, "Output tokens should be transferred to recipient");
-    }
+
     
-    /**
-     * @notice Test swap with insufficient approval
-     */
-    function testSingleChainSwapInsufficientApproval() public {
-        // Create the order
-        IAori.Order memory order = createSingleChainOrderWithHook(
-            recipient,
-            address(inputToken),
-            inputAmount,
-            address(outputToken),
-            outputAmount,
-            address(0) // No hook needed for swap
-        );
-        
-        // Generate signature
-        bytes memory signature = signOrder(order);
-        
-        // Approve tokens for transfer
-        vm.prank(userA);
-        inputToken.approve(address(localAori), inputAmount);
-        
-        // Mint output tokens to solver but DON'T approve
-        outputToken.mint(solver, outputAmount);
-        
-        // Should revert when solver hasn't approved the output tokens
-        vm.prank(solver);
-        vm.expectRevert(); // ERC20 approval error
-        localAori.swap(order, signature);
-    }
+
     
-    /**
-     * @notice Test swap with non-whitelisted solver
-     */
-    function testSingleChainSwapNonWhitelistedSolver() public {
-        // Create a non-whitelisted solver
-        address nonWhitelistedSolver = makeAddr("nonWhitelistedSolver");
-        
-        // Create the order
-        IAori.Order memory order = createSingleChainOrderWithHook(
-            recipient,
-            address(inputToken),
-            inputAmount,
-            address(outputToken),
-            outputAmount,
-            address(0) // No hook needed for swap
-        );
-        
-        // Generate signature
-        bytes memory signature = signOrder(order);
-        
-        // Approve tokens for transfer
-        vm.prank(userA);
-        inputToken.approve(address(localAori), inputAmount);
-        
-        // Mint output tokens to non-whitelisted solver and approve
-        outputToken.mint(nonWhitelistedSolver, outputAmount);
-        vm.prank(nonWhitelistedSolver);
-        outputToken.approve(address(localAori), outputAmount);
-        
-        // Should revert with "Invalid solver"
-        vm.prank(nonWhitelistedSolver);
-        vm.expectRevert("Invalid solver");
-        localAori.swap(order, signature);
-    }
+
     
     /**
      * @notice Test order cancellation after deposit (for single-chain orders)

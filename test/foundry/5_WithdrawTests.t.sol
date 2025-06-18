@@ -111,10 +111,12 @@ contract WithdrawTests is TestUtils {
         vm.prank(solver);
         MockERC20(tokenForSolver).approve(address(localAori), amount);
         
-        // Execute the swap: userA signs, solver executes
+        // Execute deposit+fill: userA signs, solver deposits, then solver fills
         bytes memory signature = signOrder(order);
-        vm.prank(solver); // solver executes the trade
-        localAori.swap(order, signature);
+        vm.prank(solver); // solver executes deposit
+        localAori.deposit(order, signature);
+        vm.prank(solver); // solver executes fill
+        localAori.fill(order);
         
         // Verify solver now has unlocked balance in outputToken (the input token)
         uint256 solverUnlockedBalance = localAori.getUnlockedBalances(solver, address(outputToken));
@@ -389,7 +391,9 @@ contract WithdrawTests is TestUtils {
         // Execute trade (solver gets unlocked inputToken balance)
         bytes memory signature = signOrder(order);
         vm.prank(solver);
-        localAori.swap(order, signature);
+        localAori.deposit(order, signature);
+        vm.prank(solver);
+        localAori.fill(order);
         
         // Now solver has balances in both outputToken and inputToken
         uint256 inputTokenBalance = localAori.getUnlockedBalances(solver, address(inputToken));

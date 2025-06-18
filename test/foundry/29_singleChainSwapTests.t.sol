@@ -2,12 +2,11 @@
 pragma solidity 0.8.28;
 
 /**
- * SingleChainSwapTests - Comprehensive tests for all single-chain swap pathways
+ * SingleChainSwapTests - Comprehensive tests for single-chain swap pathways
  *
- * This test suite covers all single-chain swap flows:
- * 1. Atomic path: swap for immediate settlement
- * 2. Two-step path: deposit followed by fill
- * 3. Hook-based path: deposit with hook for token conversion
+ * This test suite covers the remaining single-chain swap flows:
+ * 1. Two-step path: deposit followed by fill
+ * 2. Hook-based path: deposit with hook for token conversion
  *
  * It also tests edge cases, overflow conditions, and verifies the fixes for:
  * - No double-charging in hook path
@@ -104,155 +103,6 @@ contract SingleChainSwapTests is TestUtils {
             amount
         );
     }
-    
-    // =========================================================================
-    // PATH 1: ATOMIC swap TESTS
-    // =========================================================================
-    
-    /**
-     * @notice Test successful swap with normal amounts
-     * @dev Tests the atomic single-transaction path
-     */
-    function testSwapSuccess() public {
-        // Create order
-        IAori.Order memory order = createSingleChainOrder(
-            recipient,
-            address(inputToken),
-            INPUT_AMOUNT,
-            address(outputToken),
-            OUTPUT_AMOUNT
-        );
-        
-        // Generate signature and approve tokens
-        bytes memory signature = signOrder(order);
-        vm.prank(userA);
-        inputToken.approve(address(localAori), type(uint256).max);
-        vm.prank(solver);
-        outputToken.approve(address(localAori), type(uint256).max);
-        
-        // Record balances before
-        uint256 initialInputBalance = inputToken.balanceOf(userA);
-        uint256 initialOutputBalance = outputToken.balanceOf(solver);
-        uint256 initialRecipientBalance = outputToken.balanceOf(recipient);
-        
-        // Execute swap
-        bytes32 orderId = localAori.hash(order);
-        vm.prank(solver);
-        localAori.swap(order, signature);
-        
-        // Verify balances
-        assertEq(inputToken.balanceOf(userA), initialInputBalance - INPUT_AMOUNT, "Input token balance mismatch");
-        assertEq(outputToken.balanceOf(solver), initialOutputBalance - OUTPUT_AMOUNT, "Output token balance mismatch");
-        assertEq(outputToken.balanceOf(recipient), initialRecipientBalance + OUTPUT_AMOUNT, "Recipient balance mismatch");
-        
-        // Verify solver's unlocked balance
-        assertEq(localAori.getUnlockedBalances(solver, address(inputToken)), INPUT_AMOUNT, "Solver should have unlocked balance");
-        
-        // Verify order status
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Settled), "Order should be settled");
-    }
-    
-    /**
-     * @notice Test swap with near maximum values
-     */
-    function testSwapNearMax() public {
-        // Create new tokens for large value test
-        MockERC20 largeInputToken = new MockERC20("LargeInput", "LIN");
-        MockERC20 largeOutputToken = new MockERC20("LargeOutput", "LOUT");
-        
-        uint128 nearMaxValue = MAX_UINT128 - 1000;
-        
-        // Mint large amounts
-        largeInputToken.mint(userA, nearMaxValue);
-        largeOutputToken.mint(solver, nearMaxValue);
-        
-        // Create order and signature
-        IAori.Order memory order = createSingleChainOrder(
-            recipient,
-            address(largeInputToken),
-            nearMaxValue,
-            address(largeOutputToken),
-            nearMaxValue
-        );
-        bytes memory signature = signOrder(order);
-        
-        // Approve tokens
-        vm.prank(userA);
-        largeInputToken.approve(address(localAori), type(uint256).max);
-        vm.prank(solver);
-        largeOutputToken.approve(address(localAori), type(uint256).max);
-        
-        // Execute swap
-        vm.prank(solver);
-        localAori.swap(order, signature);
-        
-        // Verify solver's unlocked balance
-        assertEq(localAori.getUnlockedBalances(solver, address(largeInputToken)), nearMaxValue, "Solver should have near max unlocked balance");
-    }
-    
-    /**
-     * @notice Test swap with values that would overflow uint128
-     */
-    function testSwapOverflow() public {
-        // First try exactly at MAX_UINT128
-        MockERC20 overflowToken = new MockERC20("Overflow", "OVF");
-        
-        // Create fresh solver
-        address cleanSolver = makeAddr("cleanSolver");
-        localAori.addAllowedSolver(cleanSolver);
-        
-        // Mint exact MAX_UINT128 value to solver and user
-        overflowToken.mint(userA, MAX_UINT128);
-        outputToken.mint(cleanSolver, OUTPUT_AMOUNT);
-        
-        // Approve tokens
-        vm.prank(userA);
-        overflowToken.approve(address(localAori), MAX_UINT128);
-        vm.prank(cleanSolver);
-        outputToken.approve(address(localAori), OUTPUT_AMOUNT);
-        
-        // Create order with MAX_UINT128
-        IAori.Order memory maxOrder = createSingleChainOrder(
-            recipient,
-            address(overflowToken),
-            MAX_UINT128,
-            address(outputToken),
-            OUTPUT_AMOUNT
-        );
-        bytes memory maxSignature = signOrder(maxOrder);
-        
-        // Execute first - should work fine with MAX_UINT128
-        vm.prank(cleanSolver);
-        localAori.swap(maxOrder, maxSignature);
-        
-        // Now create a new order and try to add 1 more token - this should trigger our check
-        overflowToken.mint(userA, 1);
-        
-        // Create a tiny order that should trigger overflow when combined with existing balance
-        IAori.Order memory tinyOrder = createSingleChainOrder(
-            recipient,
-            address(overflowToken),
-            1,
-            address(outputToken),
-            1 // Tiny output amount
-        );
-        
-        // IMPORTANT: Mint output tokens to solver for the tiny order
-        outputToken.mint(cleanSolver, 1);
-        
-        vm.prank(userA);
-        overflowToken.approve(address(localAori), 1);
-        vm.prank(cleanSolver);
-        outputToken.approve(address(localAori), 1);
-        
-        bytes memory tinySignature = signOrder(tinyOrder);
-        
-        // This should trigger our custom error
-        vm.prank(cleanSolver);
-        vm.expectRevert("Balance operation failed");
-        localAori.swap(tinyOrder, tinySignature);
-    }
-    
     // =========================================================================
     // PATH 2: DEPOSIT-THEN-FILL TESTS
     // =========================================================================
@@ -967,38 +817,34 @@ contract SingleChainSwapTests is TestUtils {
     // =========================================================================
     
     /**
-     * @notice Comprehensive test comparing all three pathways with identical parameters
+     * @notice Comprehensive test comparing the two remaining pathways with identical parameters
      */
     function testAllPathsConsistency() public {
-        // Create three orders with slight differences
+        // Create two orders with slight differences
         IAori.Order memory order1 = createSingleChainOrder(
             recipient, address(inputToken), INPUT_AMOUNT, address(outputToken), OUTPUT_AMOUNT
         );
         IAori.Order memory order2 = createSingleChainOrder(
             recipient, address(inputToken), INPUT_AMOUNT + 1, address(outputToken), OUTPUT_AMOUNT
         );
-        IAori.Order memory order3 = createSingleChainOrder(
-            recipient, address(inputToken), INPUT_AMOUNT + 2, address(outputToken), OUTPUT_AMOUNT
-        );
         
-        // Calculate accurate total - only paths 1 and 2 credit solver with input tokens
-        // Path 3 (hook path) doesn't credit solver with input tokens
-        uint256 expectedTotal = INPUT_AMOUNT + (INPUT_AMOUNT + 1);
+        // Calculate accurate total - only deposit+fill path credits solver with input tokens
+        // Hook path doesn't credit solver with input tokens
+        uint256 expectedTotal = INPUT_AMOUNT;
         
         // Ensure userA has enough tokens
-        inputToken.mint(userA, INPUT_AMOUNT + (INPUT_AMOUNT + 1) + (INPUT_AMOUNT + 2));
+        inputToken.mint(userA, INPUT_AMOUNT + (INPUT_AMOUNT + 1));
         
         // Sign all orders
         bytes memory sig1 = signOrder(order1);
         bytes memory sig2 = signOrder(order2);
-        bytes memory sig3 = signOrder(order3);
         
         // Approve tokens for all paths - explicit larger amounts
         vm.startPrank(userA);
         inputToken.approve(address(localAori), type(uint256).max);
         vm.stopPrank();
         
-        // Setup hook for path 3
+        // Setup hook for path 2
         IAori.SrcHook memory hook = IAori.SrcHook({
             hookAddress: address(testHook),
             preferredToken: address(outputToken),
@@ -1007,81 +853,35 @@ contract SingleChainSwapTests is TestUtils {
         });
         
         // Ensure solver has enough output tokens
-        outputToken.mint(solver, OUTPUT_AMOUNT * 3);
+        outputToken.mint(solver, OUTPUT_AMOUNT * 2);
         
         vm.startPrank(solver);
-        outputToken.approve(address(localAori), OUTPUT_AMOUNT * 3);
+        outputToken.approve(address(localAori), OUTPUT_AMOUNT * 2);
         
-        // Execute Path 1: swap
-        localAori.swap(order1, sig1);
+        // Execute Path 1: deposit+fill
+        localAori.deposit(order1, sig1);
+        localAori.fill(order1);
         
-        // Execute Path 2: deposit
-        localAori.deposit(order2, sig2);
-        
-        // Execute Path 3: deposit with hook
-        localAori.deposit(order3, sig3, hook);
-        vm.stopPrank();
-        
-        // Execute Path 2 fill
-        vm.startPrank(solver);
-        outputToken.approve(address(localAori), OUTPUT_AMOUNT);
-        localAori.fill(order2);
+        // Execute Path 2: deposit with hook
+        localAori.deposit(order2, sig2, hook);
         vm.stopPrank();
         
         // Get solver unlocked balances for all paths
         uint256 balance1 = localAori.getUnlockedBalances(solver, address(inputToken));
         
-        // Verify paths 1 and 2 credit solver, but path 3 (hook) doesn't
-        assertEq(balance1, expectedTotal, "Only non-hook paths should credit solver with input tokens");
+        // Verify only deposit+fill path credits solver, but hook path doesn't
+        assertEq(balance1, expectedTotal, "Only deposit+fill path should credit solver with input tokens");
         
-        // Verify recipient received the same amount each time (3 * OUTPUT_AMOUNT)
-        assertEq(outputToken.balanceOf(recipient), OUTPUT_AMOUNT * 3, "Recipient should receive the same amount from all paths");
+        // Verify recipient received the same amount each time (2 * OUTPUT_AMOUNT)
+        assertEq(outputToken.balanceOf(recipient), OUTPUT_AMOUNT * 2, "Recipient should receive the same amount from both paths");
         
         // Verify all orders have the same final status
         bytes32 id1 = localAori.hash(order1);
         bytes32 id2 = localAori.hash(order2);
-        bytes32 id3 = localAori.hash(order3);
         
         assertEq(uint8(localAori.orderStatus(id1)), uint8(IAori.OrderStatus.Settled), "Order 1 should be settled");
         assertEq(uint8(localAori.orderStatus(id2)), uint8(IAori.OrderStatus.Settled), "Order 2 should be settled");
-        assertEq(uint8(localAori.orderStatus(id3)), uint8(IAori.OrderStatus.Settled), "Order 3 should be settled");
     }
 
-    /**
-     * @notice Test settlement with minimal values (1 wei)
-     */
-    function testSettleSingleChainSwapEdgeCases() public {
-        // Create minimal tokens
-        MockERC20 minToken1 = new MockERC20("Min1", "M1");
-        MockERC20 minToken2 = new MockERC20("Min2", "M2");
-        
-        // Create order with minimal values: 1 wei each
-        IAori.Order memory order = createSingleChainOrder(
-            recipient,
-            address(minToken1), 
-            1, // 1 wei input
-            address(minToken2),
-            1  // 1 wei output
-        );
-        
-        // Mint minimal amounts
-        minToken1.mint(userA, 1);
-        minToken2.mint(solver, 1);
-        
-        // Generate signature and approve tokens
-        bytes memory signature = signOrder(order);
-        vm.prank(userA);
-        minToken1.approve(address(localAori), 1);
-        vm.prank(solver);
-        minToken2.approve(address(localAori), 1);
-        
-        // Execute swap
-        vm.prank(solver);
-        localAori.swap(order, signature);
-        
-        // Verify settlement with minimal values
-        bytes32 orderId = localAori.hash(order);
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Settled), "Order should be settled");
-        assertEq(minToken2.balanceOf(recipient), 1, "Recipient should receive 1 wei");
-    }
+
 }
