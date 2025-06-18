@@ -94,40 +94,6 @@ library ValidationUtils {
     }
 
     /**
-     * @notice Validates deposit and fill parameters for single-chain swaps
-     * @dev Combines validation for both deposit and fill in a single function
-     * @dev Restricts to ERC20 tokens only - native tokens should use deposit/fill with hooks
-     * @param order The order to validate
-     * @param signature The EIP712 signature to verify
-     * @param digest The EIP712 type hash digest of the order
-     * @param endpointId The current chain's endpoint ID
-     * @param orderStatus The status mapping function to check order status
-     * @return orderId The calculated order hash
-     */
-    function validateSwap(
-        IAori.Order calldata order,
-        bytes calldata signature,
-        bytes32 digest,
-        uint32 endpointId,
-        function(bytes32) external view returns (IAori.OrderStatus) orderStatus
-    ) internal view returns (bytes32 orderId) {
-        orderId = keccak256(abi.encode(order));
-        require(orderStatus(orderId) == IAori.OrderStatus.Unknown, "Order already exists");
-        // Signature validation
-        address recovered = ECDSA.recover(digest, signature);
-        require(recovered == order.offerer, "InvalidSignature");
-
-        // Order parameter validation
-        validateCommonOrderParams(order);
-        require(order.srcEid == endpointId && order.dstEid == endpointId, "Chain mismatch");
-        require(order.inputToken != order.outputToken, "Invalid Pair");
-        
-        // Restrict to ERC20 tokens only - native tokens should use deposit/fill with hooks
-        require(!NativeTokenUtils.isNativeToken(order.inputToken), "Native input tokens not supported in swap");
-        require(!NativeTokenUtils.isNativeToken(order.outputToken), "Native output tokens not supported in swap");
-    }
-
-    /**
      * @notice Validates the cancellation of a cross-chain order from the destination chain
      * @dev Allows whitelisted solvers (anytime), offerers (after expiry), and recipients (after expiry) to cancel
      * @param order The order details to cancel
