@@ -217,7 +217,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         require(order.srcEid == ENDPOINT_ID, "Emergency cancel only allowed on source chain");
         
         address tokenAddress = order.inputToken;
-        uint128 amountToReturn = uint128(order.inputAmount);
+        uint128 amountToReturn = order.inputAmount;
         
         // Validate sufficient balance
         tokenAddress.validateSufficientBalance(amountToReturn);
@@ -390,18 +390,12 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         uint256 amountReceived,
         address tokenReceived
     ) {
-        // Transfer input tokens to the hook
-        if (order.inputToken.isNativeToken()) {
-            require(msg.value == order.inputAmount, "Incorrect native amount");
-            (bool success, ) = payable(hook.hookAddress).call{value: order.inputAmount}("");
-            require(success, "Native transfer to hook failed");
-        } else {
-            IERC20(order.inputToken).safeTransferFrom(
-                order.offerer,
-                hook.hookAddress,
-                order.inputAmount
-            );
-        }
+        // Transfer ERC20 input tokens to the hook
+        IERC20(order.inputToken).safeTransferFrom(
+            order.offerer,
+            hook.hookAddress,
+            order.inputAmount
+        );
         
         if (order.isSingleChainSwap()) {
             // For single-chain swaps, observe balance changes in the output token
@@ -547,19 +541,11 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
 
         uint256 surplus = amountReceived - order.outputAmount;
 
-        // Handle native or ERC20 output with surplus
-        if (order.outputToken.isNativeToken()) {
-            order.outputToken.safeTransfer(order.recipient, order.outputAmount);
-            
-            if (surplus > 0) {
-                order.outputToken.safeTransfer(msg.sender, surplus);
-            }
-        } else {
-            IERC20(order.outputToken).safeTransfer(order.recipient, order.outputAmount);
-            
-            if (surplus > 0) {
-                IERC20(order.outputToken).safeTransfer(msg.sender, surplus);
-            }
+        // Transfer output tokens to recipient and surplus to solver
+        order.outputToken.safeTransfer(order.recipient, order.outputAmount);
+        
+        if (surplus > 0) {
+            order.outputToken.safeTransfer(msg.sender, surplus);
         }
 
         // Handle settlement based on chain type
@@ -582,17 +568,14 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         Order calldata order,
         IAori.DstHook calldata hook
     ) internal allowedHookAddress(hook.hookAddress) returns (uint256 balChg) {
-        if (msg.value > 0) {
-            // Native token input
-            (bool success, ) = payable(hook.hookAddress).call{value: msg.value}("");
-            require(success, "Native transfer to hook failed");
-        } else if (hook.preferedDstInputAmount > 0) {
-            // ERC20 or native token input
+        if (hook.preferedDstInputAmount > 0) {
             if (hook.preferredToken.isNativeToken()) {
                 require(msg.value == hook.preferedDstInputAmount, "Incorrect native amount for preferred token");
                 (bool success, ) = payable(hook.hookAddress).call{value: hook.preferedDstInputAmount}("");
                 require(success, "Native transfer to hook failed");
             } else {
+                // ERC20 token input - no native tokens should be sent
+                require(msg.value == 0, "No native tokens should be sent for ERC20 preferred token");
                 IERC20(hook.preferredToken).safeTransferFrom(
                     msg.sender,
                     hook.hookAddress,
@@ -661,10 +644,10 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         // Update balances: move from locked to unlocked
         Order memory order = orders[orderId];
         bool successLock = balances[order.offerer][order.inputToken].decreaseLockedNoRevert(
-            uint128(order.inputAmount)
+            order.inputAmount
         );
         bool successUnlock = balances[filler][order.inputToken].increaseUnlockedNoRevert(
-            uint128(order.inputAmount)
+            order.inputAmount
         );
 
         if (!successLock || !successUnlock) {
@@ -723,11 +706,11 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         // Move tokens from offerer's locked balance to solver's unlocked balance
         if (balances[order.offerer][order.inputToken].locked >= order.inputAmount) {
             bool successLock = balances[order.offerer][order.inputToken].decreaseLockedNoRevert(
-                uint128(order.inputAmount)
+                order.inputAmount
             );
             
             bool successUnlock = balances[solver][order.inputToken].increaseUnlockedNoRevert(
-                uint128(order.inputAmount)
+                order.inputAmount
             );
             
             require(successLock && successUnlock, "Balance operation failed");
@@ -742,7 +725,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             finalOffererLocked,
             initialSolverUnlocked,
             finalSolverUnlocked,
-            uint128(order.inputAmount)
+            order.inputAmount
         );
 
         // Order is immediately settled
@@ -816,7 +799,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         
         // Get order details and amount before changing state
         Order memory order = orders[orderId];
-        uint128 amountToReturn = uint128(order.inputAmount);
+        uint128 amountToReturn = order.inputAmount;
         address tokenAddress = order.inputToken;
         address recipient = order.offerer;
         
