@@ -745,7 +745,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      *      2. Order offerers (for their own expired single-chain orders)
      * @param orderId The hash of the order to cancel
      */
-    function cancel(bytes32 orderId) external whenNotPaused {
+    function cancel(bytes32 orderId) external nonReentrant whenNotPaused {
         Order memory order = orders[orderId];
         
         order.validateSourceChainCancel(
