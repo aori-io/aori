@@ -646,13 +646,12 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         bool successLock = balances[order.offerer][order.inputToken].decreaseLockedNoRevert(
             order.inputAmount
         );
+        if (!successLock) return; 
+
         bool successUnlock = balances[filler][order.inputToken].increaseUnlockedNoRevert(
             order.inputAmount
         );
-
-        if (!successLock || !successUnlock) {
-            return; // Any reverts are skipped
-        }
+        if (!successUnlock) return;
         orderStatus[orderId] = IAori.OrderStatus.Settled;
 
         emit Settle(orderId);
