@@ -923,7 +923,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         override
         returns (string memory name, string memory version)
     {
-        return ("Aori", "0.3.0");
+        return ("Aori", "0.3.1");
     }
 
     /**
