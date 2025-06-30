@@ -332,6 +332,8 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             this.orderStatus,
             this.isSupportedChain
         );
+        
+        // Must receive tokens before updating internal accounting
         IERC20(order.inputToken).safeTransferFrom(order.offerer, address(this), order.inputAmount);
         _postDeposit(order.inputToken, order.inputAmount, order, orderId);
     }
@@ -498,26 +500,26 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             this.orderStatus
         );
         
-        // Handle native or ERC20 output
+        // Validate msg.value based on output token type (checks)
         if (order.outputToken.isNativeToken()) {
-            // For native tokens, solver must send exact amount via msg.value
             require(msg.value == order.outputAmount, "Incorrect native amount sent");
+        } else {
+            require(msg.value == 0, "No native tokens should be sent for ERC20 fills");
+        }
+
+        // Update state before external interactions (effects - CEI pattern)
+        if (order.isSingleChainSwap()) {
+            _settleSingleChainSwap(orderId, order, msg.sender);
+        } else {
+            _postFill(orderId, order);
+        }
+
+        // External interactions last (interactions)
+        if (order.outputToken.isNativeToken()) {
             order.outputToken.safeTransfer(order.recipient, order.outputAmount);
         } else {
-            // For ERC20 tokens, ensure no native tokens were sent
-            require(msg.value == 0, "No native tokens should be sent for ERC20 fills");
             IERC20(order.outputToken).safeTransferFrom(msg.sender, order.recipient, order.outputAmount);
         }
-
-        // single-chain swap path
-        if (order.isSingleChainSwap()) {
-            // Use simplified settlement without hook flag since we know it's a direct fill
-            _settleSingleChainSwap(orderId, order, msg.sender);
-            return;
-        }
-
-        // Cross-chain swap path
-        _postFill(orderId, order);
     }
 
     /**
@@ -541,20 +543,18 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
 
         uint256 surplus = amountReceived - order.outputAmount;
 
-        // Transfer output tokens to recipient and surplus to solver
+        // Update state before external interactions (effects - CEI pattern)
+        if (order.isSingleChainSwap()) {
+            _settleSingleChainSwap(orderId, order, msg.sender);
+        } else {
+            _postFill(orderId, order);
+        }
+
+        // External interactions last (interactions)
         order.outputToken.safeTransfer(order.recipient, order.outputAmount);
         
         if (surplus > 0) {
             order.outputToken.safeTransfer(msg.sender, surplus);
-        }
-
-        // Handle settlement based on chain type
-        if (order.isSingleChainSwap()) {
-            // For single-chain swaps, settle immediately with proper balance accounting
-            _settleSingleChainSwap(orderId, order, msg.sender);
-        } else {
-            // For cross-chain swaps, use normal fill processing
-            _postFill(orderId, order);
         }
     }
 
@@ -783,9 +783,13 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             msg.sender,
             this.isAllowedSolver
         );
+        
+        // Update state before external call (CEI pattern)
+        orderStatus[orderId] = IAori.OrderStatus.Cancelled;
+        
+        // External interactions last
         bytes memory payload = PayloadPackUtils.packCancellation(orderId);
         MessagingReceipt memory receipt = __lzSend(orderToCancel.srcEid, payload, extraOptions);
-        orderStatus[orderId] = IAori.OrderStatus.Cancelled;
         emit CancelSent(orderId, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 
@@ -849,11 +853,14 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             require(unlockedBalance >= amount, "Insufficient unlocked balance");
         }
         
-        // Validate sufficient contract balance and transfer
+        // Validate sufficient contract balance
         token.validateSufficientBalance(amount);
-        token.safeTransfer(holder, amount);
         
+        // Update state before transfer (CEI pattern)
         balances[holder][token].unlocked = uint128(unlockedBalance - amount);
+        
+        // External interaction last
+        token.safeTransfer(holder, amount);
         emit Withdraw(holder, token, amount);
     }
 
