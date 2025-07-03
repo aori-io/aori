@@ -206,8 +206,9 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     /**
     * @notice Emergency function to cancel an order, bypassing normal restrictions
     * @dev Only callable by the contract owner. Always transfers tokens to maintain accounting consistency.
+    *      WARNING: This bypasses normal validation and should only be used in emergency situations.
     * @param orderId The hash of the order to cancel
-    * @param recipient The address to send tokens to
+    * @param recipient The address to send tokens to (can be different from offerer)
     */
     function emergencyCancel(bytes32 orderId, address recipient) external onlyOwner {
         require(orderStatus[orderId] == IAori.OrderStatus.Active, "Can only cancel active orders");
@@ -217,7 +218,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         require(order.srcEid == ENDPOINT_ID, "Emergency cancel only allowed on source chain");
         
         address tokenAddress = order.inputToken;
-        uint128 amountToReturn = uint128(order.inputAmount);
+        uint128 amountToReturn = order.inputAmount;
         
         // Validate sufficient balance
         tokenAddress.validateSufficientBalance(amountToReturn);
@@ -332,16 +333,19 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             this.orderStatus,
             this.isSupportedChain
         );
+        
         IERC20(order.inputToken).safeTransferFrom(order.offerer, address(this), order.inputAmount);
         _postDeposit(order.inputToken, order.inputAmount, order, orderId);
     }
 
     /**
-     * @notice Deposits tokens to the contract with a hook call
-     * @dev Executes a hook call for token conversion before deposit processing
+     * @notice Deposits tokens to the contract with a hook call for token conversion
+     * @dev Executes a hook call for token conversion before deposit processing.
+     *      For single-chain swaps, immediately settles and transfers tokens to recipient.
+     *      For cross-chain swaps, locks converted tokens for later settlement.
      * @param order The order details
      * @param signature The user's EIP712 signature over the order
-     * @param hook The pre-hook configuration
+     * @param hook The pre-hook configuration for token conversion
      */
     function deposit(
         Order calldata order,
@@ -357,27 +361,28 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             this.isSupportedChain
         );
 
-        // Execute hook and handle single-chain or cross-chain logic
+        // Execute hook to convert input tokens to preferred/output tokens
         (uint256 amountReceived, address tokenReceived) = 
             _executeSrcHook(order, hook);
         
         emit SrcHookExecuted(orderId, tokenReceived, amountReceived);
         
         if (order.isSingleChainSwap()) {
-            // Save the order details
+            // Single-chain: immediate settlement (tokens already transferred to recipient)
             orders[orderId] = order;
-            
-            // Update order status directly 
             orderStatus[orderId] = IAori.OrderStatus.Settled;
             emit Settle(orderId);
         } else {
-            // Process the cross-chain deposit
+            // Cross-chain: lock converted tokens for later settlement
             _postDeposit(tokenReceived, amountReceived, order, orderId);
         }
     }
 
     /**
-     * @notice Executes a source hook and returns the balance change
+     * @notice Executes a source hook to convert input tokens and handle distribution
+     * @dev Sends input tokens to hook, executes conversion, and handles token distribution.
+     *      For single-chain swaps: converts to output token and immediately distributes.
+     *      For cross-chain swaps: converts to preferred token for later cross-chain transfer.
      * @param order The order details
      * @param hook The source hook configuration
      * @return amountReceived The amount of tokens received from the hook
@@ -390,54 +395,40 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         uint256 amountReceived,
         address tokenReceived
     ) {
-        // Transfer input tokens to the hook
-        if (order.inputToken.isNativeToken()) {
-            require(msg.value == order.inputAmount, "Incorrect native amount");
-            (bool success, ) = payable(hook.hookAddress).call{value: order.inputAmount}("");
-            require(success, "Native transfer to hook failed");
-        } else {
-            IERC20(order.inputToken).safeTransferFrom(
-                order.offerer,
-                hook.hookAddress,
-                order.inputAmount
-            );
-        }
+        // Send input tokens to hook for conversion
+        IERC20(order.inputToken).safeTransferFrom(
+            order.offerer,
+            hook.hookAddress,
+            order.inputAmount
+        );
         
         if (order.isSingleChainSwap()) {
-            // For single-chain swaps, observe balance changes in the output token
+            // Single-chain: convert to final output token and distribute immediately
             amountReceived = ExecutionUtils.observeBalChg(
                 hook.hookAddress,
                 hook.instructions,
                 order.outputToken
             );
             
-            // Ensure sufficient output was received
             require(amountReceived >= order.outputAmount, "Insufficient output from hook");
-            
-            // Set token received to the output token
             tokenReceived = order.outputToken;
             
-            // Handle token distribution for single-chain swaps here
-            // 1. Transfer agreed amount to recipient
+            // Distribute tokens: exact amount to recipient, surplus to solver
             order.outputToken.safeTransfer(order.recipient, order.outputAmount);
             
-            // 2. Return any surplus to the solver
             uint256 surplus = amountReceived - order.outputAmount;
             if (surplus > 0) {
                 order.outputToken.safeTransfer(msg.sender, surplus);
             }
         } else {
-            // For cross-chain swaps, observe balance changes in the preferred token
+            // Cross-chain: convert to preferred token for cross-chain transfer
             amountReceived = ExecutionUtils.observeBalChg(
                 hook.hookAddress,
                 hook.instructions,
                 hook.preferredToken
             );
             
-            // Ensure sufficient preferred tokens were received
             require(amountReceived >= hook.minPreferedTokenAmountOut, "Insufficient output from hook");
-            
-            // Set token received to the preferred token
             tokenReceived = hook.preferredToken;
         }
     }
@@ -494,8 +485,9 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     /**
-     * @notice Fills an order by transferring output tokens from the filler
-     * @dev Uses safeTransferFrom to move tokens directly from solver to recipient
+     * @notice Fills an order by transferring output tokens from the filler to recipient
+     * @dev For single-chain orders: settles immediately with internal balance transfers.
+     *      For cross-chain orders: marks as filled and queues for later settlement.
      * @param order The order details to fill
      */
     function fill(Order calldata order) external payable nonReentrant whenNotPaused onlySolver {
@@ -504,33 +496,34 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             this.orderStatus
         );
         
-        // Handle native or ERC20 output
+        // Validate payment method matches output token type
         if (order.outputToken.isNativeToken()) {
-            // For native tokens, solver must send exact amount via msg.value
             require(msg.value == order.outputAmount, "Incorrect native amount sent");
+        } else {
+            require(msg.value == 0, "No native tokens should be sent for ERC20 fills");
+        }
+
+        // Update contract state
+        if (order.isSingleChainSwap()) {
+            _settleSingleChainSwap(orderId, order, msg.sender);
+        } else {
+            _postFill(orderId, order);
+        }
+
+        // Transfer tokens to recipient
+        if (order.outputToken.isNativeToken()) {
             order.outputToken.safeTransfer(order.recipient, order.outputAmount);
         } else {
-            // For ERC20 tokens, ensure no native tokens were sent
-            require(msg.value == 0, "No native tokens should be sent for ERC20 fills");
             IERC20(order.outputToken).safeTransferFrom(msg.sender, order.recipient, order.outputAmount);
         }
-
-        // single-chain swap path
-        if (order.isSingleChainSwap()) {
-            // Use simplified settlement without hook flag since we know it's a direct fill
-            _settleSingleChainSwap(orderId, order, msg.sender);
-            return;
-        }
-
-        // Cross-chain swap path
-        _postFill(orderId, order);
     }
 
     /**
-     * @notice Fills an order by converting preferred tokens from the filler to output tokens   
-     * @dev Utilizes a hook contract to perform the token conversion
+     * @notice Fills an order by converting preferred tokens to output tokens via hook
+     * @dev Uses a hook contract to convert solver's preferred tokens into the required output tokens.
+     *      Any surplus from the conversion is returned to the solver.
      * @param order The order details to fill
-     * @param hook The solver data including hook configuration
+     * @param hook The hook configuration for token conversion
      */
     function fill(
         Order calldata order,
@@ -541,34 +534,24 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             ENDPOINT_ID,
             this.orderStatus
         );
+        
+        // Execute hook to convert preferred tokens to output tokens
         uint256 amountReceived = _executeDstHook(order, hook);
-
         emit DstHookExecuted(orderId, hook.preferredToken, amountReceived);
 
         uint256 surplus = amountReceived - order.outputAmount;
 
-        // Handle native or ERC20 output with surplus
-        if (order.outputToken.isNativeToken()) {
-            order.outputToken.safeTransfer(order.recipient, order.outputAmount);
-            
-            if (surplus > 0) {
-                order.outputToken.safeTransfer(msg.sender, surplus);
-            }
-        } else {
-            IERC20(order.outputToken).safeTransfer(order.recipient, order.outputAmount);
-            
-            if (surplus > 0) {
-                IERC20(order.outputToken).safeTransfer(msg.sender, surplus);
-            }
-        }
-
-        // Handle settlement based on chain type
+        // Update contract state
         if (order.isSingleChainSwap()) {
-            // For single-chain swaps, settle immediately with proper balance accounting
             _settleSingleChainSwap(orderId, order, msg.sender);
         } else {
-            // For cross-chain swaps, use normal fill processing
             _postFill(orderId, order);
+        }
+
+        // Transfer tokens: exact amount to recipient, surplus to solver
+        order.outputToken.safeTransfer(order.recipient, order.outputAmount);
+        if (surplus > 0) {
+            order.outputToken.safeTransfer(msg.sender, surplus);
         }
     }
 
@@ -582,23 +565,23 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         Order calldata order,
         IAori.DstHook calldata hook
     ) internal allowedHookAddress(hook.hookAddress) returns (uint256 balChg) {
-        if (msg.value > 0) {
-            // Native token input
-            (bool success, ) = payable(hook.hookAddress).call{value: msg.value}("");
-            require(success, "Native transfer to hook failed");
-        } else if (hook.preferedDstInputAmount > 0) {
-            // ERC20 or native token input
+        if (hook.preferedDstInputAmount > 0) {
             if (hook.preferredToken.isNativeToken()) {
                 require(msg.value == hook.preferedDstInputAmount, "Incorrect native amount for preferred token");
                 (bool success, ) = payable(hook.hookAddress).call{value: hook.preferedDstInputAmount}("");
                 require(success, "Native transfer to hook failed");
             } else {
+                // ERC20 token input - no native tokens should be sent
+                require(msg.value == 0, "No native tokens should be sent for ERC20 preferred token");
                 IERC20(hook.preferredToken).safeTransferFrom(
                     msg.sender,
                     hook.hookAddress,
                     hook.preferedDstInputAmount
                 );
             }
+        } else {
+            // Hook expects no input tokens - ensure no ETH was mistakenly sent
+            require(msg.value == 0, "No native tokens expected");
         }
 
         balChg = ExecutionUtils.observeBalChg(
@@ -650,28 +633,40 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     }
 
     /**
-     * @notice Settles a single order and updates balances
+     * @notice Settles a single order by transferring tokens from offerer to filler
+     * @dev Moves tokens from offerer's locked balance to filler's unlocked balance.
+     *      Uses cache-and-restore pattern to ensure true atomicity - if any step fails, 
+     *      all balance changes are reverted to prevent accounting inconsistencies.
      * @param orderId The hash of the order to settle
-     * @param filler The filler address
+     * @param filler The filler address who will receive the tokens
      */
     function _settleOrder(bytes32 orderId, address filler) internal {
         if (orderStatus[orderId] != IAori.OrderStatus.Active) {
-            return; // Any reverts are skipped
+            return; // Skip non-active orders
         }
-        // Update balances: move from locked to unlocked
+        
         Order memory order = orders[orderId];
+        
+        // Cache original balances for potential rollback
+        Balance memory offererBalanceCache = balances[order.offerer][order.inputToken];
+        Balance memory fillerBalanceCache = balances[filler][order.inputToken];
+        
+        // Attempt atomic balance transfer
         bool successLock = balances[order.offerer][order.inputToken].decreaseLockedNoRevert(
-            uint128(order.inputAmount)
+            order.inputAmount
         );
         bool successUnlock = balances[filler][order.inputToken].increaseUnlockedNoRevert(
-            uint128(order.inputAmount)
+            order.inputAmount
         );
 
+        // If either operation failed, restore original balances to maintain atomicity
         if (!successLock || !successUnlock) {
-            return; // Any reverts are skipped
+            balances[order.offerer][order.inputToken] = offererBalanceCache;
+            balances[filler][order.inputToken] = fillerBalanceCache;
+            return; // Exit with no state changes
         }
+        
         orderStatus[orderId] = IAori.OrderStatus.Settled;
-
         emit Settle(orderId);
     }
 
@@ -705,35 +700,37 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     }
 
     /**
-     * @notice Handles settlement of same-chain swaps without hooks
-     * @dev Performs immediate settlement without cross-chain messaging for same-chain orders
+     * @notice Handles settlement of same-chain swaps with immediate token transfer
+     * @dev Performs atomic settlement within the same transaction for same-chain orders.
+     *      Moves tokens from offerer's locked balance to solver's unlocked balance.
+     *      Includes comprehensive validation to ensure balance consistency.
      * @param orderId The unique identifier for the order
      * @param order The order details
-     * @param solver The address of the solver
+     * @param solver The address of the solver who filled the order
      */
     function _settleSingleChainSwap(
         bytes32 orderId,
         Order memory order,
         address solver
     ) internal {
-        // Capture initial balance state for validation
+        // Capture initial state for validation
         uint128 initialOffererLocked = balances[order.offerer][order.inputToken].locked;
         uint128 initialSolverUnlocked = balances[solver][order.inputToken].unlocked;
         
-        // Move tokens from offerer's locked balance to solver's unlocked balance
+        // Atomic balance transfer: locked → unlocked
         if (balances[order.offerer][order.inputToken].locked >= order.inputAmount) {
             bool successLock = balances[order.offerer][order.inputToken].decreaseLockedNoRevert(
-                uint128(order.inputAmount)
+                order.inputAmount
             );
             
             bool successUnlock = balances[solver][order.inputToken].increaseUnlockedNoRevert(
-                uint128(order.inputAmount)
+                order.inputAmount
             );
             
             require(successLock && successUnlock, "Balance operation failed");
         }
         
-        // Validate balance transfer
+        // Verify the transfer was executed correctly
         uint128 finalOffererLocked = balances[order.offerer][order.inputToken].locked;
         uint128 finalSolverUnlocked = balances[solver][order.inputToken].unlocked;
 
@@ -742,10 +739,9 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             finalOffererLocked,
             initialSolverUnlocked,
             finalSolverUnlocked,
-            uint128(order.inputAmount)
+            order.inputAmount
         );
 
-        // Order is immediately settled
         orderStatus[orderId] = IAori.OrderStatus.Settled;
         emit Settle(orderId);
     }
@@ -762,7 +758,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      *      2. Order offerers (for their own expired single-chain orders)
      * @param orderId The hash of the order to cancel
      */
-    function cancel(bytes32 orderId) external whenNotPaused {
+    function cancel(bytes32 orderId) external nonReentrant whenNotPaused {
         Order memory order = orders[orderId];
         
         order.validateSourceChainCancel(
@@ -801,39 +797,37 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             msg.sender,
             this.isAllowedSolver
         );
+        
+        orderStatus[orderId] = IAori.OrderStatus.Cancelled;
+        
         bytes memory payload = PayloadPackUtils.packCancellation(orderId);
         MessagingReceipt memory receipt = __lzSend(orderToCancel.srcEid, payload, extraOptions);
-        orderStatus[orderId] = IAori.OrderStatus.Cancelled;
         emit CancelSent(orderId, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 
     /**
-     * @notice Internal function to cancel an order and update balances
+     * @notice Internal function to cancel an order and return tokens to offerer
+     * @dev Updates order status, decreases locked balance, and transfers tokens back.
      * @param orderId The hash of the order to cancel
      */
     function _cancel(bytes32 orderId) internal {
         require(orderStatus[orderId] == IAori.OrderStatus.Active, "Can only cancel active orders");
         
-        // Get order details and amount before changing state
         Order memory order = orders[orderId];
-        uint128 amountToReturn = uint128(order.inputAmount);
+        uint128 amountToReturn = order.inputAmount;
         address tokenAddress = order.inputToken;
         address recipient = order.offerer;
         
-        // Validate contract has sufficient tokens before any state changes
+        // Validate contract has sufficient tokens
         tokenAddress.validateSufficientBalance(amountToReturn);
         
-        // Update state first (checks-effects)
+        // Update state first
         orderStatus[orderId] = IAori.OrderStatus.Cancelled;
-        
-        // Decrease locked balance
         bool success = balances[recipient][tokenAddress].decreaseLockedNoRevert(amountToReturn);
         require(success, "Failed to decrease locked balance");
         
-        // Transfer tokens directly to offerer (interactions)
+        // Transfer tokens back to offerer 
         tokenAddress.safeTransfer(recipient, amountToReturn);
-        
-        // Emit the Cancel event from IAori interface
         emit Cancel(orderId);
     }
 
@@ -853,6 +847,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
 
     /**
      * @notice Allows users to withdraw their unlocked token balances
+     * @dev Only unlocked balances can be withdrawn. Locked balances are reserved for active orders.
      * @param token The token address to withdraw
      * @param amount The amount to withdraw (use 0 to withdraw full balance)
      */
@@ -861,17 +856,20 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         uint256 unlockedBalance = balances[holder][token].unlocked;
         require(unlockedBalance > 0, "Non-zero balance required");
         
+        // Default to full balance if amount is 0
         if (amount == 0) {
             amount = unlockedBalance;
         } else {
             require(unlockedBalance >= amount, "Insufficient unlocked balance");
         }
         
-        // Validate sufficient contract balance and transfer
         token.validateSufficientBalance(amount);
-        token.safeTransfer(holder, amount);
         
+        // Update balance
         balances[holder][token].unlocked = uint128(unlockedBalance - amount);
+        
+        // Transfer tokens to user
+        token.safeTransfer(holder, amount);
         emit Withdraw(holder, token, amount);
     }
 
@@ -941,7 +939,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         override
         returns (string memory name, string memory version)
     {
-        return ("Aori", "0.3.0");
+        return ("Aori", "0.3.1");
     }
 
     /**
