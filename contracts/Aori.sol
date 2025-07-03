@@ -579,6 +579,9 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
                     hook.preferedDstInputAmount
                 );
             }
+        } else {
+            // Hook expects no input tokens - ensure no ETH was mistakenly sent
+            require(msg.value == 0, "No native tokens expected");
         }
 
         balChg = ExecutionUtils.observeBalChg(
