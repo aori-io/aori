@@ -632,7 +632,8 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     /**
      * @notice Settles a single order by transferring tokens from offerer to filler
      * @dev Moves tokens from offerer's locked balance to filler's unlocked balance.
-     *      Uses early returns to ensure atomicity - if any step fails, no state changes occur.
+     *      Uses cache-and-restore pattern to ensure true atomicity - if any step fails, 
+     *      all balance changes are reverted to prevent accounting inconsistencies.
      * @param orderId The hash of the order to settle
      * @param filler The filler address who will receive the tokens
      */
@@ -643,16 +644,24 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         
         Order memory order = orders[orderId];
         
-        // Atomic balance transfer: decrease offerer's locked, increase filler's unlocked
+        // Cache original balances for potential rollback
+        Balance memory offererBalanceCache = balances[order.offerer][order.inputToken];
+        Balance memory fillerBalanceCache = balances[filler][order.inputToken];
+        
+        // Attempt atomic balance transfer
         bool successLock = balances[order.offerer][order.inputToken].decreaseLockedNoRevert(
             order.inputAmount
         );
-        if (!successLock) return; // Exit if can't decrease locked balance
-
         bool successUnlock = balances[filler][order.inputToken].increaseUnlockedNoRevert(
             order.inputAmount
         );
-        if (!successUnlock) return; // Exit if can't increase unlocked balance
+
+        // If either operation failed, restore original balances to maintain atomicity
+        if (!successLock || !successUnlock) {
+            balances[order.offerer][order.inputToken] = offererBalanceCache;
+            balances[filler][order.inputToken] = fillerBalanceCache;
+            return; // Exit with no state changes
+        }
         
         orderStatus[orderId] = IAori.OrderStatus.Settled;
         emit Settle(orderId);
