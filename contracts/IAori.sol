@@ -105,7 +105,7 @@ interface IAori {
         SrcHook calldata data
     ) external;
 
-    function depositNative(Order calldata order, bytes calldata signature) external payable;
+    function depositNative(Order calldata order) external payable;
 
     function withdraw(address token, uint256 amount) external;
 

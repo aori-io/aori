@@ -457,25 +457,24 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
 
     /**
      * @notice Deposits native tokens to the contract without a hook call
-     * @dev User calls this directly and sends their own ETH via msg.value
+     * @dev User calls this directly and sends their own ETH via msg.value.
      * @param order The order details (must specify NATIVE_TOKEN as inputToken)
-     * @param signature The user's EIP712 signature over the order
      */
     function depositNative(
-        Order calldata order,
-        bytes calldata signature
+        Order calldata order
     ) external payable nonReentrant whenNotPaused {
         require(order.inputToken.isNativeToken(), "Order must specify native token");
         require(msg.value == order.inputAmount, "Incorrect native amount");
         require(msg.sender == order.offerer, "Only offerer can deposit native tokens");
         
-        bytes32 orderId = order.validateDeposit(
-            signature,
-            _hashOrder712(order),
-            ENDPOINT_ID,
-            this.orderStatus,
-            this.isSupportedChain
-        );
+        // Calculate order ID and validate uniqueness
+        bytes32 orderId = hash(order);
+        require(orderStatus[orderId] == IAori.OrderStatus.Unknown, "Order already exists");
+        require(isSupportedChain[order.dstEid], "Destination chain not supported");
+        require(order.srcEid == ENDPOINT_ID, "Chain mismatch");
+        
+        // Use validation utility for common order parameter checks
+        ValidationUtils.validateCommonOrderParams(order);
         
         _postDeposit(order.inputToken, order.inputAmount, order, orderId);
     }
