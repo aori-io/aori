@@ -172,7 +172,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
 
         // User deposits native tokens directly
         vm.prank(userSC);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
 
         // Log state after deposit
         console.log("After Native Deposit:");
@@ -301,7 +301,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
 
         // Phase 1: User deposits native tokens
         vm.prank(userSC);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
 
         // Verify deposit state
         assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Active, "Order should be Active after deposit");
@@ -346,7 +346,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
 
         // After deposit: Active
         vm.prank(userSC);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
 
         assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Active, "Order should be Active after deposit");
 
@@ -381,7 +381,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
         emit IAori.Deposit(orderId, order);
 
         vm.prank(userSC);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
 
         // Phase 2: Fill should emit Settle event (atomic settlement)
         vm.prank(solverSC);
@@ -412,7 +412,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
         // Try to deposit less than required
         vm.expectRevert("Incorrect native amount");
         vm.prank(userSC);
-        localAori.depositNative{value: INPUT_AMOUNT - 1}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT - 1}(order);
     }
 
     /**
@@ -437,7 +437,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
 
         // User deposits correctly
         vm.prank(userSC);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
 
         // Poor solver tries to fill without enough tokens
         vm.prank(poorSolver);
@@ -471,7 +471,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
 
         // User deposits
         vm.prank(userSC);
-        localAori.depositNative{value: customInputAmount}(order, signature);
+        localAori.depositNative{value: customInputAmount}(order);
 
         // Solver fills
         vm.prank(solverSC);
@@ -516,7 +516,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
 
         // Deposit
         vm.prank(userSC);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
 
         // Fill
         vm.prank(solverSC);
@@ -553,7 +553,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
 
         // Complete the swap
         vm.prank(userSC);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
 
         vm.prank(solverSC);
         outputToken.approve(address(localAori), OUTPUT_AMOUNT);
