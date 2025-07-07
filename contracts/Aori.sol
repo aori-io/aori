@@ -352,6 +352,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         bytes calldata signature,
         SrcHook calldata hook
     ) external nonReentrant whenNotPaused onlySolver {
+        require(!order.inputToken.isNativeToken(), "Use depositNative for native tokens");
         require(hook.isSome(), "Missing hook");
         bytes32 orderId = order.validateDeposit(
             signature,
