@@ -138,7 +138,7 @@ contract CC_NativeToERC20NoHook is TestUtils {
 
         // User deposits their own native tokens directly
         vm.prank(userSource);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
 
     /**
