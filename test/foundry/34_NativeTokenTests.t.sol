@@ -68,14 +68,12 @@ contract NativeTokenTests is TestUtils {
             remoteEid                    // dstEid (cross-chain)
         );
 
-        bytes memory signature = signOrder(order, userPrivKey);
-
         uint256 initialBalance = user.balance;
         uint256 initialContractBalance = address(localAori).balance;
         uint256 initialLocked = localAori.getLockedBalances(user, NATIVE_TOKEN);
 
         vm.prank(user);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
 
         // Verify balances
         assertEq(user.balance, initialBalance - INPUT_AMOUNT, "User balance should decrease");
@@ -107,7 +105,7 @@ contract NativeTokenTests is TestUtils {
         bytes memory signature = signOrder(order, userPrivKey);
 
         vm.prank(user);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
 
         // Verify order status
         bytes32 orderId = localAori.hash(order);
@@ -134,7 +132,7 @@ contract NativeTokenTests is TestUtils {
         bytes memory signature = signOrder(order, userPrivKey);
 
         vm.prank(user);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
 
         bytes32 orderId = localAori.hash(order);
         assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Active, "Order should be Active");
@@ -165,7 +163,7 @@ contract NativeTokenTests is TestUtils {
 
         vm.expectRevert("Order must specify native token");
         vm.prank(user);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
 
     /**
@@ -189,7 +187,7 @@ contract NativeTokenTests is TestUtils {
 
         vm.expectRevert("Incorrect native amount");
         vm.prank(user);
-        localAori.depositNative{value: INPUT_AMOUNT - 1}(order, signature); // Send less than required
+        localAori.depositNative{value: INPUT_AMOUNT - 1}(order); // Send less than required
     }
 
     /**
@@ -213,7 +211,7 @@ contract NativeTokenTests is TestUtils {
 
         vm.expectRevert("Incorrect native amount");
         vm.prank(user);
-        localAori.depositNative{value: INPUT_AMOUNT + 1}(order, signature); // Send more than required
+        localAori.depositNative{value: INPUT_AMOUNT + 1}(order); // Send more than required
     }
 
     /**
@@ -237,7 +235,7 @@ contract NativeTokenTests is TestUtils {
 
         vm.expectRevert("Only offerer can deposit native tokens");
         vm.prank(wrongSigner); // Wrong caller
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -265,13 +263,13 @@ contract NativeTokenTests is TestUtils {
 
         // First deposit should succeed
         vm.prank(user);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
 
         // Second deposit should fail
         vm.deal(user, 2 ether); // Give user more ETH
         vm.expectRevert("Order already exists");
         vm.prank(user);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
 
     /**
@@ -297,13 +295,14 @@ contract NativeTokenTests is TestUtils {
 
         vm.expectRevert("Destination chain not supported");
         vm.prank(user);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
 
     /**
-     * @notice Test failure with invalid signature
+     * @notice Test that depositNative no longer requires signature validation
+     * @dev After the security improvement, signature validation was removed since msg.sender validation is sufficient
      */
-    function testDepositNative_Revert_InvalidSignature() public {
+    function testDepositNative_NoSignatureRequired() public {
         IAori.Order memory order = createCustomOrder(
             user,                        // offerer
             recipient,                   // recipient
@@ -317,11 +316,12 @@ contract NativeTokenTests is TestUtils {
             remoteEid                    // dstEid
         );
 
-        bytes memory wrongSignature = signOrder(order, wrongSignerPrivKey); // Wrong signer
-
-        vm.expectRevert("InvalidSignature");
+        // Should succeed without any signature validation
         vm.prank(user);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, wrongSignature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
+        
+        bytes32 orderId = localAori.hash(order);
+        assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Active, "Order should be Active");
     }
 
     /**
@@ -345,7 +345,7 @@ contract NativeTokenTests is TestUtils {
 
         vm.expectRevert("Chain mismatch");
         vm.prank(user);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -374,7 +374,7 @@ contract NativeTokenTests is TestUtils {
         // The "Only offerer can deposit native tokens" check happens before validateDeposit
         vm.expectRevert("Only offerer can deposit native tokens");
         vm.prank(user);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
 
     /**
@@ -398,7 +398,7 @@ contract NativeTokenTests is TestUtils {
 
         vm.expectRevert("Invalid recipient");
         vm.prank(user);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
 
     /**
@@ -425,7 +425,7 @@ contract NativeTokenTests is TestUtils {
 
         vm.expectRevert("Invalid end time");
         vm.prank(user);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
 
     /**
@@ -451,7 +451,7 @@ contract NativeTokenTests is TestUtils {
 
         vm.expectRevert("Order not started");
         vm.prank(user);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
 
     /**
@@ -482,7 +482,7 @@ contract NativeTokenTests is TestUtils {
 
         vm.expectRevert("Order has expired");
         vm.prank(user);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
 
     /**
@@ -506,7 +506,7 @@ contract NativeTokenTests is TestUtils {
 
         vm.expectRevert("Invalid input amount");
         vm.prank(user);
-        localAori.depositNative{value: 0}(order, signature);
+        localAori.depositNative{value: 0}(order);
     }
 
     /**
@@ -530,7 +530,7 @@ contract NativeTokenTests is TestUtils {
 
         vm.expectRevert("Invalid output amount");
         vm.prank(user);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
 
     /**
@@ -554,7 +554,7 @@ contract NativeTokenTests is TestUtils {
 
         vm.expectRevert("Invalid token");
         vm.prank(user);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -585,7 +585,7 @@ contract NativeTokenTests is TestUtils {
 
         vm.expectRevert(); // OpenZeppelin's Pausable uses custom errors
         vm.prank(user);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -614,10 +614,8 @@ contract NativeTokenTests is TestUtils {
             remoteEid                    // dstEid
         );
 
-        bytes memory signature = signOrder(order, userPrivKey);
-
         vm.prank(user);
-        localAori.depositNative{value: maxAmount}(order, signature);
+        localAori.depositNative{value: maxAmount}(order);
 
         bytes32 orderId = localAori.hash(order);
         assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Active, "Order should be Active");
@@ -642,10 +640,8 @@ contract NativeTokenTests is TestUtils {
             remoteEid                    // dstEid
         );
 
-        bytes memory signature = signOrder(order, userPrivKey);
-
         vm.prank(user);
-        localAori.depositNative{value: minAmount}(order, signature);
+        localAori.depositNative{value: minAmount}(order);
 
         bytes32 orderId = localAori.hash(order);
         assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Active, "Order should be Active");
@@ -673,7 +669,7 @@ contract NativeTokenTests is TestUtils {
         bytes memory signature = signOrder(order, userPrivKey);
 
         vm.prank(user);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
 
         bytes32 orderId = localAori.hash(order);
         assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Active, "Order should be Active");
@@ -704,7 +700,7 @@ contract NativeTokenTests is TestUtils {
             bytes memory signature = signOrder(order, userPrivKey);
 
             vm.prank(user);
-            localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+            localAori.depositNative{value: INPUT_AMOUNT}(order);
 
             bytes32 orderId = localAori.hash(order);
             assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Active, "Order should be Active");
@@ -738,6 +734,6 @@ contract NativeTokenTests is TestUtils {
         emit IAori.Deposit(expectedOrderId, order);
 
         vm.prank(user);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
 }

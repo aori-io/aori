@@ -167,7 +167,7 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
 
         // User deposits their own native tokens directly
         vm.prank(userSC);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, signature);
+        localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
 
     /**
