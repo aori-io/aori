@@ -11,6 +11,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { EIP712 } from "solady/src/utils/EIP712.sol";
 import { ECDSA } from "solady/src/utils/ECDSA.sol";
 import { IAori } from "./IAori.sol";
+import { AoriOptions } from "./AoriOptions.sol";
 import "./AoriUtils.sol";
 
 /**                            @@@@@@@@@@@@                                              
@@ -40,7 +41,7 @@ import "./AoriUtils.sol";
  * facilitating peer to peer exchange from any token to any token.
  */
 
-contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
+contract Aori is IAori, OApp, AoriOptions, ReentrancyGuard, Pausable, EIP712 {
     using PayloadPackUtils for bytes32[];
     using PayloadUnpackUtils for bytes;
     using PayloadSizeUtils for uint8;
@@ -198,6 +199,8 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         isSupportedChain[eid] = false;
         emit ChainRemoved(eid);
     }
+
+
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    EMERGENCY FUNCTIONS                     */
@@ -609,15 +612,13 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
 
     /**
      * @notice Settles filled orders by batching order hashes into a payload and sending through LayerZero
-     * @dev Requires ETH to be sent for LayerZero fees
+     * @dev Requires ETH to be sent for LayerZero fees. Uses enforced options configured by owner.
      * @param srcEid The source endpoint ID
      * @param filler The filler address
-     * @param extraOptions Additional LayerZero options
      */
     function settle(
         uint32 srcEid,
-        address filler,
-        bytes calldata extraOptions
+        address filler
     ) external payable nonReentrant whenNotPaused onlySolver {
         bytes32[] storage arr = srcEidToFillerFills[srcEid][filler];
         uint256 arrLength = arr.length;
@@ -628,7 +629,8 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         );
         bytes memory payload = arr.packSettlement(filler, fillCount);
 
-        MessagingReceipt memory receipt = _lzSend(srcEid, payload, extraOptions, MessagingFee(msg.value, 0), payable(msg.sender));
+        bytes memory enforcedOptions = _getSettlementOptions(srcEid);
+        MessagingReceipt memory receipt = _lzSend(srcEid, payload, enforcedOptions, MessagingFee(msg.value, 0), payable(msg.sender));
         emit SettleSent(srcEid, filler, payload, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 
@@ -775,18 +777,17 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     /**
      * @notice Cancels a cross-chain order from the destination chain by sending a cancellation message to the source chain
      * @dev This is the required method for cancelling cross-chain orders to prevent race conditions with settlement.
-     * Requires ETH to be sent for LayerZero fees. Cancellation is permitted for:
+     * Requires ETH to be sent for LayerZero fees. Uses enforced options configured by owner.
+     * Cancellation is permitted for:
      *      1. Whitelisted solvers (anytime before settlement)
      *      2. Order offerers (after expiry)
      *      3. Order recipients (after expiry)
      * @param orderId The hash of the order to cancel
      * @param orderToCancel The order details to cancel
-     * @param extraOptions Additional LayerZero options
      */
     function cancel(
         bytes32 orderId,
-        Order calldata orderToCancel,
-        bytes calldata extraOptions
+        Order calldata orderToCancel
     ) external payable nonReentrant whenNotPaused {
         require(hash(orderToCancel) == orderId, "Submitted order data doesn't match orderId");
         
@@ -801,7 +802,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         orderStatus[orderId] = IAori.OrderStatus.Cancelled;
         
         bytes memory payload = PayloadPackUtils.packCancellation(orderId);
-        MessagingReceipt memory receipt = __lzSend(orderToCancel.srcEid, payload, extraOptions);
+        MessagingReceipt memory receipt = __lzSend(orderToCancel.srcEid, payload);
         emit CancelSent(orderId, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 
@@ -879,18 +880,17 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
 
     /**
      * @notice Sends a message through LayerZero
-     * @dev Captures and returns the MessagingReceipt for event emission
+     * @dev Captures and returns the MessagingReceipt for event emission. Uses enforced options configured by owner.
      * @param eId The destination endpoint ID
      * @param payload The message payload
-     * @param extraOptions Additional options
      * @return receipt The messaging receipt containing transaction details (guid, nonce, fee)
      */
     function __lzSend(
         uint32 eId, 
-        bytes memory payload, 
-        bytes calldata extraOptions
+        bytes memory payload
     ) internal returns (MessagingReceipt memory receipt) {
-        return _lzSend(eId, payload, extraOptions, MessagingFee(msg.value, 0), payable(msg.sender));
+        bytes memory enforcedOptions = _getCancellationOptions(eId);
+        return _lzSend(eId, payload, enforcedOptions, MessagingFee(msg.value, 0), payable(msg.sender));
     }
 
     /**
@@ -1009,11 +1009,12 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         return balances[offerer][token].unlocked;
     }
 
+
+
     /**
      * @notice Returns a fee quote for sending a message through LayerZero
      * @param _dstEid Destination endpoint ID
      * @param _msgType Message type (0 for settlement, 1 for cancellation)
-     * @param _options Execution options
      * @param _payInLzToken Whether to pay fee in LayerZero token
      * @param _srcEid Source endpoint ID (for settle operations)
      * @param _filler Filler address (for settle operations)
@@ -1022,7 +1023,6 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     function quote(
         uint32 _dstEid,
         uint8 _msgType,
-        bytes calldata _options,
         bool _payInLzToken,
         uint32 _srcEid,
         address _filler
@@ -1035,11 +1035,19 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             MAX_FILLS_PER_SETTLE
         );
 
-    // Get the quote from LayerZero
-    MessagingFee memory messagingFee = _quote(
+        // Get enforced options based on message type
+        bytes memory enforcedOptions;
+        if (_msgType == 0) {
+            enforcedOptions = _getSettlementOptions(_dstEid);
+        } else {
+            enforcedOptions = _getCancellationOptions(_dstEid);
+        }
+        
+        // Get the quote from LayerZero
+        MessagingFee memory messagingFee = _quote(
             _dstEid,
             new bytes(payloadSize),
-            _options,
+            enforcedOptions,
             _payInLzToken
         );
 

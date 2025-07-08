@@ -122,12 +122,11 @@ interface IAori {
 
     function fill(Order calldata order, DstHook calldata hook) external payable;
 
-    function settle(uint32 srcEid, address filler, bytes calldata extraOptions) external payable;
+    function settle(uint32 srcEid, address filler) external payable;
 
     function cancel(
         bytes32 orderId,
-        Order calldata orderToCancel,
-        bytes calldata extraOptions
+        Order calldata orderToCancel
     ) external payable;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -147,7 +146,6 @@ interface IAori {
     function quote(
         uint32 _dstEid,
         uint8 _msgType,
-        bytes calldata _options,
         bool _payInLzToken,
         uint32 _srcEid,
         address _filler
