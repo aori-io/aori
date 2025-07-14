@@ -105,12 +105,11 @@ contract CrossChainAndWhitelistTests is TestUtils {
         remoteAori.fill(order);
 
         // Prepare settlement
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(uint128(GAS_LIMIT), 0);
-        uint256 fee = remoteAori.quote(localEid, uint8(PayloadType.Settlement), options, false, localEid, solver);
+        uint256 fee = remoteAori.quote(localEid, uint8(PayloadType.Settlement), false, localEid, solver);
 
         // Send settlement
         vm.deal(solver, fee);
-        remoteAori.settle{value: fee}(localEid, solver, options);
+        remoteAori.settle{value: fee}(localEid, solver);
         vm.stopPrank();
 
         // Switch back to source chain to simulate receiving the settlement
@@ -238,11 +237,8 @@ contract CrossChainAndWhitelistTests is TestUtils {
      * @notice Test the quote function for accurate fee estimation
      */
     function testQuoteFeeCalculation() public view {
-        // Create options for quoting
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(uint128(GAS_LIMIT), 0);
-        
         // Get a fee quote
-        uint256 fee = localAori.quote(remoteEid, uint8(PayloadType.Settlement), options, false, localEid, solver);
+        uint256 fee = localAori.quote(remoteEid, uint8(PayloadType.Settlement), false, localEid, solver);
         
         // The fee should be non-zero
         assertGt(fee, 0, "Fee should be greater than zero");
@@ -281,8 +277,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
 
         // Stay on remote chain where the fill happened
         // Try to cancel from the same chain where the fill occurred
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(uint128(GAS_LIMIT), 0);
-        uint256 fee = remoteAori.quote(localEid, uint8(PayloadType.Cancellation), options, false, localEid, userA);
+        uint256 fee = remoteAori.quote(localEid, uint8(PayloadType.Cancellation), false, localEid, userA);
 
         // Try to cancel after fill - should revert
         vm.deal(userA, fee);
@@ -293,7 +288,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
             uint8(remoteAori.orderStatus(orderHash)), uint8(IAori.OrderStatus.Filled), "Order should be in filled state"
         );
         vm.expectRevert("Order not active");
-        remoteAori.cancel(orderHash, order, defaultOptions());
+        remoteAori.cancel(orderHash, order);
     }
 
     /**
@@ -322,13 +317,12 @@ contract CrossChainAndWhitelistTests is TestUtils {
         vm.warp(order.endTime + 1);
 
         // Cancel the order from the destination chain
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(uint128(GAS_LIMIT), 0);
-        uint256 cancelFee = remoteAori.quote(localEid, uint8(PayloadType.Cancellation), options, false, localEid, userA);
+        uint256 cancelFee = remoteAori.quote(localEid, uint8(PayloadType.Cancellation), false, localEid, userA);
 
         vm.deal(userA, cancelFee);
         vm.startPrank(userA);
         bytes32 orderHash = localAori.hash(order);
-        remoteAori.cancel{value: cancelFee}(orderHash, order, options);
+        remoteAori.cancel{value: cancelFee}(orderHash, order);
         vm.stopPrank();
 
         assertEq(

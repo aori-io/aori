@@ -121,6 +121,24 @@ contract SettlementTests is TestUtils {
         // Add support for chains
         testLocalAori.addSupportedChain(remoteEid);
         testRemoteAori.addSupportedChain(localEid);
+
+        // Setup enforced options for test contracts
+        bytes memory settlementOptions = OptionsBuilder.newOptions().addExecutorLzReceiveOption(SETTLEMENT_GAS, 0);
+        bytes memory cancellationOptions = OptionsBuilder.newOptions().addExecutorLzReceiveOption(CANCELLATION_GAS, 0);
+        
+        // Set enforced options for local test Aori (destination: remote)
+        testLocalAori.setEnforcedSettlementOptions(remoteEid, settlementOptions);
+        testLocalAori.setEnforcedCancellationOptions(remoteEid, cancellationOptions);
+        
+        // Set enforced options for remote test Aori (destination: local)
+        testRemoteAori.setEnforcedSettlementOptions(localEid, settlementOptions);
+        testRemoteAori.setEnforcedCancellationOptions(localEid, cancellationOptions);
+        
+        // Also set options for same-chain operations
+        testLocalAori.setEnforcedSettlementOptions(localEid, settlementOptions);
+        testLocalAori.setEnforcedCancellationOptions(localEid, cancellationOptions);
+        testRemoteAori.setEnforcedSettlementOptions(remoteEid, settlementOptions);
+        testRemoteAori.setEnforcedCancellationOptions(remoteEid, cancellationOptions);
     }
 
     /**
@@ -131,13 +149,12 @@ contract SettlementTests is TestUtils {
         vm.chainId(remoteEid);
 
         // Attempt to settle with no filled orders
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-        uint256 fee = remoteAori.quote(localEid, 0, options, false, localEid, solver);
+        uint256 fee = remoteAori.quote(localEid, 0, false, localEid, solver);
         vm.deal(solver, fee);
 
         vm.prank(solver);
         vm.expectRevert("No orders provided");
-        remoteAori.settle{ value: fee }(localEid, solver, options);
+        remoteAori.settle{ value: fee }(localEid, solver);
     }
 
     /**
@@ -157,13 +174,12 @@ contract SettlementTests is TestUtils {
         // Try to settle when no fill has happened
         vm.chainId(remoteEid);
 
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-        uint256 fee = remoteAori.quote(localEid, 0, options, false, localEid, solver);
+        uint256 fee = remoteAori.quote(localEid, 0, false, localEid, solver);
         vm.deal(solver, fee);
 
         vm.prank(solver);
         vm.expectRevert("No orders provided");
-        remoteAori.settle{ value: fee }(localEid, solver, options);
+        remoteAori.settle{ value: fee }(localEid, solver);
     }
 
     /**
@@ -210,12 +226,11 @@ contract SettlementTests is TestUtils {
         assertEq(fillsLengthBefore, 1, "Should have 1 fill before settlement");
 
         // Settle the order
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-        uint256 fee = testRemoteAori.quote(localEid, 0, options, false, localEid, solver);
+        uint256 fee = testRemoteAori.quote(localEid, 0, false, localEid, solver);
         vm.deal(solver, fee);
 
         vm.prank(solver);
-        testRemoteAori.settle{ value: fee }(localEid, solver, options);
+        testRemoteAori.settle{ value: fee }(localEid, solver);
 
         // Deliver the LayerZero message to ensure settlement is processed
         // Simulate the LayerZero message delivery to the source chain
@@ -270,12 +285,11 @@ contract SettlementTests is TestUtils {
         assertEq(fillsLengthBefore, numOrders, "Should have numOrders fills before settlement");
 
         // Settle the orders
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-        uint256 fee = testRemoteAori.quote(localEid, 0, options, false, localEid, solver);
+        uint256 fee = testRemoteAori.quote(localEid, 0, false, localEid, solver);
         vm.deal(solver, fee);
 
         vm.prank(solver);
-        testRemoteAori.settle{ value: fee }(localEid, solver, options);
+        testRemoteAori.settle{ value: fee }(localEid, solver);
 
         // Verify fills array is empty after settlement
         uint256 fillsLengthAfter = testRemoteAori.getFillsLength(localEid, solver);
@@ -302,12 +316,11 @@ contract SettlementTests is TestUtils {
         assertEq(fillsLengthBefore, totalOrders, "Should have totalOrders fills before settlement");
 
         // Settle the orders
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-        uint256 fee = testRemoteAori.quote(localEid, 0, options, false, localEid, solver);
+        uint256 fee = testRemoteAori.quote(localEid, 0, false, localEid, solver);
         vm.deal(solver, fee);
 
         vm.prank(solver);
-        testRemoteAori.settle{ value: fee }(localEid, solver, options);
+        testRemoteAori.settle{ value: fee }(localEid, solver);
 
         // Verify only MAX_FILLS_PER_SETTLE orders were processed
         uint256 fillsLengthAfter = testRemoteAori.getFillsLength(localEid, solver);
@@ -330,23 +343,22 @@ contract SettlementTests is TestUtils {
         }
 
         // First settlement round
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-        uint256 fee = testRemoteAori.quote(localEid, 0, options, false, localEid, solver);
+        uint256 fee = testRemoteAori.quote(localEid, 0, false, localEid, solver);
         vm.deal(solver, fee);
 
         vm.prank(solver);
-        testRemoteAori.settle{ value: fee }(localEid, solver, options);
+        testRemoteAori.settle{ value: fee }(localEid, solver);
 
         // Verify first round processed MAX_FILLS_PER_SETTLE orders
         uint256 fillsLengthAfterFirst = testRemoteAori.getFillsLength(localEid, solver);
         assertEq(fillsLengthAfterFirst, 5, "Should have 5 fills remaining after first settlement");
 
         // Second settlement round
-        fee = testRemoteAori.quote(localEid, 0, options, false, localEid, solver);
+        fee = testRemoteAori.quote(localEid, 0, false, localEid, solver);
         vm.deal(solver, fee);
 
         vm.prank(solver);
-        testRemoteAori.settle{ value: fee }(localEid, solver, options);
+        testRemoteAori.settle{ value: fee }(localEid, solver);
 
         // Verify second round processed the remaining orders
         uint256 fillsLengthAfterSecond = testRemoteAori.getFillsLength(localEid, solver);

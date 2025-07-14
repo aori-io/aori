@@ -121,6 +121,13 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         // Add support for chains
         testLocalAori.addSupportedChain(remoteEid);
         testRemoteAori.addSupportedChain(localEid);
+
+        // Setup enforced options for LayerZero messaging
+        bytes memory defaultOptions = defaultOptions();
+        testLocalAori.setEnforcedSettlementOptions(remoteEid, defaultOptions);
+        testLocalAori.setEnforcedCancellationOptions(remoteEid, defaultOptions);
+        testRemoteAori.setEnforcedSettlementOptions(localEid, defaultOptions);
+        testRemoteAori.setEnforcedCancellationOptions(localEid, defaultOptions);
     }
 
     /**
@@ -241,7 +248,6 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         uint256 msgFee = testRemoteAori.quote(
             localEid,
             uint8(PayloadType.Settlement),
-            options,
             false,
             localEid,
             solver
@@ -254,7 +260,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
 
         // Settle orders - this should process MAX_FILLS_PER_SETTLE orders
         vm.prank(solver);
-        testRemoteAori.settle{ value: feeWithBuffer }(localEid, solver, options);
+        testRemoteAori.settle{ value: feeWithBuffer }(localEid, solver);
 
         // Verify the number of orders that remain
         uint256 afterFillsCount = testRemoteAori.getFillsLength(localEid, solver);
@@ -542,7 +548,6 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         uint256 msgFee = testRemoteAori.quote(
             localEid,
             uint8(PayloadType.Settlement),
-            options,
             false,
             localEid,
             solver
@@ -558,14 +563,14 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         // Attempt settle while paused - should revert
         vm.prank(solver);
         vm.expectRevert();
-        testRemoteAori.settle{ value: feeWithBuffer }(localEid, solver, options);
+        testRemoteAori.settle{ value: feeWithBuffer }(localEid, solver);
 
         // Unpause the contract
         testRemoteAori.unpause();
 
         // Settlement should now succeed
         vm.prank(solver);
-        testRemoteAori.settle{ value: feeWithBuffer }(localEid, solver, options);
+        testRemoteAori.settle{ value: feeWithBuffer }(localEid, solver);
     }
 
     /**

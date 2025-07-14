@@ -223,7 +223,7 @@ contract CC_ERC20ToNativeDstHook is TestUtils {
         vm.deal(solverDest, balanceBeforeSettle + 1 ether); // Give extra ETH for fees
         
         vm.prank(solverDest);
-        remoteAori.settle{value: 1 ether}(localEid, solverDest, options);
+        remoteAori.settle{value: 1 ether}(localEid, solverDest);
         
         // Reset balance to eliminate fee effect
         vm.deal(solverDest, balanceBeforeSettle);

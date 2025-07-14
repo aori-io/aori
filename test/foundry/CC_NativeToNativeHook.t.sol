@@ -190,11 +190,10 @@ contract CC_NativeToNativeHook is TestUtils {
      * @notice Helper function to settle order
      */
     function _settleOrder() internal {
-        bytes memory options = defaultOptions();
-        uint256 fee = remoteAori.quote(localEid, 0, options, false, localEid, solverDest);
-        vm.deal(solverDest, fee);
+        uint256 fee = remoteAori.quote(localEid, 0, false, localEid, solverDest);
+        
         vm.prank(solverDest);
-        remoteAori.settle{value: fee}(localEid, solverDest, options);
+        remoteAori.settle{value: fee}(localEid, solverDest);
     }
 
     /**

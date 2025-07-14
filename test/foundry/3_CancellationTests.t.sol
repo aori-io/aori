@@ -289,11 +289,9 @@ contract CancellationTests is TestUtils {
         // Modify order to create mismatch
         order.inputAmount = uint128(2e18);
         
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-        
         vm.prank(solver);
         vm.expectRevert("Submitted order data doesn't match orderId");
-        remoteAori.cancel(orderId, order, options);
+        remoteAori.cancel(orderId, order);
     }
 
     /**
@@ -306,11 +304,9 @@ contract CancellationTests is TestUtils {
         IAori.Order memory order = createCrossChainOrder();
         order.dstEid = localEid; // This would cause LayerZero NoPeer error
         bytes32 orderId = localAori.hash(order);
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-        
         vm.prank(solver);
         vm.expectRevert(); // LayerZero NoPeer error occurs before validation
-        localAori.cancel(orderId, order, options);
+        localAori.cancel(orderId, order);
     }
 
     /**
@@ -322,20 +318,18 @@ contract CancellationTests is TestUtils {
         // Create order and set it to Cancelled status on destination chain
         IAori.Order memory order = createCrossChainOrder();
         bytes32 orderId = remoteAori.hash(order);
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-        
         // First cancel the order to set it to Cancelled status
-        uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, solver);
+        uint256 cancelFee = remoteAori.quote(localEid, 1, false, localEid, solver);
         vm.deal(solver, cancelFee);
         
         vm.prank(solver);
-        remoteAori.cancel{value: cancelFee}(orderId, order, options);
+        remoteAori.cancel{value: cancelFee}(orderId, order);
         
         // Now try to cancel again (should fail with "Order not active")
         vm.deal(solver, cancelFee);
         vm.prank(solver);
         vm.expectRevert("Order not active");
-        remoteAori.cancel{value: cancelFee}(orderId, order, options);
+        remoteAori.cancel{value: cancelFee}(orderId, order);
     }
 
     /**
@@ -346,12 +340,10 @@ contract CancellationTests is TestUtils {
         
         IAori.Order memory order = createCrossChainOrder();
         bytes32 orderId = remoteAori.hash(order);
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-        
         address randomUser = makeAddr("random");
         vm.prank(randomUser);
         vm.expectRevert("Only whitelisted solver, offerer, or recipient (after expiry) can cancel");
-        remoteAori.cancel(orderId, order, options);
+        remoteAori.cancel(orderId, order);
     }
 
     /**
@@ -362,16 +354,14 @@ contract CancellationTests is TestUtils {
         
         IAori.Order memory order = createCrossChainOrder();
         bytes32 orderId = remoteAori.hash(order);
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-        
         // Advance time past expiry
         vm.warp(order.endTime + 1);
         
-        uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, userA);
+        uint256 cancelFee = remoteAori.quote(localEid, 1, false, localEid, userA);
         vm.deal(userA, cancelFee);
         
         vm.prank(userA);
-        remoteAori.cancel{value: cancelFee}(orderId, order, options);
+        remoteAori.cancel{value: cancelFee}(orderId, order);
         
         // Verify cancellation
         assertEq(
@@ -391,16 +381,14 @@ contract CancellationTests is TestUtils {
         address recipient = makeAddr("recipient");
         order.recipient = recipient;
         bytes32 orderId = remoteAori.hash(order);
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-        
         // Advance time past expiry
         vm.warp(order.endTime + 1);
         
-        uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, recipient);
+        uint256 cancelFee = remoteAori.quote(localEid, 1, false, localEid, recipient);
         vm.deal(recipient, cancelFee);
         
         vm.prank(recipient);
-        remoteAori.cancel{value: cancelFee}(orderId, order, options);
+        remoteAori.cancel{value: cancelFee}(orderId, order);
         
         // Verify cancellation
         assertEq(
@@ -418,13 +406,11 @@ contract CancellationTests is TestUtils {
         
         IAori.Order memory order = createCrossChainOrder();
         bytes32 orderId = remoteAori.hash(order);
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-        
-        uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, solver);
+        uint256 cancelFee = remoteAori.quote(localEid, 1, false, localEid, solver);
         vm.deal(solver, cancelFee);
         
         vm.prank(solver);
-        remoteAori.cancel{value: cancelFee}(orderId, order, options);
+        remoteAori.cancel{value: cancelFee}(orderId, order);
         
         // Verify cancellation
         assertEq(
@@ -498,11 +484,10 @@ contract CancellationTests is TestUtils {
         vm.chainId(remoteEid);
         vm.warp(order.endTime + 1);
         
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-        uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, userA);
+        uint256 cancelFee = remoteAori.quote(localEid, 1, false, localEid, userA);
         
         vm.prank(userA);
-        remoteAori.cancel{value: cancelFee}(orderHash, order, options);
+        remoteAori.cancel{value: cancelFee}(orderHash, order);
         
         // PHASE 3: Simulate LayerZero message receipt
         vm.chainId(localEid);
@@ -568,11 +553,9 @@ contract CancellationTests is TestUtils {
         
         IAori.Order memory order = createCrossChainOrder();
         bytes32 orderId = remoteAori.hash(order);
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-        
         vm.prank(solver);
         vm.expectRevert(); // OpenZeppelin changed error format
-        remoteAori.cancel(orderId, order, options);
+        remoteAori.cancel(orderId, order);
     }
 
     /**

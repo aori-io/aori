@@ -63,7 +63,7 @@ contract MessagingReceiptTest is TestUtils {
         // Trigger the settle function with enough ETH to cover fees
         vm.deal(solver, REQUIRED_LZ_FEE); // Give the solver enough ETH
         vm.prank(solver);
-        remoteAori.settle{value: REQUIRED_LZ_FEE}(order.srcEid, solver, defaultOptions());
+        remoteAori.settle{value: REQUIRED_LZ_FEE}(order.srcEid, solver);
         
         // Get the logs
         Vm.Log[] memory logs = vm.getRecordedLogs();
@@ -131,7 +131,7 @@ contract MessagingReceiptTest is TestUtils {
         // Cancel from destination chain with enough ETH to cover fees
         vm.deal(solver, REQUIRED_LZ_FEE); // Give the solver enough ETH
         vm.prank(solver);
-        remoteAori.cancel{value: REQUIRED_LZ_FEE}(orderId, order, defaultOptions());
+        remoteAori.cancel{value: REQUIRED_LZ_FEE}(orderId, order);
         
         // Get the logs
         Vm.Log[] memory logs = vm.getRecordedLogs();

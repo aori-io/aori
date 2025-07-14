@@ -175,6 +175,6 @@ contract MessageFormatFailuresTest is TestUtils {
 
         // For LayerZero fee errors, which contain dynamic data, use generic expectRevert
         vm.expectRevert();
-        remoteAori.settle(localEid, solver, options);
+        remoteAori.settle(localEid, solver);
     }
 }

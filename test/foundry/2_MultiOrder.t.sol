@@ -86,11 +86,10 @@ contract MultiOrderSuccessTest is TestUtils {
      * @notice Helper function to settle orders
      */
     function _settleOrders() internal {
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(uint128(GAS_LIMIT), 0);
-        uint256 fee = remoteAori.quote(localEid, 0, options, false, localEid, solver);
+        uint256 fee = remoteAori.quote(localEid, 0, false, localEid, solver);
         vm.deal(solver, fee);
         vm.prank(solver);
-        remoteAori.settle{value: fee}(localEid, solver, options);
+        remoteAori.settle{value: fee}(localEid, solver);
     }
 
     /**

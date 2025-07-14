@@ -6,6 +6,9 @@ test = 'test/foundry'
 cache_path = 'cache/foundry'
 verbosity = 3
 via_ir = true
+optimizer = true
+optimizer_runs = 2000
+sizes = true
 libs = [
     # We provide a set of useful contract utilities
     # in the lib directory of @layerzerolabs/toolbox-foundry:
@@ -31,3 +34,8 @@ remappings = [
 runs = 1000
 
 gas_reports = ["contracts/Aori.sol"]
+
+[profile.size]
+optimizer = true
+optimizer_runs = 2000
+sizes = true

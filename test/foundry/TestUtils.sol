@@ -64,6 +64,10 @@ contract TestUtils is TestHelperOz5 {
     uint32 public constant localEid = 1;
     uint32 public constant remoteEid = 2;
     uint16 public constant MAX_FILLS_PER_SETTLE = 10;
+    
+    // Gas limits for LayerZero options
+    uint128 public constant SETTLEMENT_GAS = 300000;
+    uint128 public constant CANCELLATION_GAS = 150000;
 
     /**
      * @notice Common setup function for all tests
@@ -89,42 +93,16 @@ contract TestUtils is TestHelperOz5 {
         localAori.setPeer(remoteEid, bytes32(uint256(uint160(address(remoteAori)))));
         remoteAori.setPeer(localEid, bytes32(uint256(uint160(address(localAori)))));
 
-        // Setup chains as supported (local already done in constructor)
-        // Mock the quote call for remote chain
-        vm.mockCall(
-            address(localAori),
-            abi.encodeWithSelector(
-                localAori.quote.selector,
-                remoteEid,
-                uint8(PayloadType.Settlement),
-                bytes(""),
-                false,
-                0,
-                address(0)
-            ),
-            abi.encode(1 ether) // Return a mock fee
-        );
-        
-        // Add remote chain as supported on local contract
+        // Add supported chains
         localAori.addSupportedChain(remoteEid);
-        
-        // Mock the quote call for local chain
-        vm.mockCall(
-            address(remoteAori),
-            abi.encodeWithSelector(
-                remoteAori.quote.selector,
-                localEid,
-                uint8(PayloadType.Settlement),
-                bytes(""),
-                false,
-                0,
-                address(0)
-            ),
-            abi.encode(1 ether) // Return a mock fee
-        );
-        
-        // Add local chain as supported on remote contract
         remoteAori.addSupportedChain(localEid);
+
+        // Setup enforced options for LayerZero messaging
+        bytes memory defaultOptions = defaultOptions();
+        localAori.setEnforcedSettlementOptions(remoteEid, defaultOptions);
+        localAori.setEnforcedCancellationOptions(remoteEid, defaultOptions);
+        remoteAori.setEnforcedSettlementOptions(localEid, defaultOptions);
+        remoteAori.setEnforcedCancellationOptions(localEid, defaultOptions);
 
         // Setup test tokens
         inputToken = new MockERC20("Input", "IN");
@@ -149,6 +127,30 @@ contract TestUtils is TestHelperOz5 {
         // Whitelist the solver in both contracts
         localAori.addAllowedSolver(solver);
         remoteAori.addAllowedSolver(solver);
+    }
+
+    /**
+     * @notice Sets up enforced options for both local and remote Aori contracts
+     * @dev This automatically configures reasonable default options for settlement and cancellation
+     */
+    function _setupEnforcedOptions() internal {
+        // Create options for settlement and cancellation
+        bytes memory settlementOptions = OptionsBuilder.newOptions().addExecutorLzReceiveOption(SETTLEMENT_GAS, 0);
+        bytes memory cancellationOptions = OptionsBuilder.newOptions().addExecutorLzReceiveOption(CANCELLATION_GAS, 0);
+        
+        // Set enforced options for local Aori (destination: remote)
+        localAori.setEnforcedSettlementOptions(remoteEid, settlementOptions);
+        localAori.setEnforcedCancellationOptions(remoteEid, cancellationOptions);
+        
+        // Set enforced options for remote Aori (destination: local)
+        remoteAori.setEnforcedSettlementOptions(localEid, settlementOptions);
+        remoteAori.setEnforcedCancellationOptions(localEid, cancellationOptions);
+        
+        // Also set options for same-chain operations (though not typically used)
+        localAori.setEnforcedSettlementOptions(localEid, settlementOptions);
+        localAori.setEnforcedCancellationOptions(localEid, cancellationOptions);
+        remoteAori.setEnforcedSettlementOptions(remoteEid, settlementOptions);
+        remoteAori.setEnforcedCancellationOptions(remoteEid, cancellationOptions);
     }
 
     /**
@@ -303,6 +305,7 @@ contract TestUtils is TestHelperOz5 {
 
     /**
      * @notice Creates default LayerZero options
+     * @dev Use enforced options instead. This is kept for backward compatibility.
      */
     function defaultOptions() public pure returns (bytes memory) {
         return OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);

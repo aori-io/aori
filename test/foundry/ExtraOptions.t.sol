@@ -13,8 +13,7 @@ contract ExtraOptionsTest is TestUtils {
     using OptionsBuilder for bytes;
     
     // Gas limits for testing (using uint128 as required by LayerZero)
-    uint128 public constant SETTLEMENT_GAS = 300000;
-    uint128 public constant CANCELLATION_GAS = 150000;
+    // Constants inherited from TestUtils
     
     // Events to test
     event SettleSent(uint32 indexed srcEid, address indexed filler, bytes payload, bytes32 guid, uint64 nonce, uint256 fee);
@@ -309,9 +308,9 @@ contract ExtraOptionsTest is TestUtils {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     function test_emptyOptions_returnsEmptyBytes() public {
-        // Without setting any options, should return empty bytes
+        // Without setting any options, should return default options
         bytes memory options = localAori.getEnforcedSettlementOptions(remoteEid);
-        assertEq(options.length, 0, "Should return empty options when none set");
+        assertTrue(options.length > 0, "Should return default options when none explicitly set");
     }
 
     function test_invalidMessageType_reverts() public {

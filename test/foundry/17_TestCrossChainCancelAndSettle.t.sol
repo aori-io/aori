@@ -62,13 +62,12 @@ contract CrossChainCancelAndSettleTest is TestUtils {
         remoteAori.orders(orderHash); // This will create the order in storage
 
         // Calculate LZ message fee
-        bytes memory options = defaultOptions();
-        uint256 fee = remoteAori.quote(localEid, 1, options, false, localEid, solver);
+        uint256 fee = remoteAori.quote(localEid, 1, false, localEid, solver);
         vm.deal(solver, fee);
 
         // Cancel as whitelisted solver before endTime
         vm.prank(solver);
-        remoteAori.cancel{value: fee}(orderHash, order, options);
+        remoteAori.cancel{value: fee}(orderHash, order);
 
         // Verify order is cancelled
         assertEq(
@@ -117,13 +116,12 @@ contract CrossChainCancelAndSettleTest is TestUtils {
         vm.warp(order.endTime + 1);
 
         // Calculate LZ message fee
-        bytes memory options = defaultOptions();
-        uint256 fee = remoteAori.quote(localEid, 1, options, false, localEid, userA);
+        uint256 fee = remoteAori.quote(localEid, 1, false, localEid, userA);
         vm.deal(userA, fee);
 
         // Cancel as offerer after endTime
         vm.prank(userA);
-        remoteAori.cancel{value: fee}(orderHash, order, options);
+        remoteAori.cancel{value: fee}(orderHash, order);
 
         // PHASE 3: Simulate LZ message delivery to Source Chain
         vm.chainId(localEid);

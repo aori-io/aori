@@ -124,6 +124,13 @@ contract GasReportTest is TestHelperOz5 {
         // Add support for chains
         localAori.addSupportedChain(remoteEid);
         remoteAori.addSupportedChain(localEid);
+
+        // Setup enforced options for LayerZero messaging
+        bytes memory defaultOptions = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
+        localAori.setEnforcedSettlementOptions(remoteEid, defaultOptions);
+        localAori.setEnforcedCancellationOptions(remoteEid, defaultOptions);
+        remoteAori.setEnforcedSettlementOptions(localEid, defaultOptions);
+        remoteAori.setEnforcedCancellationOptions(localEid, defaultOptions);
     }
 
     function testGasDeposit() public {
@@ -150,13 +157,12 @@ contract GasReportTest is TestHelperOz5 {
         remoteAori.fill(commonOrder);
 
         // Get LayerZero options and fee for settling
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-        uint256 fee = remoteAori.quote(localEid, 0, options, false, localEid, solver);
+        uint256 fee = remoteAori.quote(localEid, 0, false, localEid, solver);
         vm.deal(solver, fee);
 
         // Only measure gas for the settle operation
         vm.prank(solver);
-        remoteAori.settle{value: fee}(localEid, solver, options);
+        remoteAori.settle{value: fee}(localEid, solver);
     }
 
     // Add new helper function for signing orders for different chains

@@ -124,7 +124,22 @@ contract CC_ERC20ToNativeSrcHook is TestUtils {
         
         // Add solvers to allowed list
         localAori.addAllowedSolver(solverSource);
+        localAori.addAllowedSolver(solverDest);
+        remoteAori.addAllowedSolver(solverSource);
         remoteAori.addAllowedSolver(solverDest);
+
+        // Setup chains as supported
+        localAori.addSupportedChain(localEid);
+        localAori.addSupportedChain(remoteEid);
+        remoteAori.addSupportedChain(localEid);
+        remoteAori.addSupportedChain(remoteEid);
+
+        // Setup enforced options for LayerZero messaging
+        bytes memory defaultOptions = defaultOptions();
+        localAori.setEnforcedSettlementOptions(remoteEid, defaultOptions);
+        localAori.setEnforcedCancellationOptions(remoteEid, defaultOptions);
+        remoteAori.setEnforcedSettlementOptions(localEid, defaultOptions);
+        remoteAori.setEnforcedCancellationOptions(localEid, defaultOptions);
     }
 
     /**
@@ -147,8 +162,37 @@ contract CC_ERC20ToNativeSrcHook is TestUtils {
             remoteEid                    // dstEid
         );
         
-        // Generate signature
-        bytes memory signature = signOrder(order, userSourcePrivKey);
+        // Generate signature using the local Aori contract address
+        bytes32 structHash = keccak256(
+            abi.encode(
+                keccak256(
+                    "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient)"
+                ),
+                order.inputAmount,
+                order.outputAmount,
+                order.inputToken,
+                order.outputToken,
+                order.startTime,
+                order.endTime,
+                order.srcEid,
+                order.dstEid,
+                order.offerer,
+                order.recipient
+            )
+        );
+
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,address verifyingContract)"),
+                keccak256(bytes("Aori")),
+                keccak256(bytes("0.3.1")),
+                address(localAori)  // Use localAori address for signing
+            )
+        );
+
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(userSourcePrivKey, digest);
+        bytes memory signature = abi.encodePacked(r, s, v);
 
         // User approves tokens to be spent by solver
         vm.prank(userSource);
@@ -187,17 +231,9 @@ contract CC_ERC20ToNativeSrcHook is TestUtils {
      * @notice Helper function to settle order
      */
     function _settleOrder() internal {
-        bytes memory options = defaultOptions();
-        
-        // For clean accounting, just send 1 ether as fee and reset balance after
-        uint256 balanceBeforeSettle = solverDest.balance;
-        vm.deal(solverDest, balanceBeforeSettle + 1 ether); // Give extra ETH for fees
-        
-        vm.prank(solverDest);
-        remoteAori.settle{value: 1 ether}(localEid, solverDest, options);
-        
-        // Reset balance to eliminate fee effect
-        vm.deal(solverDest, balanceBeforeSettle - OUTPUT_AMOUNT); // Subtract what was spent on fill
+        vm.chainId(remoteEid);  // Ensure we're on the remote chain
+        vm.prank(solverDest);   // Use the destination solver
+        remoteAori.settle{value: 1 ether}(localEid, solverDest);
     }
 
     /**
@@ -208,7 +244,7 @@ contract CC_ERC20ToNativeSrcHook is TestUtils {
         bytes32 guid = keccak256("mock-guid");
         bytes memory settlementPayload = abi.encodePacked(
             uint8(0), // message type 0 for settlement
-            solverSource, // filler address (should be source chain solver for settlement)
+            solverDest, // filler address (should be destination chain solver who initiated settlement)
             uint16(1), // fill count
             localAori.hash(order) // order hash
         );
@@ -310,7 +346,7 @@ contract CC_ERC20ToNativeSrcHook is TestUtils {
         // Verify final state (check source chain balances)
         vm.chainId(localEid);
         assertEq(
-            localAori.getUnlockedBalances(solverSource, address(convertedToken)),
+            localAori.getUnlockedBalances(solverDest, address(convertedToken)),
             HOOK_CONVERTED_AMOUNT,
             "Solver unlocked converted token balance incorrect after settlement"
         );
@@ -337,16 +373,16 @@ contract CC_ERC20ToNativeSrcHook is TestUtils {
 
         // Switch to source chain for withdrawal
         vm.chainId(localEid);
-        uint256 solverBalanceBeforeWithdraw = convertedToken.balanceOf(solverSource);
+        uint256 solverBalanceBeforeWithdraw = convertedToken.balanceOf(solverDest);
         uint256 contractBalanceBeforeWithdraw = convertedToken.balanceOf(address(localAori));
         
-        // Solver withdraws their earned tokens (use source chain solver)
-        vm.prank(solverSource);
+        // Solver withdraws their earned tokens (use destination chain solver)
+        vm.prank(solverDest);
         localAori.withdraw(address(convertedToken), HOOK_CONVERTED_AMOUNT);
         
         // Verify withdrawal
         assertEq(
-            convertedToken.balanceOf(solverSource),
+            convertedToken.balanceOf(solverDest),
             solverBalanceBeforeWithdraw + HOOK_CONVERTED_AMOUNT,
             "Solver should receive withdrawn converted tokens"
         );
@@ -356,7 +392,7 @@ contract CC_ERC20ToNativeSrcHook is TestUtils {
             "Contract should send converted tokens"
         );
         assertEq(
-            localAori.getUnlockedBalances(solverSource, address(convertedToken)),
+            localAori.getUnlockedBalances(solverDest, address(convertedToken)),
             0,
             "Solver should have no remaining balance"
         );
@@ -437,7 +473,7 @@ contract CC_ERC20ToNativeSrcHook is TestUtils {
         
         // Also check source chain solver balances for comparison
         vm.chainId(localEid);
-        uint256 afterFillSolverSourceTokens = convertedToken.balanceOf(solverSource);
+        uint256 afterFillSolverSourceTokens = convertedToken.balanceOf(solverDest);
         console.log("Source Chain After Fill (for comparison):");
         console.log("  Solver converted token balance:", afterFillSolverSourceTokens / 1e18, "converted");
         console.log("");
@@ -459,7 +495,7 @@ contract CC_ERC20ToNativeSrcHook is TestUtils {
 
         vm.chainId(localEid);
         uint256 afterSettlementUserSourceLocked = localAori.getLockedBalances(userSource, address(convertedToken));
-        uint256 afterSettlementSolverSourceUnlocked = localAori.getUnlockedBalances(solverSource, address(convertedToken));
+        uint256 afterSettlementSolverSourceUnlocked = localAori.getUnlockedBalances(solverDest, address(convertedToken));
         
         console.log("Source Chain After Settlement:");
         console.log("  User locked balance (converted tokens):", afterSettlementUserSourceLocked / 1e18, "converted");
@@ -477,15 +513,15 @@ contract CC_ERC20ToNativeSrcHook is TestUtils {
         // === PHASE 4: WITHDRAWAL ===
         console.log("=== PHASE 4: SOLVER WITHDRAWAL ON SOURCE CHAIN ===");
         vm.chainId(localEid);
-        uint256 beforeWithdrawSolverSourceTokens = convertedToken.balanceOf(solverSource);
+        uint256 beforeWithdrawSolverSourceTokens = convertedToken.balanceOf(solverDest);
         uint256 beforeWithdrawContractSourceTokens = convertedToken.balanceOf(address(localAori));
         
-        vm.prank(solverSource);
+        vm.prank(solverDest);
         localAori.withdraw(address(convertedToken), HOOK_CONVERTED_AMOUNT);
         
-        uint256 afterWithdrawSolverSourceTokens = convertedToken.balanceOf(solverSource);
+        uint256 afterWithdrawSolverSourceTokens = convertedToken.balanceOf(solverDest);
         uint256 afterWithdrawContractSourceTokens = convertedToken.balanceOf(address(localAori));
-        uint256 afterWithdrawSolverSourceUnlocked = localAori.getUnlockedBalances(solverSource, address(convertedToken));
+        uint256 afterWithdrawSolverSourceUnlocked = localAori.getUnlockedBalances(solverDest, address(convertedToken));
         
         console.log("Source Chain After Withdrawal:");
         console.log("  Solver converted token balance:", afterWithdrawSolverSourceTokens / 1e18, "converted");
@@ -502,7 +538,7 @@ contract CC_ERC20ToNativeSrcHook is TestUtils {
         
         vm.chainId(localEid); // Source chain
         uint256 finalUserSourceTokens = inputToken.balanceOf(userSource);
-        uint256 finalSolverSourceTokens = convertedToken.balanceOf(solverSource);
+        uint256 finalSolverSourceTokens = convertedToken.balanceOf(solverDest);
         
         vm.chainId(remoteEid); // Destination chain
         uint256 finalUserDestNative = userDest.balance;

@@ -67,14 +67,10 @@ contract QuoteTest is TestUtils {
 
     /// @dev Test quoting for cancel message (33 bytes)
     function testQuoteCancelMessage() public view {
-        // Get standard LZ options
-        bytes memory options = defaultOptions();
-
         // Get quote for cancel message (msgType 1)
         uint256 cancelFee = localAori.quote(
             remoteEid, // destination endpoint
             1, // message type (1 for cancel)
-            options,
             false, // payInLzToken
             0, // srcEid (not used for cancel)
             address(0) // filler (not used for cancel)
@@ -86,9 +82,6 @@ contract QuoteTest is TestUtils {
 
     /// @dev Test quoting for settle message with increasing number of order fills
     function testQuoteSettleMessage() public {
-        // Get standard LZ options
-        bytes memory options = defaultOptions();
-
         // Switch to remote chain to fill orders
         vm.chainId(remoteEid);
 
@@ -96,7 +89,6 @@ contract QuoteTest is TestUtils {
         uint256 emptyFee = remoteAori.quote(
             localEid, // destination endpoint
             0, // message type (0 for settle)
-            options,
             false, // payInLzToken
             localEid, // srcEid
             solver // whitelisted solver
@@ -130,7 +122,6 @@ contract QuoteTest is TestUtils {
             uint256 settleFee = remoteAori.quote(
                 localEid, // destination endpoint
                 0, // message type (0 for settle)
-                options,
                 false, // payInLzToken
                 localEid, // srcEid
                 solver // whitelisted solver
@@ -147,9 +138,6 @@ contract QuoteTest is TestUtils {
 
     /// @dev Test that quotes increase with payload size
     function testQuoteIncreasesWithPayloadSize() public {
-        // Get standard LZ options
-        bytes memory options = defaultOptions();
-
         // Create and deposit multiple orders
         vm.chainId(localEid);
         uint256[] memory orderCounts = new uint256[](3);
@@ -200,7 +188,6 @@ contract QuoteTest is TestUtils {
             fees[testCase] = remoteAori.quote(
                 localEid, // destination endpoint
                 0, // message type (0 for settle)
-                options,
                 false, // payInLzToken
                 localEid, // srcEid
                 solver // whitelisted solver
@@ -216,14 +203,10 @@ contract QuoteTest is TestUtils {
 
     /// @dev Compare cancel and settle message fees
     function testCompareQuoteCancelAndSettle() public {
-        // Get standard LZ options
-        bytes memory options = defaultOptions();
-
         // Get quote for cancel message (33 bytes)
         uint256 cancelFee = localAori.quote(
             remoteEid, // destination endpoint
             1, // message type (1 for cancel)
-            options,
             false, // payInLzToken
             0, // srcEid
             address(0) // filler
@@ -248,7 +231,6 @@ contract QuoteTest is TestUtils {
         uint256 settleFee = remoteAori.quote(
             localEid, // destination endpoint
             0, // message type (0 for settle)
-            options,
             false, // payInLzToken
             localEid, // srcEid
             solver // whitelisted solver
@@ -259,16 +241,12 @@ contract QuoteTest is TestUtils {
 
     /// @dev Test the quote function error handling for invalid message types
     function testInvalidMessageTypeQuote() public {
-        // Get standard LZ options
-        bytes memory options = defaultOptions();
-
         // Try to get a quote with an invalid message type (2)
         // Valid message types are only 0 (settlement) and 1 (cancellation)
         vm.expectRevert("Invalid message type");
         localAori.quote(
             remoteEid, // destination endpoint
             2, // Invalid message type (neither 0 for settlement nor 1 for cancellation)
-            options, 
             false, // payInLzToken
             localEid, // srcEid
             solver // filler
@@ -279,7 +257,6 @@ contract QuoteTest is TestUtils {
         localAori.quote(
             remoteEid, // destination endpoint
             255, // Another invalid message type
-            options,
             false, // payInLzToken
             localEid, // srcEid
             solver // filler
