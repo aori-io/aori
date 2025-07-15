@@ -27,7 +27,21 @@ if (accounts == null) {
     )
 }
 
-// For v1.x we don't need to call setup
+// Check for required environment variables
+const requiredEnvVars = [
+    'ETHEREUM_RPC_URL',
+    'BASE_RPC_URL',
+    'ARBITRUM_RPC_URL',
+    'OPTIMISM_RPC_URL',
+    'TENDERLY_PROJECT',
+    'TENDERLY_USERNAME'
+]
+
+requiredEnvVars.forEach(envVar => {
+    if (!process.env[envVar]) {
+        console.warn(`Warning: ${envVar} environment variable is not set`)
+    }
+})
 
 const config: HardhatUserConfig = {
     paths: {
@@ -41,7 +55,7 @@ const config: HardhatUserConfig = {
                 settings: {
                     optimizer: {
                         enabled: true,
-                        runs: 2000,
+                        runs: 1000,
                     },
                     viaIR: true,
                 },
@@ -49,33 +63,33 @@ const config: HardhatUserConfig = {
         ],
     },
     tenderly: {
-        project: 'project', // Should match your project name in Tenderly dashboard
-        username: 'aori', // Your Tenderly username
-        privateVerification: true, // Set to true for private verification
+        project: process.env.TENDERLY_PROJECT || '',
+        username: process.env.TENDERLY_USERNAME || '',
+        privateVerification: true,
     },
     networks: {
         ethereum: {
             eid: 30101,
             chainId: 1, // Ethereum mainnet chainId
-            url: 'https://nd-386-647-265.p2pify.com/40723238b029534649bd384dbe410645',
+            url: process.env.ETHEREUM_RPC_URL || '',
             accounts,
         },
         base: {
             eid: 30184,
             chainId: 8453, // Base mainnet chainId
-            url: 'https://nd-162-609-387.p2pify.com/945ca2cd8ac8ba0bc854378eb6f4c8ea',
+            url: process.env.BASE_RPC_URL || '',
             accounts,
         },
         'arbitrum-one': {
             eid: 30110,
             chainId: 42161, // Arbitrum One chainId
-            url: 'https://nd-818-527-340.p2pify.com/f1d5b772c018d5ca87dcb6608d43bcf7',
+            url: process.env.ARBITRUM_RPC_URL || '',
             accounts,
         },
         optimism: {
             eid: 30111,
             chainId: 10, // Optimism mainnet chainId
-            url: 'https://nd-292-688-815.p2pify.com/bef6f576c854febba72dedc55dc37dc0',
+            url: process.env.OPTIMISM_RPC_URL || '',
             accounts,
         },
         hardhat: {

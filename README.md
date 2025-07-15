@@ -34,7 +34,9 @@ struct Order {
 }
 ```
 
-> **Note**: The protocol currently supports ERC-20 tokens only. Native token (ETH/native chain currency) will be supported in a future update.
+### Native Token Support
+
+The protocol supports both ERC-20 tokens and native tokens (ETH/native chain currency). Native tokens are represented by the address `0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE` and can be deposited using the `depositNative()` function. The `NativeTokenUtils` library abstracts the handling of transfers and balance observations for both token types.
 
 ### Order Lifecycle
 
@@ -64,7 +66,7 @@ sequenceDiagram
 
     %% Order Fill Flow
     User->>Solver: Signed Order
-    Solver->>AoriSrc: deposit()
+    Solver->>AoriSrc: deposit() or depositNative()
     User-->>AoriSrc: Locks user tokens
     Solver->>AoriDst: fill()
     AoriDst-->>User: Transfers tokens to recipient
@@ -80,19 +82,27 @@ sequenceDiagram
 #### Deposit & Fill Process
 
 1. User signs an order with EIP-712 signature
-2. Solver submits the order and signature to source chain
-3. Tokens are locked in the source chain contract
-4. Solver fulfills the order on the destination chain
-5. Tokens are transferred to the recipient on destination chain
-6. Settlement message is sent back to source chain (with MessagingReceipt data captured in events)
-7. Source chain transfers locked tokens to solver
+2. Solver submits the order and signature to source chain using `deposit()` for ERC-20 tokens
+3. For native tokens, users call `depositNative()` directly with ETH sent via `msg.value`
+4. Tokens are locked in the source chain contract
+5. Solver fulfills the order on the destination chain
+6. Tokens are transferred to the recipient on destination chain
+7. Settlement message is sent back to source chain (with MessagingReceipt data captured in events)
+8. Source chain transfers locked tokens to solver
 
 #### Cancellation Process
 
-Aori supports two types of cancellation:
+**Important**: Cross-chain order cancellation has been updated for security. All cross-chain order cancellations must now go through the destination chain to prevent race conditions with settlement messages.
 
-1. Source Cancellation: Solvers can cancel directly on source chain
-2. Destination Cancellation: After expiry, users or solvers can cancel from destination chain, which sends a message to source chain and confirms the order has not been filled.
+**Cross-Chain Orders**:
+- Must be cancelled from destination chain only
+- Permitted cancellers: whitelisted solvers (anytime), order offerers (after expiry), or order recipients (after expiry)
+- Sends cancellation message to source chain via LayerZero
+- Automatically transfers tokens back to offerer (no separate withdraw needed)
+
+**Single-Chain Orders**:
+- Can be cancelled directly on source chain
+- Permitted cancellers: whitelisted solvers (anytime), order offerers (after expiry)
 
 ```mermaid
 sequenceDiagram
@@ -102,15 +112,13 @@ sequenceDiagram
     participant LZ as LayerZero
     participant AoriDst as Aori (Destination)
 
-    %% Cancellation Flow
-    note right of User: Cancellation Flow
-    User->>AoriDst: cancel
+    %% Cross-Chain Cancellation Flow
+    note right of User: Cross-Chain Cancellation
+    User->>AoriDst: cancel(orderId, order, extraOptions)
     AoriDst->>LZ: _lzSend
     Note over AoriDst: Emits CancelSent with MessagingReceipt
     LZ-->>AoriSrc: _lzReceive
-    Note over AoriSrc: Unlock tokens
-    User->>AoriSrc: withdraw()
-    AoriSrc-->>User: Transfer tokens to user
+    Note over AoriSrc: Unlock and transfer tokens directly to offerer
 ```
 
 #### Settlement Process
@@ -167,7 +175,7 @@ sequenceDiagram
     participant LiqSrc as Liquidity Source
 
     User->>Solver: Signed Order
-    Solver->>Aori: deposit(order, signature)
+    Solver->>Aori: deposit(order, signature) or depositNative(order)
     User-->>Aori: Input tokens locked
     Note over Solver: Time delay (sourcing liquidity)
     LiqSrc->>Solver: Output tokens provided
@@ -177,7 +185,7 @@ sequenceDiagram
 ```
 
 In this two-step flow:
-1. Solver first calls `deposit()` with the user's signed order
+1. Solver first calls `deposit()` with the user's signed order (or user calls `depositNative()` for ETH)
 2. Input tokens are transferred from the user and locked in the contract
 3. Order is marked as Active
 4. Later, when the solver has sourced the output tokens (from a DEX or other liquidity source)
