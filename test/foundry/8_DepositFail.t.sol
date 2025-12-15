@@ -46,8 +46,7 @@ contract DepositFailTest is TestUtils {
         // Approve token transfer.
         inputToken.approve(address(localAori), order.inputAmount);
         vm.prank(solver);
-        bytes memory errMsg = hex"8baa579f"; // InvalidSignature()
-        vm.expectRevert(errMsg);
+        vm.expectRevert(bytes("InvalidSignature"));
         localAori.deposit(order, "");
     }
 
