@@ -107,6 +107,8 @@ interface IAori {
 
     function depositNative(Order calldata order) external payable;
 
+    function depositNative(Order calldata order, SrcHook calldata hook) external payable;
+
     function withdraw(address token, uint256 amount) external;
 
     function cancel(bytes32 orderId) external;
