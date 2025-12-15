@@ -3,7 +3,7 @@ pragma solidity 0.8.28;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { ECDSA } from "solady/src/utils/ECDSA.sol";
+import { SignatureCheckerLib } from "solady/src/utils/SignatureCheckerLib.sol";
 import { IAori } from "./IAori.sol";
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -55,9 +55,15 @@ library ValidationUtils {
         require(isSupportedChain(order.dstEid), "Destination chain not supported");
 
 
-        // Signature validation
-        address recovered = ECDSA.recover(digest, signature);
-        require(recovered == order.offerer, "InvalidSignature");
+        // Signature validation - supports both EOAs and smart contract wallets (ERC-1271)
+        require(
+            SignatureCheckerLib.isValidSignatureNowCalldata(
+                order.offerer,
+                digest,
+                signature
+            ),
+            "InvalidSignature"
+        );
 
         // Order parameter validation
         validateCommonOrderParams(order);
