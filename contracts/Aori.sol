@@ -381,7 +381,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
 
     /**
      * @notice Executes a source hook to convert input tokens and handle distribution
-     * @dev Sends input tokens to hook, executes conversion, and handles token distribution.
+     * @dev Sends input tokens (native or ERC20) to hook, executes conversion, and handles token distribution.
      *      For single-chain swaps: converts to output token and immediately distributes.
      *      For cross-chain swaps: converts to preferred token for later cross-chain transfer.
      * @param order The order details
@@ -397,11 +397,18 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         address tokenReceived
     ) {
         // Send input tokens to hook for conversion
-        IERC20(order.inputToken).safeTransferFrom(
-            order.offerer,
-            hook.hookAddress,
-            order.inputAmount
-        );
+        if (order.inputToken.isNativeToken()) {
+            // Native tokens already received via msg.value, send to hook
+            (bool success, ) = payable(hook.hookAddress).call{value: order.inputAmount}("");
+            require(success, "Native transfer to hook failed");
+        } else {
+            // Pull ERC20 tokens from offerer to hook
+            IERC20(order.inputToken).safeTransferFrom(
+                order.offerer,
+                hook.hookAddress,
+                order.inputAmount
+            );
+        }
         
         if (order.isSingleChainSwap()) {
             // Single-chain: convert to final output token and distribute immediately
@@ -478,6 +485,50 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         ValidationUtils.validateCommonOrderParams(order);
         
         _postDeposit(order.inputToken, order.inputAmount, order, orderId);
+    }
+
+    /**
+     * @notice Deposits native tokens to the contract with a hook call for token conversion
+     * @dev User calls this directly and sends their own ETH via msg.value.
+     *      Executes a hook call for token conversion before deposit processing.
+     *      For single-chain swaps, immediately settles and transfers tokens to recipient.
+     *      For cross-chain swaps, locks converted tokens for later settlement.
+     * @param order The order details (must specify NATIVE_TOKEN as inputToken)
+     * @param hook The pre-hook configuration for token conversion
+     */
+    function depositNative(
+        Order calldata order,
+        SrcHook calldata hook
+    ) external payable nonReentrant whenNotPaused {
+        require(order.inputToken.isNativeToken(), "Order must specify native token");
+        require(msg.value == order.inputAmount, "Incorrect native amount");
+        require(msg.sender == order.offerer, "Only offerer can deposit native tokens");
+        require(hook.isSome(), "Missing hook");
+        
+        // Calculate order ID and validate uniqueness
+        bytes32 orderId = hash(order);
+        require(orderStatus[orderId] == IAori.OrderStatus.Unknown, "Order already exists");
+        require(isSupportedChain[order.dstEid], "Destination chain not supported");
+        require(order.srcEid == ENDPOINT_ID, "Chain mismatch");
+        
+        // Use validation utility for common order parameter checks
+        ValidationUtils.validateCommonOrderParams(order);
+        
+        // Execute hook to convert native tokens to preferred/output tokens
+        (uint256 amountReceived, address tokenReceived) = 
+            _executeSrcHook(order, hook);
+        
+        emit SrcHookExecuted(orderId, tokenReceived, amountReceived);
+        
+        if (order.isSingleChainSwap()) {
+            // Single-chain: immediate settlement (tokens already transferred to recipient)
+            orders[orderId] = order;
+            orderStatus[orderId] = IAori.OrderStatus.Settled;
+            emit Settle(orderId);
+        } else {
+            // Cross-chain: lock converted tokens for later settlement
+            _postDeposit(tokenReceived, amountReceived, order, orderId);
+        }
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
