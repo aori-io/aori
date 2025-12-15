@@ -29,3 +29,4 @@ pnpm-error.log
 # Editor and OS files
 .idea
 .vscode
+_docs
