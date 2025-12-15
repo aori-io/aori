@@ -9,10 +9,11 @@ pragma solidity 0.8.28;
  *
  * Important Notes for EIP-712 signatures:
  * 1. The domain separator must include the exact same contract address that's verifying the signature
- * 2. When using Solady's ECDSA library, the signature format is critical:
- *    - Signature must be exactly 65 bytes: [r (32 bytes)][s (32 bytes)][v (1 byte)]
- *    - The v value must be exactly 27 or 28 (NOT 0 or 1)
- *    - The offerer address must match the recovered signer
+ * 2. Aori uses Solady's SignatureCheckerLib which supports:
+ *    - EOA signatures: Standard 65-byte [r (32)][s (32)][v (1)] or EIP-2098 compact 64-byte format
+ *    - Smart wallet signatures: ERC-1271 contract signatures (ERC-4337 wallets, Safe, etc.)
+ *    - The v value must be 27 or 28 for EOA signatures
+ *    - For smart wallets, the signature is validated via isValidSignature() call
  * 3. For testing with Foundry:
  *    - Use vm.sign(privateKey, messageHash) to get (v, r, s) values
  *    - For proper signature creation, copy r and s directly
