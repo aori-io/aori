@@ -300,16 +300,6 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         _;
     }
 
-    /**
-     * @notice Modifier to ensure the caller is a whitelisted hook address
-     * @dev Only allows whitelisted hook addresses to proceed
-     * @param hookAddress The address of the hook to check
-     */
-    modifier allowedHookAddress(address hookAddress) {
-        require(isAllowedHook[hookAddress], "Invalid hook address");
-        _;
-    }
-
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                          DEPOSIT                           */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
@@ -353,7 +343,6 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         SrcHook calldata hook
     ) external nonReentrant whenNotPaused onlySolver {
         require(!order.inputToken.isNativeToken(), "Use depositNative for native tokens");
-        require(hook.isSome(), "Missing hook");
         bytes32 orderId = order.validateDeposit(
             signature,
             _hashOrder712(order),
@@ -392,10 +381,16 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     function _executeSrcHook(
         Order calldata order,
         SrcHook calldata hook
-    ) internal allowedHookAddress(hook.hookAddress) returns (
+    ) internal returns (
         uint256 amountReceived,
         address tokenReceived
     ) {
+        // Validate hook struct upfront
+        hook.validateSrcHook(
+            this.isAllowedHook,
+            this.isAllowedSolver
+        );
+
         // Send input tokens to hook for conversion
         if (order.inputToken.isNativeToken()) {
             // Native tokens already received via msg.value, send to hook
@@ -426,7 +421,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             
             uint256 surplus = amountReceived - order.outputAmount;
             if (surplus > 0) {
-                order.outputToken.safeTransfer(msg.sender, surplus);
+                order.outputToken.safeTransfer(hook.solver, surplus);
             }
         } else {
             // Cross-chain: convert to preferred token for cross-chain transfer
@@ -503,7 +498,6 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         require(order.inputToken.isNativeToken(), "Order must specify native token");
         require(msg.value == order.inputAmount, "Incorrect native amount");
         require(msg.sender == order.offerer, "Only offerer can deposit native tokens");
-        require(hook.isSome(), "Missing hook");
         
         // Calculate order ID and validate uniqueness
         bytes32 orderId = hash(order);
@@ -615,7 +609,10 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     function _executeDstHook(
         Order calldata order,
         IAori.DstHook calldata hook
-    ) internal allowedHookAddress(hook.hookAddress) returns (uint256 balChg) {
+    ) internal returns (uint256 balChg) {
+        // Validate hook struct upfront
+        hook.validateDstHook(this.isAllowedHook);
+
         if (hook.preferedDstInputAmount > 0) {
             if (hook.preferredToken.isNativeToken()) {
                 require(msg.value == hook.preferedDstInputAmount, "Incorrect native amount for preferred token");

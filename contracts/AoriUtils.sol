@@ -430,21 +430,33 @@ library ExecutionUtils {
  */
 library HookUtils {
     /**
-     * @notice Checks if a SrcHook is defined (has a non-zero address)
-     * @param hook The SrcHook struct to check
-     * @return True if the hook has a non-zero address
+     * @notice Validates SrcHook struct fields
+     * @param hook The SrcHook to validate
+     * @param isAllowedHook Function to check hook whitelist
+     * @param isAllowedSolver Function to check solver whitelist
      */
-    function isSome(IAori.SrcHook calldata hook) internal pure returns (bool) {
-        return hook.hookAddress != address(0);
+    function validateSrcHook(
+        IAori.SrcHook calldata hook,
+        function(address) external view returns (bool) isAllowedHook,
+        function(address) external view returns (bool) isAllowedSolver
+    ) internal view {
+        require(hook.hookAddress != address(0), "Missing hook");
+        require(isAllowedHook(hook.hookAddress), "Invalid hook address");
+        require(hook.solver != address(0), "Solver required in hook");
+        require(isAllowedSolver(hook.solver), "Invalid solver in hook");
     }
 
     /**
-     * @notice Checks if a DstHook is defined (has a non-zero address)
-     * @param hook The DstHook struct to check
-     * @return True if the hook has a non-zero address
+     * @notice Validates DstHook struct fields
+     * @param hook The DstHook to validate
+     * @param isAllowedHook Function to check hook whitelist
      */
-    function isSome(IAori.DstHook calldata hook) internal pure returns (bool) {
-        return hook.hookAddress != address(0);
+    function validateDstHook(
+        IAori.DstHook calldata hook,
+        function(address) external view returns (bool) isAllowedHook
+    ) internal view {
+        require(hook.hookAddress != address(0), "Missing hook");
+        require(isAllowedHook(hook.hookAddress), "Invalid hook address");
     }
 }
 
