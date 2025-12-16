@@ -270,7 +270,8 @@ contract TestUtils is TestHelperOz5 {
             hookAddress: address(mockHook),
             preferredToken: address(convertedToken),
             minPreferedTokenAmountOut: 1500,
-            instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), inputAmount)
+            instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), inputAmount),
+            solver: solver
         });
     }
 

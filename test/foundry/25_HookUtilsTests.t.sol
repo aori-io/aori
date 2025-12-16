@@ -24,18 +24,16 @@ import "../../contracts/IAori.sol";
 /**
  * @title HookTestWrapper
  * @notice Test wrapper for the HookUtils library functions
+ * @dev The isSome check is now inline since it's part of validateSrcHook/validateDstHook
  */
 contract HookTestWrapper {
-    using HookUtils for IAori.SrcHook;
-    using HookUtils for IAori.DstHook;
-    
     /**
      * @notice Checks if a SrcHook is defined (has a non-zero address)
      * @param hook The SrcHook struct to check
      * @return Whether the hook has a non-zero address
      */
     function isSomeSrcHook(IAori.SrcHook calldata hook) external pure returns (bool) {
-        return hook.isSome();
+        return hook.hookAddress != address(0);
     }
     
     /**
@@ -44,7 +42,7 @@ contract HookTestWrapper {
      * @return Whether the hook has a non-zero address
      */
     function isSomeDstHook(IAori.DstHook calldata hook) external pure returns (bool) {
-        return hook.isSome();
+        return hook.hookAddress != address(0);
     }
 }
 
@@ -76,7 +74,8 @@ contract HookUtilsTest is Test {
             hookAddress: ZERO_ADDRESS,
             preferredToken: address(0),
             minPreferedTokenAmountOut: 0,
-            instructions: bytes("")
+            instructions: bytes(""),
+            solver: address(0)
         });
         
         // Act
@@ -94,7 +93,8 @@ contract HookUtilsTest is Test {
             hookAddress: TEST_ADDRESS,
             preferredToken: address(0),
             minPreferedTokenAmountOut: 0,
-            instructions: bytes("")
+            instructions: bytes(""),
+            solver: address(0)
         });
         
         // Act
@@ -166,7 +166,8 @@ contract HookUtilsTest is Test {
                 hookAddress: addresses[i],
                 preferredToken: address(0),
                 minPreferedTokenAmountOut: 0,
-                instructions: bytes("")
+                instructions: bytes(""),
+                solver: address(0)
             });
             
             bool result = wrapper.isSomeSrcHook(hook);

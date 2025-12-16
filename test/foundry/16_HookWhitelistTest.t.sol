@@ -66,7 +66,8 @@ contract HookWhitelistTest is TestUtils {
             hookAddress: address(nonWhitelistedHook),
             preferredToken: address(convertedToken),
             minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
-            instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), order.inputAmount)
+            instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), order.inputAmount),
+            solver: solver
         });
 
         // The deposit should revert with "Invalid hook address"
@@ -94,7 +95,8 @@ contract HookWhitelistTest is TestUtils {
             hookAddress: address(mockHook),
             preferredToken: address(convertedToken),
             minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
-            instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), order.inputAmount)
+            instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), order.inputAmount),
+            solver: solver
         });
 
         // The deposit should succeed with the whitelisted hook
@@ -127,7 +129,8 @@ contract HookWhitelistTest is TestUtils {
             hookAddress: address(mockHook),
             preferredToken: address(convertedToken),
             minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
-            instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), order.inputAmount)
+            instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), order.inputAmount),
+            solver: solver
         });
 
         vm.prank(solver);
@@ -171,7 +174,8 @@ contract HookWhitelistTest is TestUtils {
             hookAddress: address(mockHook),
             preferredToken: address(convertedToken),
             minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
-            instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), order.inputAmount)
+            instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), order.inputAmount),
+            solver: solver
         });
 
         vm.prank(solver);
@@ -229,7 +233,8 @@ contract HookWhitelistTest is TestUtils {
             hookAddress: address(nonWhitelistedHook),
             preferredToken: address(convertedToken),
             minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
-            instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), order.inputAmount)
+            instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), order.inputAmount),
+            solver: solver
         });
 
         // This should now work since we whitelisted the hook
