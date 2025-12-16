@@ -59,7 +59,11 @@ interface IAori {
     event Deposit(bytes32 indexed orderId, Order order);
     event Cancel(bytes32 indexed orderId);
     event Settle(bytes32 indexed orderId);
-    event Withdraw(address indexed holder, address indexed token, uint256 amount);
+    event Withdraw(
+        address indexed holder,
+        address indexed token,
+        uint256 amount
+    );
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    CHAIN MANAGEMENT EVENTS                  */
@@ -73,7 +77,7 @@ interface IAori {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     event Fill(bytes32 indexed orderId, Order order);
-    
+
     /**
      * @notice Emitted when an order is cancelled from the destination chain
      * @dev Contains MessagingReceipt data for cross-chain tracking
@@ -82,8 +86,13 @@ interface IAori {
      * @param nonce The nonce of the LayerZero message
      * @param fee The fee paid for the LayerZero message
      */
-    event CancelSent(bytes32 indexed orderId, bytes32 guid, uint64 nonce, uint256 fee);
-    
+    event CancelSent(
+        bytes32 indexed orderId,
+        bytes32 guid,
+        uint64 nonce,
+        uint256 fee
+    );
+
     /**
      * @notice Emitted when orders are settled from the destination chain
      * @dev Contains MessagingReceipt data for cross-chain tracking
@@ -94,7 +103,14 @@ interface IAori {
      * @param nonce The nonce of the LayerZero message
      * @param fee The fee paid for the LayerZero message
      */
-    event SettleSent(uint32 indexed srcEid, address indexed filler, bytes payload, bytes32 guid, uint64 nonce, uint256 fee);
+    event SettleSent(
+        uint32 indexed srcEid,
+        address indexed filler,
+        bytes payload,
+        bytes32 guid,
+        uint64 nonce,
+        uint256 fee
+    );
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                        SRC FUNCTIONS                       */
@@ -116,8 +132,12 @@ interface IAori {
 
     function cancel(bytes32 orderId) external;
 
-    event settlementFailed(bytes32 indexed orderId, uint32 expectedEid, uint32 submittedEid, string reason);
-
+    event settlementFailed(
+        bytes32 indexed orderId,
+        uint32 expectedEid,
+        uint32 submittedEid,
+        string reason
+    );
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                        DST FUNCTIONS                       */
@@ -127,7 +147,11 @@ interface IAori {
 
     function fill(Order calldata order, DstHook calldata hook) external payable;
 
-    function settle(uint32 srcEid, address filler, bytes calldata extraOptions) external payable;
+    function settle(
+        uint32 srcEid,
+        address filler,
+        bytes calldata extraOptions
+    ) external payable;
 
     function cancel(
         bytes32 orderId,
@@ -145,9 +169,39 @@ interface IAori {
     /*                       VIEW FUNCTIONS                       */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    function getLockedBalances(address offerer, address token) external view returns (uint256);
+    function srcEidToFillerFills(
+        uint32 srcEid,
+        address filler,
+        uint256 index
+    ) external view returns (bytes32);
 
-    function getUnlockedBalances(address offerer, address token) external view returns (uint256);
+    function orders(
+        bytes32 orderId
+    )
+        external
+        view
+        returns (
+            uint128,
+            uint128,
+            address,
+            address,
+            uint32,
+            uint32,
+            uint32,
+            uint32,
+            address,
+            address
+        );
+
+    function getLockedBalances(
+        address offerer,
+        address token
+    ) external view returns (uint256);
+
+    function getUnlockedBalances(
+        address offerer,
+        address token
+    ) external view returns (uint256);
 
     function quote(
         uint32 _dstEid,
@@ -168,7 +222,11 @@ interface IAori {
      * @param preferredToken The token address that was received from the hook
      * @param amountReceived The amount of tokens received from hook execution
      */
-    event SrcHookExecuted(bytes32 indexed orderId, address indexed preferredToken, uint256 amountReceived);
+    event SrcHookExecuted(
+        bytes32 indexed orderId,
+        address indexed preferredToken,
+        uint256 amountReceived
+    );
 
     /**
      * @notice Emitted when a destination hook is executed during fill
@@ -176,5 +234,9 @@ interface IAori {
      * @param preferredToken The token address that was converted by the hook
      * @param amountReceived The amount of output tokens received from hook execution
      */
-    event DstHookExecuted(bytes32 indexed orderId, address indexed preferredToken, uint256 amountReceived);
+    event DstHookExecuted(
+        bytes32 indexed orderId,
+        address indexed preferredToken,
+        uint256 amountReceived
+    );
 }

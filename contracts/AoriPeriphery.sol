@@ -3,31 +3,6 @@ pragma solidity 0.8.28;
 
 import {IAori} from "./IAori.sol";
 
-interface IAoriReader {
-    function srcEidToFillerFills(
-        uint32 srcEid,
-        address filler,
-        uint256 index
-    ) external view returns (bytes32);
-    function orders(
-        bytes32 orderId
-    )
-        external
-        view
-        returns (
-            uint128 inputAmount,
-            uint128 outputAmount,
-            address inputToken,
-            address outputToken,
-            uint32 startTime,
-            uint32 endTime,
-            uint32 srcEid,
-            uint32 dstEid,
-            address offerer,
-            address recipient
-        );
-}
-
 /**
  * @title AoriPeriphery
  * @notice A periphery contract that aggregates fill statistics per endpoint ID
@@ -35,24 +10,11 @@ interface IAoriReader {
  */
 contract AoriPeriphery {
     /// @notice The Aori contract to read from
-    IAoriReader public immutable aori;
-
-    /// @notice Statistics for a filler on a specific source endpoint
-    struct FillerStats {
-        uint256 orderCount;
-        uint256 totalInputAmount;
-    }
-
-    /// @notice Detailed statistics broken down by input token
-    struct TokenStats {
-        address inputToken;
-        uint256 orderCount;
-        uint256 totalInputAmount;
-    }
+    IAori public immutable aori;
 
     constructor(address _aori) {
         require(_aori != address(0), "Invalid Aori address");
-        aori = IAoriReader(_aori);
+        aori = IAori(_aori);
     }
 
     /**
@@ -81,11 +43,10 @@ contract AoriPeriphery {
                 }
             }
 
-            // Copy to correctly sized array
-            orderHashesPerEid[j] = new bytes32[](count);
-            for (uint256 i = 0; i < count; i++) {
-                orderHashesPerEid[j][i] = temp[i];
+            assembly {
+                mstore(temp, count)
             }
+            orderHashesPerEid[j] = temp;
         }
     }
 
@@ -102,7 +63,6 @@ contract AoriPeriphery {
         view
         returns (address[] memory inputTokens, uint256[] memory totalAmounts)
     {
-        // Use small fixed buffer - realistically won't have more than 20 unique tokens
         address[] memory tempTokens = new address[](20);
         uint256[] memory tempAmounts = new uint256[](20);
         uint256 uniqueCount = 0;
@@ -111,7 +71,6 @@ contract AoriPeriphery {
             (uint128 inputAmount, , address inputToken, , , , , , , ) = aori
                 .orders(orderHashes[i]);
 
-            // Check if token already exists
             bool found = false;
             for (uint256 k = 0; k < uniqueCount; k++) {
                 if (tempTokens[k] == inputToken) {
@@ -128,12 +87,10 @@ contract AoriPeriphery {
             }
         }
 
-        // Resize arrays using assembly (no copy needed)
         assembly {
             mstore(tempTokens, uniqueCount)
             mstore(tempAmounts, uniqueCount)
         }
-
         return (tempTokens, tempAmounts);
     }
 }
