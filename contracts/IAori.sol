@@ -40,6 +40,7 @@ interface IAori {
         address preferredToken;
         uint256 minPreferedTokenAmountOut;
         bytes instructions;
+        address solver;
     }
 
     struct DstHook {
