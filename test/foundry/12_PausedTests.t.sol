@@ -94,7 +94,8 @@ contract PausedTests is TestUtils {
             hookAddress: address(0),
             preferredToken: address(inputToken),
             minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount since no conversion
-            instructions: ""
+            instructions: "",
+            solver: solver
         });
 
         vm.startPrank(solver);

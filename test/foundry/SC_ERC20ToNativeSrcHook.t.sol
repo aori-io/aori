@@ -148,7 +148,8 @@ contract SC_ERC20ToNativeSrcHook_Test is TestUtils {
                 MockHook2.handleHook.selector,
                 NATIVE_TOKEN,      // Output native tokens
                 HOOK_OUTPUT        // Amount of native tokens to output
-            )
+            ),
+            solver: solverSC
         });
 
         // User approves their input tokens to be spent by the contract
@@ -364,7 +365,8 @@ contract SC_ERC20ToNativeSrcHook_Test is TestUtils {
                 MockHook2.handleHook.selector,
                 NATIVE_TOKEN,
                 HOOK_OUTPUT
-            )
+            ),
+            solver: solverSC
         });
 
         // User approves tokens
@@ -413,7 +415,8 @@ contract SC_ERC20ToNativeSrcHook_Test is TestUtils {
                 MockHook2.handleHook.selector,
                 NATIVE_TOKEN,
                 OUTPUT_AMOUNT - 1  // Less than required
-            )
+            ),
+            solver: solverSC
         });
 
         vm.prank(userSC);
@@ -538,7 +541,8 @@ contract SC_ERC20ToNativeSrcHook_Test is TestUtils {
                 MockHook2.handleHook.selector,
                 NATIVE_TOKEN,
                 hookOutput  // Variable hook output
-            )
+            ),
+            solver: testSolver
         });
 
         // Record initial balances
