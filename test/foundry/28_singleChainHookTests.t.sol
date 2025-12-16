@@ -136,7 +136,8 @@ contract SingleChainHookTest is TestUtils {
             hookAddress: address(testHook),
             preferredToken: address(outputToken),
             minPreferedTokenAmountOut: uint256(outputAmount),
-            instructions: hookData
+            instructions: hookData,
+            solver: solver
         });
         
         // Calculate order ID
@@ -215,7 +216,8 @@ contract SingleChainHookTest is TestUtils {
             hookAddress: address(testHook),
             preferredToken: address(outputToken),
             minPreferedTokenAmountOut: uint256(outputAmount),
-            instructions: hookData
+            instructions: hookData,
+            solver: solver
         });
         
         // Execute deposit with hook
@@ -288,7 +290,8 @@ contract SingleChainHookTest is TestUtils {
             hookAddress: address(testHook),
             preferredToken: address(outputToken), // For single-chain, this should be output token
             minPreferedTokenAmountOut: uint256(outputAmount),
-            instructions: hookData
+            instructions: hookData,
+            solver: solver
         });
         
         // Deposit with hook - this will immediately settle for single-chain swaps
@@ -345,7 +348,8 @@ contract SingleChainHookTest is TestUtils {
             hookAddress: address(mockFailingHook),
             preferredToken: address(outputToken),
             minPreferedTokenAmountOut: uint256(outputAmount),
-            instructions: hookData
+            instructions: hookData,
+            solver: solver
         });
         
         // This should revert when the hook tries to transfer tokens it doesn't have
@@ -392,7 +396,8 @@ contract SingleChainHookTest is TestUtils {
             hookAddress: address(nonWhitelistedHook),
             preferredToken: address(outputToken),
             minPreferedTokenAmountOut: uint256(outputAmount),
-            instructions: hookData
+            instructions: hookData,
+            solver: solver
         });
         
         // Should revert with "Invalid hook address"
@@ -439,7 +444,8 @@ contract SingleChainHookTest is TestUtils {
             hookAddress: address(testHook),
             preferredToken: address(outputToken),
             minPreferedTokenAmountOut: uint256(outputAmount),
-            instructions: hookData
+            instructions: hookData,
+            solver: solver
         });
         
         // Should revert with "Insufficient output from hook"

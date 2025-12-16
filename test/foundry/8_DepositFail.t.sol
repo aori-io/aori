@@ -104,7 +104,8 @@ contract DepositFailTest is TestUtils {
     //         hookAddress: address(failingHook),
     //         preferredToken: address(outputToken), // different from order.inputToken
     //         minPreferedTokenAmountOut: minPreferedTokenAmountOut, // Arbitrary minimum amount since no conversion
-    //         instructions: abi.encodeWithSelector(FailingDepositHook.failHook.selector, address(outputToken), order.inputAmount)
+    //         instructions: abi.encodeWithSelector(FailingDepositHook.failHook.selector, address(outputToken), order.inputAmount),
+    //         solver: solver
     //     });
     //     bytes memory signature = signOrder(order);
     //     vm.prank(userA);

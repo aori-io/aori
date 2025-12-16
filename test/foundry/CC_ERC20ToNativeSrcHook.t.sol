@@ -163,7 +163,8 @@ contract CC_ERC20ToNativeSrcHook is TestUtils {
                 MockHook2.handleHook.selector, 
                 address(convertedToken),   // Output preferred tokens
                 HOOK_CONVERTED_AMOUNT      // Amount of preferred tokens to output
-            )
+            ),
+            solver: solverSource
         });
 
         // Solver deposits user's ERC20 tokens with source hook

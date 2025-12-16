@@ -371,7 +371,8 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
             hookAddress: nonWhitelistedHook,
             preferredToken: address(inputToken),
             minPreferedTokenAmountOut: 1000,
-            instructions: ""
+            instructions: "",
+            solver: solver
         });
 
         vm.prank(solver);

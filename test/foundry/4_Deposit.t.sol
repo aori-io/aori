@@ -341,7 +341,8 @@ contract DepositTests is TestUtils {
             hookAddress: address(0), // Missing hook
             preferredToken: address(inputToken),
             minPreferedTokenAmountOut: 1e18,
-            instructions: ""
+            instructions: "",
+            solver: solver
         });
         
         vm.prank(solver);
@@ -362,7 +363,8 @@ contract DepositTests is TestUtils {
             hookAddress: nonWhitelistedHook,
             preferredToken: address(inputToken),
             minPreferedTokenAmountOut: 1e18,
-            instructions: ""
+            instructions: "",
+            solver: solver
         });
         
         vm.prank(userA);

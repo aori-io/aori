@@ -196,7 +196,8 @@ contract CC_ERC20ToNativeHook is TestUtils {
                 INPUT_AMOUNT,                   // amountIn
                 address(srcHookPreferredToken),     // tokenOut
                 SRC_PREFERRED_OUTPUT            // minAmountOut
-            )
+            ),
+            solver: solverSource
         });
 
         // Approve user's input tokens to be spent by the contract

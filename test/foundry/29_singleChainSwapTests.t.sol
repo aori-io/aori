@@ -641,7 +641,8 @@ contract SingleChainSwapTests is TestUtils {
             hookAddress: address(testHook),
             preferredToken: address(outputToken),
             minPreferedTokenAmountOut: OUTPUT_AMOUNT,
-            instructions: hookData
+            instructions: hookData,
+            solver: solver
         });
         
         // Record balances before operation
@@ -700,7 +701,8 @@ contract SingleChainSwapTests is TestUtils {
             hookAddress: address(testHook),
             preferredToken: address(outputToken),
             minPreferedTokenAmountOut: OUTPUT_AMOUNT,
-            instructions: hookData
+            instructions: hookData,
+            solver: solver
         });
         
         // Record balances before
@@ -746,7 +748,8 @@ contract SingleChainSwapTests is TestUtils {
             hookAddress: address(testHook),
             preferredToken: address(outputToken),
             minPreferedTokenAmountOut: OUTPUT_AMOUNT,
-            instructions: hookData
+            instructions: hookData,
+            solver: solver
         });
         
         // Record initial balance
@@ -849,7 +852,8 @@ contract SingleChainSwapTests is TestUtils {
             hookAddress: address(testHook),
             preferredToken: address(outputToken),
             minPreferedTokenAmountOut: OUTPUT_AMOUNT,
-            instructions: createHookData(address(outputToken), OUTPUT_AMOUNT)
+            instructions: createHookData(address(outputToken), OUTPUT_AMOUNT),
+            solver: solver
         });
         
         // Ensure solver has enough output tokens
