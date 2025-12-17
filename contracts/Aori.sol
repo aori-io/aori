@@ -12,6 +12,8 @@ import { EIP712 } from "solady/src/utils/EIP712.sol";
 import { ECDSA } from "solady/src/utils/ECDSA.sol";
 import { IAori } from "./IAori.sol";
 import "./AoriUtils.sol";
+import { ISignatureTransfer } from "permit2/src/interfaces/ISignatureTransfer.sol";
+import { Permit2Lib } from "./libraries/Permit2Lib.sol";
 
 /**                            @@@@@@@@@@@@                                              
                              @@         @@@@@@                     @@@@@                  
@@ -522,6 +524,157 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         } else {
             // Cross-chain: lock converted tokens for later settlement
             _postDeposit(tokenReceived, amountReceived, order, orderId);
+        }
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                    PERMIT2 DEPOSITS                         */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /**
+     * @notice Deposits tokens using Permit2 SignatureTransfer with witness
+     * @dev User signs a single Permit2 message that includes the order as witness data.
+     *      This binds the token transfer authorization to the specific order parameters.
+     *      Permit2 handles signature verification - no separate order signature needed.
+     * @param order The order to deposit (also serves as witness data in the signature)
+     * @param nonce Permit2 nonce for replay protection
+     * @param deadline Signature expiration timestamp
+     * @param signature User's signature over PermitWitnessTransferFrom
+     */
+    function depositWithPermit2(
+        Order calldata order,
+        uint256 nonce,
+        uint256 deadline,
+        bytes calldata signature
+    ) external nonReentrant whenNotPaused onlySolver {
+        require(!order.inputToken.isNativeToken(), "Use depositNative for native tokens");
+        require(block.timestamp <= deadline, "Permit2 signature expired");
+
+        // Calculate order ID and validate
+        bytes32 orderId = hash(order);
+        require(orderStatus[orderId] == IAori.OrderStatus.Unknown, "Order already exists");
+        require(isSupportedChain[order.dstEid], "Destination chain not supported");
+        require(order.srcEid == ENDPOINT_ID, "Chain mismatch");
+
+        // Validate common order parameters
+        ValidationUtils.validateCommonOrderParams(order);
+
+        // Build Permit2 structs
+        ISignatureTransfer.PermitTransferFrom memory permit = Permit2Lib.buildPermit(
+            order, nonce, deadline
+        );
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails =
+            Permit2Lib.buildTransferDetails(address(this), order.inputAmount);
+
+        // Hash order as witness
+        bytes32 witness = Permit2Lib.hashOrder(order);
+
+        // Execute Permit2 transfer - this verifies the signature
+        // The user signed over: token, amount, nonce, deadline, spender (this contract), AND the order
+        ISignatureTransfer(Permit2Lib.PERMIT2).permitWitnessTransferFrom(
+            permit,
+            transferDetails,
+            order.offerer,
+            witness,
+            Permit2Lib.WITNESS_TYPE_STRING,
+            signature
+        );
+
+        _postDeposit(order.inputToken, order.inputAmount, order, orderId);
+    }
+
+    /**
+     * @notice Deposits tokens using Permit2 with source hook for token conversion
+     * @dev Tokens are transferred directly to the hook via Permit2, then hook converts them.
+     *      For single-chain swaps, immediately settles and transfers tokens to recipient.
+     *      For cross-chain swaps, locks converted tokens for later settlement.
+     * @param order The order to deposit (witness data)
+     * @param hook Source hook for token conversion
+     * @param nonce Permit2 nonce for replay protection
+     * @param deadline Signature expiration timestamp
+     * @param signature User's Permit2 signature
+     */
+    function depositWithPermit2(
+        Order calldata order,
+        SrcHook calldata hook,
+        uint256 nonce,
+        uint256 deadline,
+        bytes calldata signature
+    ) external nonReentrant whenNotPaused onlySolver {
+        require(!order.inputToken.isNativeToken(), "Use depositNative for native tokens");
+        require(block.timestamp <= deadline, "Permit2 signature expired");
+
+        // Calculate order ID and validate
+        bytes32 orderId = hash(order);
+        require(orderStatus[orderId] == IAori.OrderStatus.Unknown, "Order already exists");
+        require(isSupportedChain[order.dstEid], "Destination chain not supported");
+        require(order.srcEid == ENDPOINT_ID, "Chain mismatch");
+
+        // Validate common order parameters
+        ValidationUtils.validateCommonOrderParams(order);
+
+        // Validate hook
+        hook.validateSrcHook(this.isAllowedHook, this.isAllowedSolver);
+
+        // Build Permit2 structs - transfer directly to hook
+        ISignatureTransfer.PermitTransferFrom memory permit = Permit2Lib.buildPermit(
+            order, nonce, deadline
+        );
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails =
+            Permit2Lib.buildTransferDetails(hook.hookAddress, order.inputAmount);
+
+        // Hash order as witness
+        bytes32 witness = Permit2Lib.hashOrder(order);
+
+        // Transfer tokens to hook via Permit2
+        ISignatureTransfer(Permit2Lib.PERMIT2).permitWitnessTransferFrom(
+            permit,
+            transferDetails,
+            order.offerer,
+            witness,
+            Permit2Lib.WITNESS_TYPE_STRING,
+            signature
+        );
+
+        // Execute hook conversion (tokens already at hook address)
+        if (order.isSingleChainSwap()) {
+            // Single-chain: convert to final output token and distribute immediately
+            uint256 amountReceived = ExecutionUtils.observeBalChg(
+                hook.hookAddress,
+                hook.instructions,
+                order.outputToken
+            );
+
+            require(amountReceived >= order.outputAmount, "Insufficient output from hook");
+
+            // Distribute tokens: exact amount to recipient, surplus to solver
+            order.outputToken.safeTransfer(order.recipient, order.outputAmount);
+
+            uint256 surplus = amountReceived - order.outputAmount;
+            if (surplus > 0) {
+                order.outputToken.safeTransfer(hook.solver, surplus);
+            }
+
+            emit SrcHookExecuted(orderId, order.outputToken, amountReceived);
+
+            // Single-chain: immediate settlement
+            orders[orderId] = order;
+            orderStatus[orderId] = IAori.OrderStatus.Settled;
+            emit Settle(orderId);
+        } else {
+            // Cross-chain: convert to preferred token for cross-chain transfer
+            uint256 amountReceived = ExecutionUtils.observeBalChg(
+                hook.hookAddress,
+                hook.instructions,
+                hook.preferredToken
+            );
+
+            require(amountReceived >= hook.minPreferedTokenAmountOut, "Insufficient output from hook");
+
+            emit SrcHookExecuted(orderId, hook.preferredToken, amountReceived);
+
+            // Cross-chain: lock converted tokens for later settlement
+            _postDeposit(hook.preferredToken, amountReceived, order, orderId);
         }
     }
 
