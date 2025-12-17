@@ -1074,7 +1074,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         bool _payInLzToken,
         uint32 _srcEid,
         address _filler
-    ) public view returns (uint256 fee) {
+    ) public view returns (MessagingFee memory) {
         // Calculate payload size using the library function
         uint256 fillsLength = srcEidToFillerFills[_srcEid][_filler].length;
         uint256 payloadSize = PayloadSizeUtils.calculatePayloadSize(
@@ -1091,6 +1091,6 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             _payInLzToken
         );
 
-        return messagingFee.nativeFee;
+        return messagingFee;
     }
 }
