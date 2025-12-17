@@ -128,6 +128,43 @@ interface IAori {
 
     function depositNative(Order calldata order, SrcHook calldata hook) external payable;
 
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                    PERMIT2 FUNCTIONS                        */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /**
+     * @notice Deposit using Permit2 SignatureTransfer with witness
+     * @dev User signs a single Permit2 message that includes the order as witness data.
+     *      This binds the token transfer authorization to the specific order parameters.
+     * @param order The order to deposit (also serves as witness data in the signature)
+     * @param nonce Permit2 nonce for replay protection
+     * @param deadline Signature expiration timestamp
+     * @param signature User's signature over PermitWitnessTransferFrom
+     */
+    function depositWithPermit2(
+        Order calldata order,
+        uint256 nonce,
+        uint256 deadline,
+        bytes calldata signature
+    ) external;
+
+    /**
+     * @notice Deposit using Permit2 with source hook for token conversion
+     * @dev Tokens are transferred directly to the hook via Permit2, then hook converts them.
+     * @param order The order to deposit (witness data)
+     * @param hook Source hook for token conversion
+     * @param nonce Permit2 nonce for replay protection
+     * @param deadline Signature expiration timestamp
+     * @param signature User's Permit2 signature
+     */
+    function depositWithPermit2(
+        Order calldata order,
+        SrcHook calldata hook,
+        uint256 nonce,
+        uint256 deadline,
+        bytes calldata signature
+    ) external;
+
     function withdraw(address token, uint256 amount) external;
 
     function cancel(bytes32 orderId) external;
