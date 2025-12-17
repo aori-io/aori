@@ -106,7 +106,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
 
         // Prepare settlement
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(uint128(GAS_LIMIT), 0);
-        uint256 fee = remoteAori.quote(localEid, uint8(PayloadType.Settlement), options, false, localEid, solver);
+        uint256 fee = remoteAori.quote(localEid, uint8(PayloadType.Settlement), options, false, localEid, solver).nativeFee;
 
         // Send settlement
         vm.deal(solver, fee);
@@ -242,7 +242,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(uint128(GAS_LIMIT), 0);
         
         // Get a fee quote
-        uint256 fee = localAori.quote(remoteEid, uint8(PayloadType.Settlement), options, false, localEid, solver);
+        uint256 fee = localAori.quote(remoteEid, uint8(PayloadType.Settlement), options, false, localEid, solver).nativeFee;
         
         // The fee should be non-zero
         assertGt(fee, 0, "Fee should be greater than zero");
@@ -282,7 +282,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         // Stay on remote chain where the fill happened
         // Try to cancel from the same chain where the fill occurred
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(uint128(GAS_LIMIT), 0);
-        uint256 fee = remoteAori.quote(localEid, uint8(PayloadType.Cancellation), options, false, localEid, userA);
+        uint256 fee = remoteAori.quote(localEid, uint8(PayloadType.Cancellation), options, false, localEid, userA).nativeFee;
 
         // Try to cancel after fill - should revert
         vm.deal(userA, fee);
@@ -323,7 +323,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
 
         // Cancel the order from the destination chain
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(uint128(GAS_LIMIT), 0);
-        uint256 cancelFee = remoteAori.quote(localEid, uint8(PayloadType.Cancellation), options, false, localEid, userA);
+        uint256 cancelFee = remoteAori.quote(localEid, uint8(PayloadType.Cancellation), options, false, localEid, userA).nativeFee;
 
         vm.deal(userA, cancelFee);
         vm.startPrank(userA);
