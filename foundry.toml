@@ -17,7 +17,7 @@ libs = [
 remappings = [
     # Due to a misconfiguration of solidity-bytes-utils, an outdated version
     # of forge-std is being dragged in
-    # 
+    #
     # To remedy this, we'll remap the ds-test and forge-std imports to our own versions
     'ds-test/=node_modules/@layerzerolabs/toolbox-foundry/lib/ds-test',
     'forge-std/=node_modules/@layerzerolabs/toolbox-foundry/lib/forge-std',
@@ -25,6 +25,7 @@ remappings = [
     '@openzeppelin/=node_modules/@openzeppelin/',
     'solady/=node_modules/solady/',
     '@aori/=contracts/',
+    'permit2/=node_modules/@layerzerolabs/toolbox-foundry/lib/permit2/',
 ]
 
 [fuzz]
