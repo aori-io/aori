@@ -245,7 +245,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
             false,
             localEid,
             solver
-        );
+        ).nativeFee;
 
         uint256 feeWithBuffer = (msgFee * 15) / 10; // 50% buffer for safety
 
@@ -547,7 +547,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
             false,
             localEid,
             solver
-        );
+        ).nativeFee;
         uint256 feeWithBuffer = (msgFee * 15) / 10; // 50% buffer for safety
 
         // Give solver ETH

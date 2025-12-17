@@ -62,7 +62,7 @@ contract SingleOrderSuccessTest is TestUtils {
      */
     function _settleOrder() internal {
         bytes memory options = defaultOptions();
-        uint256 fee = remoteAori.quote(localEid, 0, options, false, localEid, solver);
+        uint256 fee = remoteAori.quote(localEid, 0, options, false, localEid, solver).nativeFee;
         vm.deal(solver, fee);
         vm.prank(solver);
         remoteAori.settle{value: fee}(localEid, solver, options);

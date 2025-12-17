@@ -78,7 +78,7 @@ contract QuoteTest is TestUtils {
             false, // payInLzToken
             0, // srcEid (not used for cancel)
             address(0) // filler (not used for cancel)
-        );
+        ).nativeFee;
 
         // Verify quote is non-zero
         assertGt(cancelFee, 0, "Cancel message fee should be non-zero");
@@ -100,7 +100,7 @@ contract QuoteTest is TestUtils {
             false, // payInLzToken
             localEid, // srcEid
             solver // whitelisted solver
-        );
+        ).nativeFee;
 
         // Now deposit and fill multiple orders to test quotes with different payload sizes
         vm.chainId(localEid);
@@ -134,7 +134,7 @@ contract QuoteTest is TestUtils {
                 false, // payInLzToken
                 localEid, // srcEid
                 solver // whitelisted solver
-            );
+            ).nativeFee;
 
             // Verify fee is non-zero and increases with each additional fill
             assertGt(settleFee, 0, "Settle message fee should be non-zero");
@@ -204,7 +204,7 @@ contract QuoteTest is TestUtils {
                 false, // payInLzToken
                 localEid, // srcEid
                 solver // whitelisted solver
-            );
+            ).nativeFee;
             // Reset for next test case
             vm.chainId(localEid);
         }
@@ -227,7 +227,7 @@ contract QuoteTest is TestUtils {
             false, // payInLzToken
             0, // srcEid
             address(0) // filler
-        );
+        ).nativeFee;
 
         // Create and fill a single order to get a settle quote
         vm.chainId(localEid);
@@ -252,7 +252,7 @@ contract QuoteTest is TestUtils {
             false, // payInLzToken
             localEid, // srcEid
             solver // whitelisted solver
-        );
+        ).nativeFee;
         // Settle fee should be greater than cancel fee because the payload is larger
         assertGt(settleFee, cancelFee, "Settle fee should be greater than cancel fee due to larger payload");
     }

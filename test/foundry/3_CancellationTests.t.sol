@@ -325,7 +325,7 @@ contract CancellationTests is TestUtils {
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
         
         // First cancel the order to set it to Cancelled status
-        uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, solver);
+        uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, solver).nativeFee;
         vm.deal(solver, cancelFee);
         
         vm.prank(solver);
@@ -367,7 +367,7 @@ contract CancellationTests is TestUtils {
         // Advance time past expiry
         vm.warp(order.endTime + 1);
         
-        uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, userA);
+        uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, userA).nativeFee;
         vm.deal(userA, cancelFee);
         
         vm.prank(userA);
@@ -396,7 +396,7 @@ contract CancellationTests is TestUtils {
         // Advance time past expiry
         vm.warp(order.endTime + 1);
         
-        uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, recipient);
+        uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, recipient).nativeFee;
         vm.deal(recipient, cancelFee);
         
         vm.prank(recipient);
@@ -420,7 +420,7 @@ contract CancellationTests is TestUtils {
         bytes32 orderId = remoteAori.hash(order);
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
         
-        uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, solver);
+        uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, solver).nativeFee;
         vm.deal(solver, cancelFee);
         
         vm.prank(solver);
@@ -499,7 +499,7 @@ contract CancellationTests is TestUtils {
         vm.warp(order.endTime + 1);
         
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-        uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, userA);
+        uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, userA).nativeFee;
         
         vm.prank(userA);
         remoteAori.cancel{value: cancelFee}(orderHash, order, options);
