@@ -152,7 +152,7 @@ contract GasReportTest is TestHelperOz5 {
 
         // Get LayerZero options and fee for settling
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-        uint256 fee = remoteAori.quote(localEid, 0, options, false, localEid, solver);
+        uint256 fee = remoteAori.quote(localEid, 0, options, false, localEid, solver).nativeFee;
         vm.deal(solver, fee);
 
         // Only measure gas for the settle operation

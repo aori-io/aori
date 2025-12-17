@@ -249,7 +249,7 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
      */
     function _settleOrder() internal {
         bytes memory options = defaultOptions();
-        uint256 fee = remoteAori.quote(localEid, 0, options, false, localEid, solverDest);
+        uint256 fee = remoteAori.quote(localEid, 0, options, false, localEid, solverDest).nativeFee;
         vm.deal(solverDest, fee);
         vm.prank(solverDest);
         remoteAori.settle{value: fee}(localEid, solverDest, options);
