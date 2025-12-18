@@ -134,7 +134,10 @@ contract HashVerificationTest is TestUtils {
             layerZeroEndpoint,
             address(this),
             ARBITRUM_EID, // Use Arbitrum's EID to match production
-            MAX_FILLS_PER_SETTLE
+            MAX_FILLS_PER_SETTLE,
+            new address[](0),
+            new address[](0),
+            new uint32[](0)
         );
         
         // Deploy the test contract at the exact Arbitrum address using vm.etch
