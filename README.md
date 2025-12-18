@@ -2,11 +2,6 @@
   <img src="https://github.com/aori-io/.github/blob/main/assets/aori.png" alt="Banner Image" />
 </div>
 
-> ### The Aori protocol is currently in closed beta 
->The Aori Protocol is currently in closed beta and undergoing extensive security audits. A preliminary audit has been completed, with follow-up audits in progress to ensure protocol stability before stable release.
->
-> Interested in beta testing? [Contact us](https://aori.io/contact)
-
 ---
 
 Aori is designed to securely facilitate omnichain trading, with low latency execution, and trust minimized settlement. To accomplish this, Aori uses a combination of off-chain infrastructure, on-chain settlement contracts, and LayerZero messaging.
