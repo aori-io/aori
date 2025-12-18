@@ -571,13 +571,11 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         require(!order.inputToken.isNativeToken(), "Use depositNative for native tokens");
         require(block.timestamp <= deadline, "Permit2 signature expired");
 
-        // Calculate order ID and validate
         bytes32 orderId = hash(order);
         require(orderStatus[orderId] == IAori.OrderStatus.Unknown, "Order already exists");
         require(isSupportedChain[order.dstEid], "Destination chain not supported");
         require(order.srcEid == ENDPOINT_ID, "Chain mismatch");
 
-        // Validate common order parameters
         ValidationUtils.validateCommonOrderParams(order);
 
         // Build Permit2 structs
@@ -587,7 +585,6 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         ISignatureTransfer.SignatureTransferDetails memory transferDetails =
             Permit2Lib.buildTransferDetails(address(this), order.inputAmount);
 
-        // Hash order as witness
         bytes32 witness = Permit2Lib.hashOrder(order);
 
         // Execute Permit2 transfer - this verifies the signature
@@ -625,16 +622,13 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         require(!order.inputToken.isNativeToken(), "Use depositNative for native tokens");
         require(block.timestamp <= deadline, "Permit2 signature expired");
 
-        // Calculate order ID and validate
         bytes32 orderId = hash(order);
         require(orderStatus[orderId] == IAori.OrderStatus.Unknown, "Order already exists");
         require(isSupportedChain[order.dstEid], "Destination chain not supported");
         require(order.srcEid == ENDPOINT_ID, "Chain mismatch");
 
-        // Validate common order parameters
         ValidationUtils.validateCommonOrderParams(order);
 
-        // Validate hook
         hook.validateSrcHook(this.isAllowedHook, this.isAllowedSolver);
 
         // Build Permit2 structs - transfer directly to hook
@@ -644,7 +638,6 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         ISignatureTransfer.SignatureTransferDetails memory transferDetails =
             Permit2Lib.buildTransferDetails(hook.hookAddress, order.inputAmount);
 
-        // Hash order as witness
         bytes32 witness = Permit2Lib.hashOrder(order);
 
         // Transfer tokens to hook via Permit2
