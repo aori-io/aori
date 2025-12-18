@@ -32,7 +32,15 @@ contract TestSettlementAori is Aori {
         address _owner,
         uint32 _eid,
         uint16 _maxFillsPerSettle
-    ) Aori(_endpoint, _owner, _eid, _maxFillsPerSettle) {}
+    ) Aori(
+        _endpoint,
+        _owner,
+        _eid,
+        _maxFillsPerSettle,
+        new address[](0),
+        new address[](0),
+        new uint32[](0)
+    ) {}
 
     // Test-specific function to get the length of the fills array
     function getFillsLength(uint32 srcEid, address filler) external view returns (uint256) {

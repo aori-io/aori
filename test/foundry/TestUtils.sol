@@ -76,8 +76,24 @@ contract TestUtils is TestHelperOz5 {
         setUpEndpoints(2, LibraryType.UltraLightNode);
 
         // Deploy local and remote Aori contracts
-        localAori = new Aori(address(endpoints[localEid]), address(this), localEid, MAX_FILLS_PER_SETTLE);
-        remoteAori = new Aori(address(endpoints[remoteEid]), address(this), remoteEid, MAX_FILLS_PER_SETTLE);
+        localAori = new Aori(
+            address(endpoints[localEid]),
+            address(this),
+            localEid,
+            MAX_FILLS_PER_SETTLE,
+            new address[](0),
+            new address[](0),
+            new uint32[](0)
+        );
+        remoteAori = new Aori(
+            address(endpoints[remoteEid]),
+            address(this),
+            remoteEid,
+            MAX_FILLS_PER_SETTLE,
+            new address[](0),
+            new address[](0),
+            new uint32[](0)
+        );
 
         // Wire the OApps together
         address[] memory aoriInstances = new address[](2);
