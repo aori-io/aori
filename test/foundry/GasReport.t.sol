@@ -47,8 +47,24 @@ contract GasReportTest is TestHelperOz5 {
         setUpEndpoints(2, LibraryType.UltraLightNode);
 
         // Deploy local and remote Aori contracts
-        localAori = new Aori(address(endpoints[localEid]), address(this), localEid, MAX_FILLS_PER_SETTLE);
-        remoteAori = new Aori(address(endpoints[remoteEid]), address(this), remoteEid, MAX_FILLS_PER_SETTLE);
+        localAori = new Aori(
+            address(endpoints[localEid]),
+            address(this),
+            localEid,
+            MAX_FILLS_PER_SETTLE,
+            new address[](0),
+            new address[](0),
+            new uint32[](0)
+        );
+        remoteAori = new Aori(
+            address(endpoints[remoteEid]),
+            address(this),
+            remoteEid,
+            MAX_FILLS_PER_SETTLE,
+            new address[](0),
+            new address[](0),
+            new uint32[](0)
+        );
 
         // Wire the OApps together
         address[] memory aoriInstances = new address[](2);
@@ -152,7 +168,7 @@ contract GasReportTest is TestHelperOz5 {
 
         // Get LayerZero options and fee for settling
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
-        uint256 fee = remoteAori.quote(localEid, 0, options, false, localEid, solver);
+        uint256 fee = remoteAori.quote(localEid, 0, options, false, localEid, solver).nativeFee;
         vm.deal(solver, fee);
 
         // Only measure gas for the settle operation

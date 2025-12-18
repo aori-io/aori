@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
+import { MessagingFee } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
+
 interface IAori {
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                           STATUS                           */
@@ -191,7 +193,7 @@ interface IAori {
         bool _payInLzToken,
         uint32 _srcEid,
         address _filler
-    ) external view returns (uint256 fee);
+    ) external view returns (MessagingFee memory);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                        HOOK EVENTS                         */

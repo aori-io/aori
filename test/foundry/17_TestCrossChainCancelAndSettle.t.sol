@@ -63,7 +63,7 @@ contract CrossChainCancelAndSettleTest is TestUtils {
 
         // Calculate LZ message fee
         bytes memory options = defaultOptions();
-        uint256 fee = remoteAori.quote(localEid, 1, options, false, localEid, solver);
+        uint256 fee = remoteAori.quote(localEid, 1, options, false, localEid, solver).nativeFee;
         vm.deal(solver, fee);
 
         // Cancel as whitelisted solver before endTime
@@ -118,7 +118,7 @@ contract CrossChainCancelAndSettleTest is TestUtils {
 
         // Calculate LZ message fee
         bytes memory options = defaultOptions();
-        uint256 fee = remoteAori.quote(localEid, 1, options, false, localEid, userA);
+        uint256 fee = remoteAori.quote(localEid, 1, options, false, localEid, userA).nativeFee;
         vm.deal(userA, fee);
 
         // Cancel as offerer after endTime

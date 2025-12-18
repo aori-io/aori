@@ -57,12 +57,25 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         address _endpoint, // LayerZero endpoint address
         address _owner, // Contract owner address
         uint32 _eid, // Endpoint ID for this chain
-        uint16 _maxFillsPerSettle // Maximum number of fills per settlement
+        uint16 _maxFillsPerSettle, // Maximum number of fills per settlement
+        address[] memory _initialSolvers, // Initial whitelisted solvers
+        address[] memory _initialHooks, // Initial whitelisted hooks
+        uint32[] memory _supportedChains // Initial supported chains
     ) OApp(_endpoint, _owner) Ownable(_owner) EIP712() {
+        require(_owner != address(0), "Set owner");
         ENDPOINT_ID = _eid;
         MAX_FILLS_PER_SETTLE = _maxFillsPerSettle;
-        require(_owner != address(0), "Set owner");
         isSupportedChain[_eid] = true;
+        
+        for (uint256 i = 0; i < _initialSolvers.length; i++) {
+            isAllowedSolver[_initialSolvers[i]] = true;
+        }
+        for (uint256 i = 0; i < _initialHooks.length; i++) {
+            isAllowedHook[_initialHooks[i]] = true;
+        }
+        for (uint256 i = 0; i < _supportedChains.length; i++) {
+            isSupportedChain[_supportedChains[i]] = true;
+        }
     }
 
     /**
@@ -93,7 +106,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     // Maximum number of fills that can be included in a single settlement
-    uint16 public immutable MAX_FILLS_PER_SETTLE;
+    uint16 public MAX_FILLS_PER_SETTLE;
 
     // Tracks the current status of each order
     mapping(bytes32 => IAori.OrderStatus) public orderStatus;
@@ -199,6 +212,16 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     function removeSupportedChain(uint32 eid) external onlyOwner {
         isSupportedChain[eid] = false;
         emit ChainRemoved(eid);
+    }
+
+    /**
+     * @notice Updates the maximum number of fills per settlement
+     * @param _maxFillsPerSettle The new maximum fills per settle value
+     * @dev Only callable by the contract owner
+     */
+    function setMaxFillsPerSettle(uint16 _maxFillsPerSettle) external onlyOwner {
+        require(_maxFillsPerSettle > 0, "Max fills must be > 0");
+        MAX_FILLS_PER_SETTLE = _maxFillsPerSettle;
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -1225,7 +1248,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         bool _payInLzToken,
         uint32 _srcEid,
         address _filler
-    ) public view returns (uint256 fee) {
+    ) public view returns (MessagingFee memory) {
         // Calculate payload size using the library function
         uint256 fillsLength = srcEidToFillerFills[_srcEid][_filler].length;
         uint256 payloadSize = PayloadSizeUtils.calculatePayloadSize(
@@ -1242,6 +1265,6 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             _payInLzToken
         );
 
-        return messagingFee.nativeFee;
+        return messagingFee;
     }
 }
