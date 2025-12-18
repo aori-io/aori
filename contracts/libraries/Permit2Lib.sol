@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {ISignatureTransfer} from "@permit2/src/interfaces/ISignatureTransfer.sol";
 import {IAori} from "../IAori.sol";
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -19,12 +19,16 @@ library Permit2Lib {
 
     /**
     * @dev Canonical Permit2 address (same on all EVM chains)
+    */
     address internal constant PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
+    /**
     * @dev Order typehash for witness hashing
     * keccak256("Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient)")
+    */
     bytes32 internal constant ORDER_TYPEHASH = 0x16210483e9c961c9c307e53963eafad0795395f2fce68f0c9c294cca1ac5a06a;
 
+    /**
     * @dev Witness type string for permitWitnessTransferFrom
     * Combined with Permit2's stub: "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,"
     * Results in full typehash: "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,Order witness)Order(...)TokenPermissions(...)"
