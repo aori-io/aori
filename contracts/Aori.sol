@@ -12,7 +12,7 @@ import { EIP712 } from "solady/src/utils/EIP712.sol";
 import { ECDSA } from "solady/src/utils/ECDSA.sol";
 import { IAori } from "./IAori.sol";
 import "./AoriUtils.sol";
-import { ISignatureTransfer } from "permit2/src/interfaces/ISignatureTransfer.sol";
+import { ISignatureTransfer } from "@permit2/src/interfaces/ISignatureTransfer.sol";
 import { Permit2Lib } from "./libraries/Permit2Lib.sol";
 
 /**                            @@@@@@@@@@@@                                              

@@ -2,9 +2,9 @@
 pragma solidity 0.8.28;
 
 import "./TestUtils.sol";
-import { ISignatureTransfer } from "permit2/src/interfaces/ISignatureTransfer.sol";
+import { ISignatureTransfer } from "@permit2/src/interfaces/ISignatureTransfer.sol";
 import { Permit2Lib } from "../../contracts/libraries/Permit2Lib.sol";
-import { DeployPermit2 } from "permit2/test/utils/DeployPermit2.sol";
+import { DeployPermit2 } from "@permit2/test/utils/DeployPermit2.sol";
 
 /**
  * @title Permit2DepositTest

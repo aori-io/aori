@@ -25,7 +25,7 @@ remappings = [
     '@openzeppelin/=node_modules/@openzeppelin/',
     'solady/=node_modules/solady/',
     '@aori/=contracts/',
-    'permit2/=node_modules/@layerzerolabs/toolbox-foundry/lib/permit2/',
+    '@permit2/=node_modules/@layerzerolabs/toolbox-foundry/lib/permit2/',
 ]
 
 [fuzz]
