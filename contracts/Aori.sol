@@ -557,8 +557,6 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     /**
      * @notice Deposits tokens using Permit2 SignatureTransfer with witness
      * @dev User signs a single Permit2 message that includes the order as witness data.
-     *      This binds the token transfer authorization to the specific order parameters.
-     *      Permit2 handles signature verification - no separate order signature needed.
      * @param order The order to deposit (also serves as witness data in the signature)
      * @param nonce Permit2 nonce for replay protection
      * @param deadline Signature expiration timestamp
