@@ -16,7 +16,9 @@ const deploy: DeployFunction = async (hre) => {
     console.log(`Deployer: ${deployer}`)
 
     const maxFills = 100
-
+    const initialSolvers: string[] = [] 
+    const initialHooks: string[] = []
+    const initialSupportedChains: number[] = [] 
     // Retrieve the external EndpointV2 deployment.
     const endpointV2Deployment = await deployments.get('EndpointV2')
 
@@ -26,7 +28,15 @@ const deploy: DeployFunction = async (hre) => {
     // Deploy Aori.
     const { address } = await deploy(contractName, {
         from: deployer,
-        args: [endpointV2Deployment.address, deployer, eid, maxFills],
+        args: [
+            endpointV2Deployment.address,
+            deployer,
+            eid,
+            maxFills,
+            initialSolvers,
+            initialHooks,
+            initialSupportedChains,
+        ],
         log: true,
         skipIfAlreadyDeployed: false,
     })
