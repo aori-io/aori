@@ -52,41 +52,33 @@ contract TestUtils is TestHelperOz5 {
     Aori public remoteAori;
 
     /**
-     * @notice Deploys an Aori instance with proxy pattern
-     * @param endpoint The LayerZero endpoint address
-     * @param eid The endpoint ID for this chain
+     * @notice Deploys an ERC1967 proxy for any Aori-derived implementation
+     * @dev Core helper used by deployAori and tests with custom Aori extensions
+     * @param implementation The implementation contract address
      * @param owner The owner address for the contract
      * @param maxFillsPerSettle Maximum fills per settlement
-     * @param initialSolvers Array of initial whitelisted solvers
-     * @param initialHooks Array of initial whitelisted hooks
-     * @param supportedChains Array of initially supported chain EIDs
-     * @return The deployed Aori proxy instance
+     * @return The proxy address
      */
-    function deployAori(
-        address endpoint,
-        uint32 eid,
+    function deployWithProxy(
+        address implementation,
         address owner,
-        uint16 maxFillsPerSettle,
-        address[] memory initialSolvers,
-        address[] memory initialHooks,
-        uint32[] memory supportedChains
-    ) public returns (Aori) {
-        Aori impl = new Aori(endpoint, eid);
+        uint16 maxFillsPerSettle
+    ) public returns (address) {
         ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(impl.initialize, (
+            implementation,
+            abi.encodeCall(Aori.initialize, (
                 owner,
                 maxFillsPerSettle,
-                initialSolvers,
-                initialHooks,
-                supportedChains
+                new address[](0),
+                new address[](0),
+                new uint32[](0)
             ))
         );
-        return Aori(payable(address(proxy)));
+        return address(proxy);
     }
 
     /**
-     * @notice Deploys an Aori instance with default empty arrays
+     * @notice Deploys an Aori instance with proxy pattern
      * @param endpoint The LayerZero endpoint address
      * @param eid The endpoint ID for this chain
      * @param owner The owner address for the contract
@@ -99,15 +91,8 @@ contract TestUtils is TestHelperOz5 {
         address owner,
         uint16 maxFillsPerSettle
     ) public returns (Aori) {
-        return deployAori(
-            endpoint,
-            eid,
-            owner,
-            maxFillsPerSettle,
-            new address[](0),
-            new address[](0),
-            new uint32[](0)
-        );
+        Aori impl = new Aori(endpoint, eid);
+        return Aori(payable(deployWithProxy(address(impl), owner, maxFillsPerSettle)));
     }
 
     MockERC20 public inputToken;
