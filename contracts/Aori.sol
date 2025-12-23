@@ -345,9 +345,9 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
      * @param recipient The address to send the withdrawn tokens to
      */
     function emergencyWithdraw(
-        address token,
-        uint256 amount,
-        address user,
+        address token, 
+        uint256 amount, 
+        address user, 
         bool isLocked,
         address recipient
     ) external onlyOwner {
@@ -972,12 +972,12 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
 
             if (order.dstEid != senderEid) {
                 emit settlementFailed(
-                    orderId,
-                    order.dstEid,
-                    senderEid,
+                    orderId, 
+                    order.dstEid, 
+                    senderEid, 
                     "Eid mismatch"
                 );
-                continue;
+                continue; 
             }
 
             _settleOrder(orderId, filler);
@@ -1256,7 +1256,7 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
                         order.startTime,
                         order.endTime,
                         order.srcEid,
-                        order.dstEid,
+                        order.dstEid, 
                         order.offerer,
                         order.recipient
                     )
