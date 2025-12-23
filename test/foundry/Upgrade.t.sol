@@ -182,16 +182,18 @@ contract UpgradeTests is TestHelperOz5 {
      * @notice Test upgrading to a new implementation
      */
     function testUpgradeToNewImplementation() public {
+        // Verify V1 doesn't have getVersion (call should revert)
+        MockAoriUpgraded aoriV2 = MockAoriUpgraded(payable(address(proxy)));
+        vm.expectRevert();
+        aoriV2.getVersion();
+
         // Deploy V2 implementation
         MockAoriUpgraded implementationV2 = new MockAoriUpgraded(address(endpoints[LOCAL_EID]), LOCAL_EID);
 
         // Upgrade (as owner)
         aori.upgradeToAndCall(address(implementationV2), "");
 
-        // Cast proxy to V2 to access new function
-        MockAoriUpgraded aoriV2 = MockAoriUpgraded(payable(address(proxy)));
-
-        // Verify upgrade worked
+        // Verify upgrade worked - now getVersion returns 2
         assertEq(aoriV2.getVersion(), 2, "Should be V2");
     }
 
