@@ -216,16 +216,24 @@ contract UpgradeTests is TestHelperOz5 {
      * @notice Test that state is preserved across upgrades
      */
     function testStatePreservationAfterUpgrade() public {
-        // Add some state before upgrade
         address newSolver = address(0x400);
+        address newHook = address(0x500);
+
+        // Verify state before state changes
+        assertFalse(aori.isAllowedSolver(newSolver), "Solver should be allowed before upgrade");
+        assertTrue(aori.isAllowedSolver(solver), "Original solver should be allowed before upgrade");
+        assertFalse(aori.isAllowedHook(newHook), "Hook should be allowed before upgrade");
+        assertFalse(aori.isSupportedChain(3), "Chain 3 should be supported before upgrade");
+
+        // Add some state before upgrade
         aori.addAllowedSolver(newSolver);
-        aori.addAllowedHook(address(0x500));
+        aori.addAllowedHook(newHook);
         aori.addSupportedChain(3);
 
         // Verify state before upgrade
         assertTrue(aori.isAllowedSolver(newSolver), "Solver should be allowed before upgrade");
         assertTrue(aori.isAllowedSolver(solver), "Original solver should be allowed before upgrade");
-        assertTrue(aori.isAllowedHook(address(0x500)), "Hook should be allowed before upgrade");
+        assertTrue(aori.isAllowedHook(newHook), "Hook should be allowed before upgrade");
         assertTrue(aori.isSupportedChain(3), "Chain 3 should be supported before upgrade");
 
         // Deploy and upgrade to V2
@@ -239,7 +247,7 @@ contract UpgradeTests is TestHelperOz5 {
         assertEq(aoriV2.owner(), owner, "Owner should be preserved");
         assertTrue(aoriV2.isAllowedSolver(newSolver), "New solver should still be allowed");
         assertTrue(aoriV2.isAllowedSolver(solver), "Original solver should still be allowed");
-        assertTrue(aoriV2.isAllowedHook(address(0x500)), "Hook should still be allowed");
+        assertTrue(aoriV2.isAllowedHook(newHook), "Hook should still be allowed");
         assertTrue(aoriV2.isSupportedChain(3), "Chain 3 should still be supported");
         assertTrue(aoriV2.isSupportedChain(LOCAL_EID), "Local chain should still be supported");
         assertTrue(aoriV2.isSupportedChain(REMOTE_EID), "Remote chain should still be supported");
