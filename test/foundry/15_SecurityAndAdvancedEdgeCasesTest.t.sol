@@ -19,7 +19,6 @@ pragma solidity 0.8.28;
 import "./TestUtils.sol";
 import "../../contracts/AoriUtils.sol";
 import { Aori, IAori } from "../../contracts/Aori.sol";
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /**
  * @title TestAori
@@ -55,32 +54,12 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
     function setUp() public override(TestUtils) {
         super.setUp();
 
-        // Deploy test-specific Aori implementations and proxies
+        // Deploy test-specific Aori implementations and proxies using helper
         TestAori testLocalImpl = new TestAori(address(endpoints[localEid]), localEid);
-        ERC1967Proxy testLocalProxy = new ERC1967Proxy(
-            address(testLocalImpl),
-            abi.encodeCall(testLocalImpl.initialize, (
-                address(this),
-                MAX_FILLS_PER_SETTLE,
-                new address[](0),
-                new address[](0),
-                new uint32[](0)
-            ))
-        );
-        testLocalAori = TestAori(payable(address(testLocalProxy)));
+        testLocalAori = TestAori(payable(deployWithProxy(address(testLocalImpl), address(this), MAX_FILLS_PER_SETTLE)));
 
         TestAori testRemoteImpl = new TestAori(address(endpoints[remoteEid]), remoteEid);
-        ERC1967Proxy testRemoteProxy = new ERC1967Proxy(
-            address(testRemoteImpl),
-            abi.encodeCall(testRemoteImpl.initialize, (
-                address(this),
-                MAX_FILLS_PER_SETTLE,
-                new address[](0),
-                new address[](0),
-                new uint32[](0)
-            ))
-        );
-        testRemoteAori = TestAori(payable(address(testRemoteProxy)));
+        testRemoteAori = TestAori(payable(deployWithProxy(address(testRemoteImpl), address(this), MAX_FILLS_PER_SETTLE)));
 
         // Wire the OApps together
         address[] memory aoriInstances = new address[](2);
