@@ -202,7 +202,7 @@ contract EdgeCasesTest is TestUtils {
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,address verifyingContract)"),
                 keccak256(bytes("Aori")),
-                keccak256(bytes("0.3.1")),
+                keccak256(bytes("0.3.2")),
                 address(localAori)
             )
         );
