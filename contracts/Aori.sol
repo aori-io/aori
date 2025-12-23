@@ -1348,6 +1348,7 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
 
     /**
      * @dev Storage gap for future upgrades
+     * @dev When you upgrade and add new variables, you shrink the gap (e.g., add 2 variables → change to uint256[48] private __gap;). This keeps storage layout compatible across upgrades.
      */
     uint256[50] private __gap;
 }
