@@ -27,27 +27,17 @@ import { Aori, IAori } from "../../contracts/Aori.sol";
 contract TestAori is Aori {
     constructor(
         address _endpoint,
-        address _owner,
-        uint32 _eid,
-        uint16 _maxFillsPerSettle
-    ) Aori(
-        _endpoint,
-        _owner,
-        _eid,
-        _maxFillsPerSettle,
-        new address[](0),
-        new address[](0),
-        new uint32[](0)
-    ) {}
+        uint32 _eid
+    ) Aori(_endpoint, _eid) {}
 
     // Helper function to get the fills array length for a specific srcEid and filler
     function getFillsLength(uint32 srcEid, address filler) external view returns (uint256) {
-        return srcEidToFillerFills[srcEid][filler].length;
+        return _getAoriStorage().srcEidToFillerFills[srcEid][filler].length;
     }
 
     // Helper function to manually add orders to the fills array (for testing batch limits)
     function addToFills(uint32 srcEid, address filler, bytes32 orderId) external {
-        srcEidToFillerFills[srcEid][filler].push(orderId);
+        _getAoriStorage().srcEidToFillerFills[srcEid][filler].push(orderId);
     }
 }
 
@@ -64,19 +54,12 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
     function setUp() public override(TestUtils) {
         super.setUp();
 
-        // Deploy test-specific Aori contracts that extend functionality
-        testLocalAori = new TestAori(
-            address(endpoints[localEid]),
-            address(this),
-            localEid,
-            MAX_FILLS_PER_SETTLE
-        );
-        testRemoteAori = new TestAori(
-            address(endpoints[remoteEid]),
-            address(this),
-            remoteEid,
-            MAX_FILLS_PER_SETTLE
-        );
+        // Deploy test-specific Aori implementations and proxies using helper
+        TestAori testLocalImpl = new TestAori(address(endpoints[localEid]), localEid);
+        testLocalAori = TestAori(payable(deployWithProxy(address(testLocalImpl), address(this), MAX_FILLS_PER_SETTLE)));
+
+        TestAori testRemoteImpl = new TestAori(address(endpoints[remoteEid]), remoteEid);
+        testRemoteAori = TestAori(payable(deployWithProxy(address(testRemoteImpl), address(this), MAX_FILLS_PER_SETTLE)));
 
         // Wire the OApps together
         address[] memory aoriInstances = new address[](2);
@@ -608,7 +591,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,address verifyingContract)"),
                 keccak256(bytes("Aori")),
-                keccak256(bytes("0.3.1")),
+                keccak256(bytes("0.3.2")),
                 contractAddress
             )
         );

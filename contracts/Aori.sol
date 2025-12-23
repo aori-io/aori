@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import { OApp, Origin, MessagingFee, MessagingReceipt } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { OAppUpgradeable, Origin, MessagingFee, MessagingReceipt } from "@layerzerolabs/oapp-evm-upgradeable/contracts/oapp/OAppUpgradeable.sol";
+import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { EIP712 } from "solady/src/utils/EIP712.sol";
 import { ECDSA } from "solady/src/utils/ECDSA.sol";
 import { IAori } from "./IAori.sol";
@@ -35,14 +35,14 @@ import { Permit2Lib } from "./libraries/Permit2Lib.sol";
        @@@@@@@@@     @@@@@     @@@@@@@@@@@         @@@@               @@@@@
  */
 /**
- * @title Aori  
- * @dev version 0.3.1 
+ * @title Aori
+ * @dev version 0.3.2
  * @notice Aori is a trust-minimized omnichain intent settlement protocol.
  * Connecting users and solvers from any chain to any chain,
  * facilitating peer to peer exchange from any token to any token.
  */
 
-contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
+contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable, UUPSUpgradeable, EIP712 {
     using PayloadPackUtils for bytes32[];
     using PayloadUnpackUtils for bytes;
     using PayloadSizeUtils for uint8;
@@ -52,29 +52,80 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     using BalanceUtils for Balance;
     using ValidationUtils for IAori.Order;
     using NativeTokenUtils for address;
-    
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                    ERC-7201 STORAGE                        */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /// @custom:storage-location erc7201:aori.storage.v1
+    struct AoriStorage {
+        // SRC STATE
+        mapping(address => mapping(address => Balance)) balances;
+        mapping(bytes32 => Order) orders;
+        mapping(uint32 => bool) isSupportedChain;
+        // DST STATE
+        uint16 maxFillsPerSettle;
+        mapping(bytes32 => IAori.OrderStatus) orderStatus;
+        mapping(address => bool) isAllowedHook;
+        mapping(address => bool) isAllowedSolver;
+        mapping(uint32 => mapping(address => bytes32[])) srcEidToFillerFills;
+    }
+
+    // keccak256(abi.encode(uint256(keccak256("aori.storage.v1")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 private constant AORI_STORAGE_LOCATION = 0x476c06ce9bda338755e203b7f327971f808163bb891bef1bf37f35e88d0aae00;
+
+    function _getAoriStorage() internal pure returns (AoriStorage storage $) {
+        assembly {
+            $.slot := AORI_STORAGE_LOCATION
+        }
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                    IMMUTABLE STATE                         */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    // Unique identifier for this endpoint in the LayerZero network
+    uint32 public immutable ENDPOINT_ID;
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                 CONSTRUCTOR & INITIALIZER                  */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
     constructor(
-        address _endpoint, // LayerZero endpoint address
-        address _owner, // Contract owner address
-        uint32 _eid, // Endpoint ID for this chain
-        uint16 _maxFillsPerSettle, // Maximum number of fills per settlement
-        address[] memory _initialSolvers, // Initial whitelisted solvers
-        address[] memory _initialHooks, // Initial whitelisted hooks
-        uint32[] memory _supportedChains // Initial supported chains
-    ) OApp(_endpoint, _owner) Ownable(_owner) EIP712() {
-        require(_owner != address(0), "Set owner");
+        address _endpoint,
+        uint32 _eid
+    ) OAppUpgradeable(_endpoint) {
         ENDPOINT_ID = _eid;
-        MAX_FILLS_PER_SETTLE = _maxFillsPerSettle;
-        isSupportedChain[_eid] = true;
-        
+        _disableInitializers();
+    }
+
+    function initialize(
+        address _owner,
+        uint16 _maxFillsPerSettle,
+        address[] calldata _initialSolvers,
+        address[] calldata _initialHooks,
+        uint32[] calldata _supportedChains
+    ) external initializer {
+        require(_owner != address(0), "Set owner");
+        __Ownable_init(_owner);
+        __OApp_init(_owner);
+        __ReentrancyGuard_init();
+        __Pausable_init();
+        __UUPSUpgradeable_init();
+
+        AoriStorage storage $ = _getAoriStorage();
+        $.maxFillsPerSettle = _maxFillsPerSettle;
+        $.isSupportedChain[ENDPOINT_ID] = true;
+
         for (uint256 i = 0; i < _initialSolvers.length; i++) {
-            isAllowedSolver[_initialSolvers[i]] = true;
+            $.isAllowedSolver[_initialSolvers[i]] = true;
         }
         for (uint256 i = 0; i < _initialHooks.length; i++) {
-            isAllowedHook[_initialHooks[i]] = true;
+            $.isAllowedHook[_initialHooks[i]] = true;
         }
         for (uint256 i = 0; i < _supportedChains.length; i++) {
-            isSupportedChain[_supportedChains[i]] = true;
+            $.isSupportedChain[_supportedChains[i]] = true;
         }
     }
 
@@ -86,39 +137,50 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                         SRC STATE                          */
+    /*                   STORAGE ACCESSORS                        */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    // Unique identifier for this endpoint in the LayerZero network
-    uint32 public immutable ENDPOINT_ID;
+    function orders(bytes32 orderId) public view returns (
+        uint128, uint128, address, address, uint32, uint32, uint32, uint32, address, address
+    ) {
+        Order memory order = _getAoriStorage().orders[orderId];
+        return (
+            order.inputAmount,
+            order.outputAmount,
+            order.inputToken,
+            order.outputToken,
+            order.startTime,
+            order.endTime,
+            order.srcEid,
+            order.dstEid,
+            order.offerer,
+            order.recipient
+        );
+    }
 
-    // Tracks locked and unlocked balances for each user and token
-    mapping(address => mapping(address => Balance)) private balances;
+    function isSupportedChain(uint32 eid) public view returns (bool) {
+        return _getAoriStorage().isSupportedChain[eid];
+    }
 
-    // Stores orders by their unique hash
-    mapping(bytes32 => Order) public orders;
-    
-    // Tracks supported chains by their endpoint IDs
-    mapping(uint32 => bool) public isSupportedChain;
+    function MAX_FILLS_PER_SETTLE() public view returns (uint16) {
+        return _getAoriStorage().maxFillsPerSettle;
+    }
 
-    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                         DST STATE                          */
-    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+    function orderStatus(bytes32 orderId) public view returns (IAori.OrderStatus) {
+        return _getAoriStorage().orderStatus[orderId];
+    }
 
-    // Maximum number of fills that can be included in a single settlement
-    uint16 public MAX_FILLS_PER_SETTLE;
+    function isAllowedHook(address hook) public view returns (bool) {
+        return _getAoriStorage().isAllowedHook[hook];
+    }
 
-    // Tracks the current status of each order
-    mapping(bytes32 => IAori.OrderStatus) public orderStatus;
+    function isAllowedSolver(address solver) public view returns (bool) {
+        return _getAoriStorage().isAllowedSolver[solver];
+    }
 
-    // Tracks whitelisted hook addresses for token conversion
-    mapping(address => bool) public isAllowedHook;
-
-    // Tracks whitelisted solver addresses
-    mapping(address => bool) public isAllowedSolver;
-
-    // Maps source endpoint and maker to an array of order hashes filled by a filler
-    mapping(uint32 => mapping(address => bytes32[])) public srcEidToFillerFills;
+    function srcEidToFillerFills(uint32 srcEid, address filler, uint256 index) public view returns (bytes32) {
+        return _getAoriStorage().srcEidToFillerFills[srcEid][filler][index];
+    }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                      OWNER FUNCTIONS                       */
@@ -146,7 +208,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      * @dev Only callable by the contract owner
      */
     function addAllowedHook(address hook) external onlyOwner {
-        isAllowedHook[hook] = true;
+        _getAoriStorage().isAllowedHook[hook] = true;
     }
 
     /**
@@ -155,7 +217,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      * @dev Only callable by the contract owner
      */
     function removeAllowedHook(address hook) external onlyOwner {
-        isAllowedHook[hook] = false;
+        _getAoriStorage().isAllowedHook[hook] = false;
     }
 
     /**
@@ -164,7 +226,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      * @dev Only callable by the contract owner
      */
     function addAllowedSolver(address solver) external onlyOwner {
-        isAllowedSolver[solver] = true;
+        _getAoriStorage().isAllowedSolver[solver] = true;
     }
 
     /**
@@ -173,7 +235,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      * @dev Only callable by the contract owner
      */
     function removeAllowedSolver(address solver) external onlyOwner {
-        isAllowedSolver[solver] = false;
+        _getAoriStorage().isAllowedSolver[solver] = false;
     }
 
     /**
@@ -182,7 +244,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     * @dev Only callable by the contract owner
     */
     function addSupportedChain(uint32 eid) external onlyOwner {
-        isSupportedChain[eid] = true;
+        _getAoriStorage().isSupportedChain[eid] = true;
         emit ChainSupported(eid);
     }
 
@@ -193,11 +255,11 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     * @dev Only callable by the contract owner
     */
     function addSupportedChains(uint32[] calldata eids) external onlyOwner returns (bool[] memory results) {
+        AoriStorage storage $ = _getAoriStorage();
         uint256 length = eids.length;
         results = new bool[](length);
-        
         for (uint256 i = 0; i < length; i++) {
-            isSupportedChain[eids[i]] = true;
+            $.isSupportedChain[eids[i]] = true;
             emit ChainSupported(eids[i]);
             results[i] = true;
         }
@@ -210,7 +272,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      * @dev Only callable by the contract owner
      */
     function removeSupportedChain(uint32 eid) external onlyOwner {
-        isSupportedChain[eid] = false;
+        _getAoriStorage().isSupportedChain[eid] = false;
         emit ChainRemoved(eid);
     }
 
@@ -221,7 +283,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      */
     function setMaxFillsPerSettle(uint16 _maxFillsPerSettle) external onlyOwner {
         require(_maxFillsPerSettle > 0, "Max fills must be > 0");
-        MAX_FILLS_PER_SETTLE = _maxFillsPerSettle;
+        _getAoriStorage().maxFillsPerSettle = _maxFillsPerSettle;
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -236,22 +298,19 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     * @param recipient The address to send tokens to (can be different from offerer)
     */
     function emergencyCancel(bytes32 orderId, address recipient) external onlyOwner {
-        require(orderStatus[orderId] == IAori.OrderStatus.Active, "Can only cancel active orders");
+        AoriStorage storage $ = _getAoriStorage();
+        require($.orderStatus[orderId] == IAori.OrderStatus.Active, "Can only cancel active orders");
         require(recipient != address(0), "Invalid recipient address");
-        
-        Order memory order = orders[orderId];
+        Order memory order = $.orders[orderId];
         require(order.srcEid == ENDPOINT_ID, "Emergency cancel only allowed on source chain");
-        
         address tokenAddress = order.inputToken;
         uint128 amountToReturn = order.inputAmount;
-        
         // Validate sufficient balance
         tokenAddress.validateSufficientBalance(amountToReturn);
-        
-        orderStatus[orderId] = IAori.OrderStatus.Cancelled;
-        bool success = balances[order.offerer][tokenAddress].decreaseLockedNoRevert(amountToReturn);
+        $.orderStatus[orderId] = IAori.OrderStatus.Cancelled;
+        bool success = $.balances[order.offerer][tokenAddress].decreaseLockedNoRevert(amountToReturn);
         require(success, "Failed to decrease locked balance");
-        
+
         // Transfer tokens to recipient
         tokenAddress.safeTransfer(recipient, amountToReturn);
         
@@ -295,20 +354,21 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         require(amount > 0, "Amount must be greater than zero");
         require(user != address(0), "Invalid user address");
         require(recipient != address(0), "Invalid recipient address");
-        
+
+        AoriStorage storage $ = _getAoriStorage();
         if (isLocked) {
-            bool success = balances[user][token].decreaseLockedNoRevert(uint128(amount));
+            bool success = $.balances[user][token].decreaseLockedNoRevert(uint128(amount));
             require(success, "Failed to decrease locked balance");
         } else {
-            uint256 unlockedBalance = balances[user][token].unlocked;
+            uint256 unlockedBalance = $.balances[user][token].unlocked;
             require(unlockedBalance >= amount, "Insufficient unlocked balance");
-            balances[user][token].unlocked = uint128(unlockedBalance - amount);
+            $.balances[user][token].unlocked = uint128(unlockedBalance - amount);
         }
-        
+
         // Validate sufficient balance and transfer
         token.validateSufficientBalance(amount);
         token.safeTransfer(recipient, amount);
-        
+
         emit Withdraw(user, token, amount);
     }
 
@@ -321,7 +381,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      * @dev Only allows whitelisted solvers to proceed
      */
     modifier onlySolver() {
-        require(isAllowedSolver[msg.sender], "Invalid solver");
+        require(_getAoriStorage().isAllowedSolver[msg.sender], "Invalid solver");
         _;
     }
 
@@ -381,11 +441,12 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             _executeSrcHook(order, hook);
         
         emit SrcHookExecuted(orderId, tokenReceived, amountReceived);
-        
+
         if (order.isSingleChainSwap()) {
             // Single-chain: immediate settlement (tokens already transferred to recipient)
-            orders[orderId] = order;
-            orderStatus[orderId] = IAori.OrderStatus.Settled;
+            AoriStorage storage $ = _getAoriStorage();
+            $.orders[orderId] = order;
+            $.orderStatus[orderId] = IAori.OrderStatus.Settled;
             emit Settle(orderId);
         } else {
             // Cross-chain: lock converted tokens for later settlement
@@ -474,11 +535,12 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         Order calldata order,
         bytes32 orderId
     ) internal {
-        balances[order.offerer][depositToken].lock(SafeCast.toUint128(depositAmount));
-        orderStatus[orderId] = IAori.OrderStatus.Active;
-        orders[orderId] = order;
-        orders[orderId].inputToken = depositToken;
-        orders[orderId].inputAmount = SafeCast.toUint128(depositAmount);
+        AoriStorage storage $ = _getAoriStorage();
+        $.balances[order.offerer][depositToken].lock(SafeCast.toUint128(depositAmount));
+        $.orderStatus[orderId] = IAori.OrderStatus.Active;
+        $.orders[orderId] = order;
+        $.orders[orderId].inputToken = depositToken;
+        $.orders[orderId].inputAmount = SafeCast.toUint128(depositAmount);
 
         emit Deposit(orderId, order);
     }
@@ -494,16 +556,17 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         require(order.inputToken.isNativeToken(), "Order must specify native token");
         require(msg.value == order.inputAmount, "Incorrect native amount");
         require(msg.sender == order.offerer, "Only offerer can deposit native tokens");
-        
+
         // Calculate order ID and validate uniqueness
         bytes32 orderId = hash(order);
-        require(orderStatus[orderId] == IAori.OrderStatus.Unknown, "Order already exists");
-        require(isSupportedChain[order.dstEid], "Destination chain not supported");
+        AoriStorage storage $ = _getAoriStorage();
+        require($.orderStatus[orderId] == IAori.OrderStatus.Unknown, "Order already exists");
+        require($.isSupportedChain[order.dstEid], "Destination chain not supported");
         require(order.srcEid == ENDPOINT_ID, "Chain mismatch");
-        
+
         // Use validation utility for common order parameter checks
         ValidationUtils.validateCommonOrderParams(order);
-        
+
         _postDeposit(order.inputToken, order.inputAmount, order, orderId);
     }
 
@@ -523,26 +586,27 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         require(order.inputToken.isNativeToken(), "Order must specify native token");
         require(msg.value == order.inputAmount, "Incorrect native amount");
         require(msg.sender == order.offerer, "Only offerer can deposit native tokens");
-        
+
         // Calculate order ID and validate uniqueness
         bytes32 orderId = hash(order);
-        require(orderStatus[orderId] == IAori.OrderStatus.Unknown, "Order already exists");
-        require(isSupportedChain[order.dstEid], "Destination chain not supported");
+        AoriStorage storage $ = _getAoriStorage();
+        require($.orderStatus[orderId] == IAori.OrderStatus.Unknown, "Order already exists");
+        require($.isSupportedChain[order.dstEid], "Destination chain not supported");
         require(order.srcEid == ENDPOINT_ID, "Chain mismatch");
-        
+
         // Use validation utility for common order parameter checks
         ValidationUtils.validateCommonOrderParams(order);
-        
+
         // Execute hook to convert native tokens to preferred/output tokens
-        (uint256 amountReceived, address tokenReceived) = 
+        (uint256 amountReceived, address tokenReceived) =
             _executeSrcHook(order, hook);
-        
+
         emit SrcHookExecuted(orderId, tokenReceived, amountReceived);
-        
+
         if (order.isSingleChainSwap()) {
             // Single-chain: immediate settlement (tokens already transferred to recipient)
-            orders[orderId] = order;
-            orderStatus[orderId] = IAori.OrderStatus.Settled;
+            $.orders[orderId] = order;
+            $.orderStatus[orderId] = IAori.OrderStatus.Settled;
             emit Settle(orderId);
         } else {
             // Cross-chain: lock converted tokens for later settlement
@@ -572,8 +636,9 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         require(block.timestamp <= deadline, "Permit2 signature expired");
 
         bytes32 orderId = hash(order);
-        require(orderStatus[orderId] == IAori.OrderStatus.Unknown, "Order already exists");
-        require(isSupportedChain[order.dstEid], "Destination chain not supported");
+        AoriStorage storage $ = _getAoriStorage();
+        require($.orderStatus[orderId] == IAori.OrderStatus.Unknown, "Order already exists");
+        require($.isSupportedChain[order.dstEid], "Destination chain not supported");
         require(order.srcEid == ENDPOINT_ID, "Chain mismatch");
 
         ValidationUtils.validateCommonOrderParams(order);
@@ -623,8 +688,9 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         require(block.timestamp <= deadline, "Permit2 signature expired");
 
         bytes32 orderId = hash(order);
-        require(orderStatus[orderId] == IAori.OrderStatus.Unknown, "Order already exists");
-        require(isSupportedChain[order.dstEid], "Destination chain not supported");
+        AoriStorage storage $ = _getAoriStorage();
+        require($.orderStatus[orderId] == IAori.OrderStatus.Unknown, "Order already exists");
+        require($.isSupportedChain[order.dstEid], "Destination chain not supported");
         require(order.srcEid == ENDPOINT_ID, "Chain mismatch");
 
         ValidationUtils.validateCommonOrderParams(order);
@@ -672,8 +738,8 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             emit SrcHookExecuted(orderId, order.outputToken, amountReceived);
 
             // Single-chain: immediate settlement
-            orders[orderId] = order;
-            orderStatus[orderId] = IAori.OrderStatus.Settled;
+            $.orders[orderId] = order;
+            $.orderStatus[orderId] = IAori.OrderStatus.Settled;
             emit Settle(orderId);
         } else {
             // Cross-chain: convert to preferred token for cross-chain transfer
@@ -813,8 +879,9 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      * @param order The order details that were filled
      */
     function _postFill(bytes32 orderId, Order calldata order) internal {
-        orderStatus[orderId] = IAori.OrderStatus.Filled;
-        srcEidToFillerFills[order.srcEid][msg.sender].push(orderId);
+        AoriStorage storage $ = _getAoriStorage();
+        $.orderStatus[orderId] = IAori.OrderStatus.Filled;
+        $.srcEidToFillerFills[order.srcEid][msg.sender].push(orderId);
         emit Fill(orderId, order);
     }
 
@@ -834,12 +901,13 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         address filler,
         bytes calldata extraOptions
     ) external payable nonReentrant whenNotPaused onlySolver {
-        bytes32[] storage arr = srcEidToFillerFills[srcEid][filler];
+        AoriStorage storage $ = _getAoriStorage();
+        bytes32[] storage arr = $.srcEidToFillerFills[srcEid][filler];
         uint256 arrLength = arr.length;
         require(arrLength > 0, "No orders provided");
 
         uint16 fillCount = uint16(
-            arrLength < MAX_FILLS_PER_SETTLE ? arrLength : MAX_FILLS_PER_SETTLE
+            arrLength < $.maxFillsPerSettle ? arrLength : $.maxFillsPerSettle
         );
         bytes memory payload = arr.packSettlement(filler, fillCount);
 
@@ -856,32 +924,33 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      * @param filler The filler address who will receive the tokens
      */
     function _settleOrder(bytes32 orderId, address filler) internal {
-        if (orderStatus[orderId] != IAori.OrderStatus.Active) {
+        AoriStorage storage $ = _getAoriStorage();
+        if ($.orderStatus[orderId] != IAori.OrderStatus.Active) {
             return; // Skip non-active orders
         }
-        
-        Order memory order = orders[orderId];
-        
+
+        Order memory order = $.orders[orderId];
+
         // Cache original balances for potential rollback
-        Balance memory offererBalanceCache = balances[order.offerer][order.inputToken];
-        Balance memory fillerBalanceCache = balances[filler][order.inputToken];
-        
+        Balance memory offererBalanceCache = $.balances[order.offerer][order.inputToken];
+        Balance memory fillerBalanceCache = $.balances[filler][order.inputToken];
+
         // Attempt atomic balance transfer
-        bool successLock = balances[order.offerer][order.inputToken].decreaseLockedNoRevert(
+        bool successLock = $.balances[order.offerer][order.inputToken].decreaseLockedNoRevert(
             order.inputAmount
         );
-        bool successUnlock = balances[filler][order.inputToken].increaseUnlockedNoRevert(
+        bool successUnlock = $.balances[filler][order.inputToken].increaseUnlockedNoRevert(
             order.inputAmount
         );
 
         // If either operation failed, restore original balances to maintain atomicity
         if (!successLock || !successUnlock) {
-            balances[order.offerer][order.inputToken] = offererBalanceCache;
-            balances[filler][order.inputToken] = fillerBalanceCache;
+            $.balances[order.offerer][order.inputToken] = offererBalanceCache;
+            $.balances[filler][order.inputToken] = fillerBalanceCache;
             return; // Exit with no state changes
         }
-        
-        orderStatus[orderId] = IAori.OrderStatus.Settled;
+
+        $.orderStatus[orderId] = IAori.OrderStatus.Settled;
         emit Settle(orderId);
     }
 
@@ -896,10 +965,11 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         (address filler, uint16 fillCount) = payload.unpackSettlementHeader();
         payload.validateSettlementLen(fillCount);
 
+        AoriStorage storage $ = _getAoriStorage();
         for (uint256 i = 0; i < fillCount; ++i) {
             bytes32 orderId = payload.unpackSettlementBodyAt(i);
-            Order memory order = orders[orderId];
-            
+            Order memory order = $.orders[orderId];
+
             if (order.dstEid != senderEid) {
                 emit settlementFailed(
                     orderId, 
@@ -909,7 +979,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
                 );
                 continue; 
             }
-            
+
             _settleOrder(orderId, filler);
         }
     }
@@ -928,28 +998,29 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         Order memory order,
         address solver
     ) internal {
+        AoriStorage storage $ = _getAoriStorage();
         // Capture initial state for validation
-        uint128 initialOffererLocked = balances[order.offerer][order.inputToken].locked;
-        uint128 initialSolverUnlocked = balances[solver][order.inputToken].unlocked;
-        
+        uint128 initialOffererLocked = $.balances[order.offerer][order.inputToken].locked;
+        uint128 initialSolverUnlocked = $.balances[solver][order.inputToken].unlocked;
+
         // Atomic balance transfer: locked → unlocked
-        if (balances[order.offerer][order.inputToken].locked >= order.inputAmount) {
-            bool successLock = balances[order.offerer][order.inputToken].decreaseLockedNoRevert(
+        if ($.balances[order.offerer][order.inputToken].locked >= order.inputAmount) {
+            bool successLock = $.balances[order.offerer][order.inputToken].decreaseLockedNoRevert(
                 order.inputAmount
             );
-            
-            bool successUnlock = balances[solver][order.inputToken].increaseUnlockedNoRevert(
+
+            bool successUnlock = $.balances[solver][order.inputToken].increaseUnlockedNoRevert(
                 order.inputAmount
             );
-            
+
             require(successLock && successUnlock, "Balance operation failed");
         }
-        
-        // Verify the transfer was executed correctly
-        uint128 finalOffererLocked = balances[order.offerer][order.inputToken].locked;
-        uint128 finalSolverUnlocked = balances[solver][order.inputToken].unlocked;
 
-        balances[order.offerer][order.inputToken].validateBalanceTransferOrRevert(
+        // Verify the transfer was executed correctly
+        uint128 finalOffererLocked = $.balances[order.offerer][order.inputToken].locked;
+        uint128 finalSolverUnlocked = $.balances[solver][order.inputToken].unlocked;
+
+        $.balances[order.offerer][order.inputToken].validateBalanceTransferOrRevert(
             initialOffererLocked,
             finalOffererLocked,
             initialSolverUnlocked,
@@ -957,7 +1028,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             order.inputAmount
         );
 
-        orderStatus[orderId] = IAori.OrderStatus.Settled;
+        $.orderStatus[orderId] = IAori.OrderStatus.Settled;
         emit Settle(orderId);
     }
 
@@ -974,8 +1045,8 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      * @param orderId The hash of the order to cancel
      */
     function cancel(bytes32 orderId) external nonReentrant whenNotPaused {
-        Order memory order = orders[orderId];
-        
+        Order memory order = _getAoriStorage().orders[orderId];
+
         order.validateSourceChainCancel(
             orderId,
             ENDPOINT_ID,
@@ -983,7 +1054,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             msg.sender,
             this.isAllowedSolver
         );
-        
+
         _cancel(orderId);
     }
 
@@ -1004,7 +1075,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         bytes calldata extraOptions
     ) external payable nonReentrant whenNotPaused {
         require(hash(orderToCancel) == orderId, "Submitted order data doesn't match orderId");
-        
+
         orderToCancel.validateCancel(
             orderId,
             ENDPOINT_ID,
@@ -1012,9 +1083,9 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
             msg.sender,
             this.isAllowedSolver
         );
-        
-        orderStatus[orderId] = IAori.OrderStatus.Cancelled;
-        
+
+        _getAoriStorage().orderStatus[orderId] = IAori.OrderStatus.Cancelled;
+
         bytes memory payload = PayloadPackUtils.packCancellation(orderId);
         MessagingReceipt memory receipt = __lzSend(orderToCancel.srcEid, payload, extraOptions);
         emit CancelSent(orderId, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
@@ -1026,22 +1097,23 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      * @param orderId The hash of the order to cancel
      */
     function _cancel(bytes32 orderId) internal {
-        require(orderStatus[orderId] == IAori.OrderStatus.Active, "Can only cancel active orders");
-        
-        Order memory order = orders[orderId];
+        AoriStorage storage $ = _getAoriStorage();
+        require($.orderStatus[orderId] == IAori.OrderStatus.Active, "Can only cancel active orders");
+
+        Order memory order = $.orders[orderId];
         uint128 amountToReturn = order.inputAmount;
         address tokenAddress = order.inputToken;
         address recipient = order.offerer;
-        
+
         // Validate contract has sufficient tokens
         tokenAddress.validateSufficientBalance(amountToReturn);
-        
+
         // Update state first
-        orderStatus[orderId] = IAori.OrderStatus.Cancelled;
-        bool success = balances[recipient][tokenAddress].decreaseLockedNoRevert(amountToReturn);
+        $.orderStatus[orderId] = IAori.OrderStatus.Cancelled;
+        bool success = $.balances[recipient][tokenAddress].decreaseLockedNoRevert(amountToReturn);
         require(success, "Failed to decrease locked balance");
-        
-        // Transfer tokens back to offerer 
+
+        // Transfer tokens back to offerer
         tokenAddress.safeTransfer(recipient, amountToReturn);
         emit Cancel(orderId);
     }
@@ -1068,21 +1140,22 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      */
     function withdraw(address token, uint256 amount) external nonReentrant whenNotPaused {
         address holder = msg.sender;
-        uint256 unlockedBalance = balances[holder][token].unlocked;
+        AoriStorage storage $ = _getAoriStorage();
+        uint256 unlockedBalance = $.balances[holder][token].unlocked;
         require(unlockedBalance > 0, "Non-zero balance required");
-        
+
         // Default to full balance if amount is 0
         if (amount == 0) {
             amount = unlockedBalance;
         } else {
             require(unlockedBalance >= amount, "Insufficient unlocked balance");
         }
-        
+
         token.validateSufficientBalance(amount);
-        
+
         // Update balance
-        balances[holder][token].unlocked = uint128(unlockedBalance - amount);
-        
+        $.balances[holder][token].unlocked = uint128(unlockedBalance - amount);
+
         // Transfer tokens to user
         token.safeTransfer(holder, amount);
         emit Withdraw(holder, token, amount);
@@ -1154,7 +1227,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         override
         returns (string memory name, string memory version)
     {
-        return ("Aori", "0.3.1");
+        return ("Aori", "0.3.2");
     }
 
     /**
@@ -1183,7 +1256,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
                         order.startTime,
                         order.endTime,
                         order.srcEid,
-                        order.dstEid,
+                        order.dstEid, 
                         order.offerer,
                         order.recipient
                     )
@@ -1211,7 +1284,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      * @return The locked balance amount
      */
     function getLockedBalances(address offerer, address token) external view returns (uint256) {
-        return balances[offerer][token].locked;
+        return _getAoriStorage().balances[offerer][token].locked;
     }
 
     /**
@@ -1221,7 +1294,7 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
      * @return The unlocked balance amount
      */
     function getUnlockedBalances(address offerer, address token) external view returns (uint256) {
-        return balances[offerer][token].unlocked;
+        return _getAoriStorage().balances[offerer][token].unlocked;
     }
 
     /**
@@ -1242,16 +1315,17 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
         uint32 _srcEid,
         address _filler
     ) public view returns (MessagingFee memory) {
+        AoriStorage storage $ = _getAoriStorage();
         // Calculate payload size using the library function
-        uint256 fillsLength = srcEidToFillerFills[_srcEid][_filler].length;
+        uint256 fillsLength = $.srcEidToFillerFills[_srcEid][_filler].length;
         uint256 payloadSize = PayloadSizeUtils.calculatePayloadSize(
             _msgType,
             fillsLength,
-            MAX_FILLS_PER_SETTLE
+            $.maxFillsPerSettle
         );
 
-    // Get the quote from LayerZero
-    MessagingFee memory messagingFee = _quote(
+        // Get the quote from LayerZero
+        MessagingFee memory messagingFee = _quote(
             _dstEid,
             new bytes(payloadSize),
             _options,
@@ -1260,4 +1334,21 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
 
         return messagingFee;
     }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                     UUPS UPGRADEABILITY                     */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /**
+     * @notice Authorizes an upgrade to a new implementation
+     * @dev Only callable by the contract owner
+     * @param newImplementation The address of the new implementation
+     */
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+
+    /**
+     * @dev Storage gap for future upgrades
+     * @dev When you upgrade and add new variables, you shrink the gap (e.g., add 2 variables → change to uint256[48] private __gap;). This keeps storage layout compatible across upgrades.
+     */
+    uint256[50] private __gap;
 }

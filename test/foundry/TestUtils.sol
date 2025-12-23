@@ -32,9 +32,10 @@ pragma solidity 0.8.28;
 import "forge-std/Test.sol";
 import {Aori, IAori} from "../../contracts/Aori.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {OApp, Origin, MessagingFee} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
+import {OAppUpgradeable, Origin, MessagingFee} from "@layerzerolabs/oapp-evm-upgradeable/contracts/oapp/OAppUpgradeable.sol";
 import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {PayloadType} from "../../contracts/AoriUtils.sol";
 import {MockERC20} from "../Mock/MockERC20.sol";
 import {MockHook} from "../Mock/MockHook.sol";
@@ -49,6 +50,51 @@ contract TestUtils is TestHelperOz5 {
     // Common state
     Aori public localAori;
     Aori public remoteAori;
+
+    /**
+     * @notice Deploys an ERC1967 proxy for any Aori-derived implementation
+     * @dev Core helper used by deployAori and tests with custom Aori extensions
+     * @param implementation The implementation contract address
+     * @param owner The owner address for the contract
+     * @param maxFillsPerSettle Maximum fills per settlement
+     * @return The proxy address
+     */
+    function deployWithProxy(
+        address implementation,
+        address owner,
+        uint16 maxFillsPerSettle
+    ) public returns (address) {
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            implementation,
+            abi.encodeCall(Aori.initialize, (
+                owner,
+                maxFillsPerSettle,
+                new address[](0),
+                new address[](0),
+                new uint32[](0)
+            ))
+        );
+        return address(proxy);
+    }
+
+    /**
+     * @notice Deploys an Aori instance with proxy pattern
+     * @param endpoint The LayerZero endpoint address
+     * @param eid The endpoint ID for this chain
+     * @param owner The owner address for the contract
+     * @param maxFillsPerSettle Maximum fills per settlement
+     * @return The deployed Aori proxy instance
+     */
+    function deployAori(
+        address endpoint,
+        uint32 eid,
+        address owner,
+        uint16 maxFillsPerSettle
+    ) public returns (Aori) {
+        Aori impl = new Aori(endpoint, eid);
+        return Aori(payable(deployWithProxy(address(impl), owner, maxFillsPerSettle)));
+    }
+
     MockERC20 public inputToken;
     MockERC20 public outputToken;
     MockERC20 public convertedToken; // token returned from deposit hook conversion
@@ -75,25 +121,9 @@ contract TestUtils is TestHelperOz5 {
         // Setup LayerZero endpoints
         setUpEndpoints(2, LibraryType.UltraLightNode);
 
-        // Deploy local and remote Aori contracts
-        localAori = new Aori(
-            address(endpoints[localEid]),
-            address(this),
-            localEid,
-            MAX_FILLS_PER_SETTLE,
-            new address[](0),
-            new address[](0),
-            new uint32[](0)
-        );
-        remoteAori = new Aori(
-            address(endpoints[remoteEid]),
-            address(this),
-            remoteEid,
-            MAX_FILLS_PER_SETTLE,
-            new address[](0),
-            new address[](0),
-            new uint32[](0)
-        );
+        // Deploy local and remote Aori instances
+        localAori = deployAori(address(endpoints[localEid]), localEid, address(this), MAX_FILLS_PER_SETTLE);
+        remoteAori = deployAori(address(endpoints[remoteEid]), remoteEid, address(this), MAX_FILLS_PER_SETTLE);
 
         // Wire the OApps together
         address[] memory aoriInstances = new address[](2);
@@ -267,7 +297,7 @@ contract TestUtils is TestHelperOz5 {
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,address verifyingContract)"),
                 keccak256(bytes("Aori")),
-                keccak256(bytes("0.3.1")),
+                keccak256(bytes("0.3.2")),
                 address(localAori)
             )
         );

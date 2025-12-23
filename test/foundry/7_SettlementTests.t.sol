@@ -29,27 +29,17 @@ import "./TestUtils.sol";
 contract TestSettlementAori is Aori {
     constructor(
         address _endpoint,
-        address _owner,
-        uint32 _eid,
-        uint16 _maxFillsPerSettle
-    ) Aori(
-        _endpoint,
-        _owner,
-        _eid,
-        _maxFillsPerSettle,
-        new address[](0),
-        new address[](0),
-        new uint32[](0)
-    ) {}
+        uint32 _eid
+    ) Aori(_endpoint, _eid) {}
 
     // Test-specific function to get the length of the fills array
     function getFillsLength(uint32 srcEid, address filler) external view returns (uint256) {
-        return srcEidToFillerFills[srcEid][filler].length;
+        return _getAoriStorage().srcEidToFillerFills[srcEid][filler].length;
     }
 
     // Test-specific function to add an order to the fills array
     function addFill(uint32 srcEid, address filler, bytes32 orderId) external {
-        srcEidToFillerFills[srcEid][filler].push(orderId);
+        _getAoriStorage().srcEidToFillerFills[srcEid][filler].push(orderId);
     }
 }
 
@@ -67,19 +57,12 @@ contract SettlementTests is TestUtils {
     function setUp() public override {
         super.setUp();
 
-        // Deploy test-specific Aori contracts
-        testLocalAori = new TestSettlementAori(
-            address(endpoints[localEid]),
-            address(this),
-            localEid,
-            MAX_FILLS_PER_SETTLE
-        );
-        testRemoteAori = new TestSettlementAori(
-            address(endpoints[remoteEid]),
-            address(this),
-            remoteEid,
-            MAX_FILLS_PER_SETTLE
-        );
+        // Deploy test-specific Aori implementations and proxies using helper
+        TestSettlementAori testLocalImpl = new TestSettlementAori(address(endpoints[localEid]), localEid);
+        testLocalAori = TestSettlementAori(payable(deployWithProxy(address(testLocalImpl), address(this), MAX_FILLS_PER_SETTLE)));
+
+        TestSettlementAori testRemoteImpl = new TestSettlementAori(address(endpoints[remoteEid]), remoteEid);
+        testRemoteAori = TestSettlementAori(payable(deployWithProxy(address(testRemoteImpl), address(this), MAX_FILLS_PER_SETTLE)));
 
         // Wire the OApps together
         address[] memory aoriInstances = new address[](2);
@@ -392,7 +375,7 @@ contract SettlementTests is TestUtils {
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,address verifyingContract)"),
                 keccak256(bytes("Aori")),
-                keccak256(bytes("0.3.1")),
+                keccak256(bytes("0.3.2")),
                 contractAddress
             )
         );

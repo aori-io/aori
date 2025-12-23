@@ -27,6 +27,7 @@ import "forge-std/Test.sol";
 import { Aori, IAori } from "../../contracts/Aori.sol";
 import { TestUtils } from "./TestUtils.sol";
 import { MockERC20 } from "../Mock/MockERC20.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /**
  * @title HashVerificationTest
@@ -129,27 +130,37 @@ contract HashVerificationTest is TestUtils {
         console.log("\n---- VERIFYING DEPOSIT WITH TEST CONTRACT ----");
         
         // Get the code for a new contract with Arbitrum's EID
+        // Note: This test manually deploys impl+proxy to use vm.etch for address manipulation
         address layerZeroEndpoint = address(endpoints[1]); // Use test endpoint from TestUtils
-        Aori implementation = new Aori(
-            layerZeroEndpoint,
+        Aori implementation = new Aori(layerZeroEndpoint, ARBITRUM_EID);
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(implementation),
+            abi.encodeCall(implementation.initialize, (
+                address(this),
+                MAX_FILLS_PER_SETTLE,
+                new address[](0),
+                new address[](0),
+                new uint32[](0)
+            ))
+        );
+
+        // Deploy the test contract at the exact Arbitrum address using vm.etch
+        // This is critical because EIP-712 signatures include the contract address in the domain separator
+        vm.etch(ARBITRUM_CONTRACT_ADDRESS, address(proxy).code);
+
+        // Copy storage from proxy to the etched address for proper initialization
+        // Slot 0 contains implementation address in ERC1967 proxy
+        bytes32 implSlot = bytes32(uint256(keccak256("eip1967.proxy.implementation")) - 1);
+        vm.store(ARBITRUM_CONTRACT_ADDRESS, implSlot, bytes32(uint256(uint160(address(implementation)))));
+
+        // Initialize the etched contract
+        Aori(ARBITRUM_CONTRACT_ADDRESS).initialize(
             address(this),
-            ARBITRUM_EID, // Use Arbitrum's EID to match production
             MAX_FILLS_PER_SETTLE,
             new address[](0),
             new address[](0),
             new uint32[](0)
         );
-        
-        // Deploy the test contract at the exact Arbitrum address using vm.etch
-        // This is critical because EIP-712 signatures include the contract address in the domain separator
-        vm.etch(ARBITRUM_CONTRACT_ADDRESS, address(implementation).code);
-        
-        // Since vm.etch only copies the code, we need to set ourselves as the owner
-        // First we prank as the zero address (default owner after etch)
-        vm.startPrank(address(0));
-        // Then transfer ownership to ourselves (test contract)
-        Aori(ARBITRUM_CONTRACT_ADDRESS).transferOwnership(address(this));
-        vm.stopPrank();
         
         // ADD THIS CODE HERE - before any deposit operations
         vm.startPrank(address(this));
@@ -231,7 +242,7 @@ contract HashVerificationTest is TestUtils {
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,address verifyingContract)"),
                 keccak256(bytes("Aori")),
-                keccak256(bytes("0.3.1")),
+                keccak256(bytes("0.3.2")),
                 contractAddress
             )
         );
