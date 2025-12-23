@@ -5,7 +5,7 @@ pragma solidity 0.8.28;
  * UpgradeTests - Tests for UUPS upgradeability of Aori
  *
  * Test cases:
- * 1. testDeployProxyAndInitialize - Deploy proxy + implementation, verify initialization
+ * 1. testInitializationState - Verify proxy initialization set correct state
  * 2. testCannotReinitialize - Verify initialization can only happen once
  * 3. testUpgradeToNewImplementation - Test upgrade to new implementation
  * 4. testStatePreservationAfterUpgrade - Verify state preserved across upgrade
@@ -118,9 +118,9 @@ contract UpgradeTests is TestHelperOz5 {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     /**
-     * @notice Test that proxy and implementation deploy correctly
+     * @notice Verify proxy initialization set correct state
      */
-    function testDeployProxyAndInitialize() public view {
+    function testInitializationState() public view {
         // Verify owner is set correctly
         assertEq(aori.owner(), owner, "Owner should be set");
 
