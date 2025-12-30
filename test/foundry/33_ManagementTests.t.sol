@@ -3,7 +3,7 @@ pragma solidity 0.8.28;
 
 import "forge-std/Test.sol";
 import "../../contracts/Aori.sol";
-import "../../contracts/IAori.sol";
+import "../../contracts/interfaces/IAori.sol";
 import "./TestUtils.sol";
 
 /**

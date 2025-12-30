@@ -51,7 +51,7 @@ pragma solidity 0.8.28;
  * - State consistency: Contract remains functional after emergency operations
  * - Integration scenarios: Complex workflows and edge cases
  */
-import {IAori} from "../../contracts/IAori.sol";
+import {IAori} from "../../contracts/interfaces/IAori.sol";
 import {Aori} from "../../contracts/Aori.sol";
 import "./TestUtils.sol";
 

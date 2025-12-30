@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 import "forge-std/Test.sol";
-import {IAori} from "../../contracts/IAori.sol";
+import {IAori} from "../../contracts/interfaces/IAori.sol";
 import {TestUtils} from "./TestUtils.sol";
 import {MockERC20} from "../Mock/MockERC20.sol";
 import {MessagingReceipt, MessagingFee} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";

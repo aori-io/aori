@@ -40,7 +40,7 @@ pragma solidity 0.8.28;
  * 22. testContractState_TimeBoundaryAfter - Tests after expiry time
  * 
  */
-import {IAori} from "../../contracts/IAori.sol";
+import {IAori} from "../../contracts/interfaces/IAori.sol";
 import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import "./TestUtils.sol";

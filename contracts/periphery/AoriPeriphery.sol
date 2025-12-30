@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {IAori} from "./IAori.sol";
+import {IAori} from "../interfaces/IAori.sol";
 
 /**
  * @title AoriPeriphery

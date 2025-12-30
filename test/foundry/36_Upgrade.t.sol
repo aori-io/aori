@@ -15,7 +15,7 @@ pragma solidity 0.8.28;
  */
 import "forge-std/Test.sol";
 import {Aori} from "../../contracts/Aori.sol";
-import {IAori} from "../../contracts/IAori.sol";
+import {IAori} from "../../contracts/interfaces/IAori.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
