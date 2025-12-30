@@ -30,7 +30,7 @@ pragma solidity 0.8.28;
  */
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
-import "../../contracts/AoriUtils.sol";
+import "../../contracts/libraries/AoriUtils.sol";
 
 /**
  * @notice Tests for the Balance utility struct which manages locked and unlocked token balances

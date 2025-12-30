@@ -20,7 +20,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
 import {MockHook2} from "../Mock/MockHook2.sol";
-import "../../contracts/AoriUtils.sol";
+import "../../contracts/libraries/AoriUtils.sol";
 
 contract SC_ERC20ToNativeDstHook_Test is TestUtils {
     using NativeTokenUtils for address;

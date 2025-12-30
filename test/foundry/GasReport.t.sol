@@ -9,7 +9,7 @@ import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import {MockERC20} from "../Mock/MockERC20.sol";
 import {TestUtils} from "./TestUtils.sol";
-import "../../contracts/AoriUtils.sol";
+import "../../contracts/libraries/AoriUtils.sol";
 
 /**
  * @title GasReportTest

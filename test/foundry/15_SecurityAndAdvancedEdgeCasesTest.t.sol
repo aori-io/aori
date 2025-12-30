@@ -17,7 +17,7 @@ pragma solidity 0.8.28;
  * can handle large amounts correctly.
  */
 import "./TestUtils.sol";
-import "../../contracts/AoriUtils.sol";
+import "../../contracts/libraries/AoriUtils.sol";
 import { Aori, IAori } from "../../contracts/Aori.sol";
 
 /**

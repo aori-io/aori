@@ -36,7 +36,7 @@ import {OAppUpgradeable, Origin, MessagingFee} from "@layerzerolabs/oapp-evm-upg
 import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {PayloadType} from "../../contracts/AoriUtils.sol";
+import {PayloadType} from "../../contracts/libraries/AoriUtils.sol";
 import {MockERC20} from "../Mock/MockERC20.sol";
 import {MockHook} from "../Mock/MockHook.sol";
 

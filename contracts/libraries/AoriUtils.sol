@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SignatureCheckerLib } from "solady/src/utils/SignatureCheckerLib.sol";
-import { IAori } from "./IAori.sol";
+import { IAori } from "../IAori.sol";
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                          VALIDATION                        */
