@@ -17,7 +17,7 @@ import "forge-std/Test.sol";
 import {Aori} from "../../contracts/Aori.sol";
 import {IAori} from "../../contracts/IAori.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {AoriProxy} from "../../contracts/AoriProxy.sol";
 import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import {MockERC20} from "../Mock/MockERC20.sol";
@@ -48,7 +48,7 @@ contract UpgradeTests is TestHelperOz5 {
     // Contracts
     Aori public implementation;
     Aori public aori; // proxy cast to Aori
-    ERC1967Proxy public proxy;
+    AoriProxy public proxy;
 
     // Mock contracts
     MockERC20 public inputToken;
@@ -99,7 +99,7 @@ contract UpgradeTests is TestHelperOz5 {
             )
         );
 
-        proxy = new ERC1967Proxy(address(implementation), initData);
+        proxy = new AoriProxy(address(implementation), initData);
         aori = Aori(payable(address(proxy)));
 
         // Setup test tokens

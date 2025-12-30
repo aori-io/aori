@@ -35,7 +35,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {OAppUpgradeable, Origin, MessagingFee} from "@layerzerolabs/oapp-evm-upgradeable/contracts/oapp/OAppUpgradeable.sol";
 import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {AoriProxy} from "../../contracts/AoriProxy.sol";
 import {PayloadType} from "../../contracts/AoriUtils.sol";
 import {MockERC20} from "../Mock/MockERC20.sol";
 import {MockHook} from "../Mock/MockHook.sol";
@@ -64,7 +64,7 @@ contract TestUtils is TestHelperOz5 {
         address owner,
         uint16 maxFillsPerSettle
     ) public returns (address) {
-        ERC1967Proxy proxy = new ERC1967Proxy(
+        AoriProxy proxy = new AoriProxy(
             implementation,
             abi.encodeCall(Aori.initialize, (
                 owner,

@@ -25,9 +25,9 @@ pragma solidity 0.8.28;
  */
 import "forge-std/Test.sol";
 import { Aori, IAori } from "../../contracts/Aori.sol";
+import { AoriProxy } from "../../contracts/AoriProxy.sol";
 import { TestUtils } from "./TestUtils.sol";
 import { MockERC20 } from "../Mock/MockERC20.sol";
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /**
  * @title HashVerificationTest
@@ -133,7 +133,7 @@ contract HashVerificationTest is TestUtils {
         // Note: This test manually deploys impl+proxy to use vm.etch for address manipulation
         address layerZeroEndpoint = address(endpoints[1]); // Use test endpoint from TestUtils
         Aori implementation = new Aori(layerZeroEndpoint, ARBITRUM_EID);
-        ERC1967Proxy proxy = new ERC1967Proxy(
+        AoriProxy proxy = new AoriProxy(
             address(implementation),
             abi.encodeCall(implementation.initialize, (
                 address(this),
