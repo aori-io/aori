@@ -32,7 +32,7 @@ contract HookTestWrapper {
      * @param hook The SrcHook struct to check
      * @return Whether the hook has a non-zero address
      */
-    function isSomeSrcHook(IAori.SrcHook calldata hook) external pure returns (bool) {
+    function isSomeSrcHook(SrcHook calldata hook) external pure returns (bool) {
         return hook.hookAddress != address(0);
     }
     
@@ -41,7 +41,7 @@ contract HookTestWrapper {
      * @param hook The DstHook struct to check
      * @return Whether the hook has a non-zero address
      */
-    function isSomeDstHook(IAori.DstHook calldata hook) external pure returns (bool) {
+    function isSomeDstHook(DstHook calldata hook) external pure returns (bool) {
         return hook.hookAddress != address(0);
     }
 }
@@ -70,7 +70,7 @@ contract HookUtilsTest is Test {
     /// @notice Covers line 208 in AoriUtils.sol
     function test_isSome_SrcHook_zeroAddress() public view {
         // Arrange
-        IAori.SrcHook memory hook = IAori.SrcHook({
+        SrcHook memory hook = SrcHook({
             hookAddress: ZERO_ADDRESS,
             preferredToken: address(0),
             minPreferedTokenAmountOut: 0,
@@ -89,7 +89,7 @@ contract HookUtilsTest is Test {
     /// @notice Covers line 208 in AoriUtils.sol
     function test_isSome_SrcHook_nonZeroAddress() public view {
         // Arrange
-        IAori.SrcHook memory hook = IAori.SrcHook({
+        SrcHook memory hook = SrcHook({
             hookAddress: TEST_ADDRESS,
             preferredToken: address(0),
             minPreferedTokenAmountOut: 0,
@@ -112,7 +112,7 @@ contract HookUtilsTest is Test {
     /// @notice Covers line 217 in AoriUtils.sol
     function test_isSome_DstHook_zeroAddress() public view {
         // Arrange
-        IAori.DstHook memory hook = IAori.DstHook({
+        DstHook memory hook = DstHook({
             hookAddress: ZERO_ADDRESS,
             preferredToken: address(0),
             preferedDstInputAmount: 0,
@@ -130,7 +130,7 @@ contract HookUtilsTest is Test {
     /// @notice Covers line 217 in AoriUtils.sol
     function test_isSome_DstHook_nonZeroAddress() public view {
         // Arrange
-        IAori.DstHook memory hook = IAori.DstHook({
+        DstHook memory hook = DstHook({
             hookAddress: TEST_ADDRESS,
             preferredToken: address(0),
             preferedDstInputAmount: 0,
@@ -162,7 +162,7 @@ contract HookUtilsTest is Test {
         expected[2] = true;   // Another normal address
         
         for (uint i = 0; i < addresses.length; i++) {
-            IAori.SrcHook memory hook = IAori.SrcHook({
+            SrcHook memory hook = SrcHook({
                 hookAddress: addresses[i],
                 preferredToken: address(0),
                 minPreferedTokenAmountOut: 0,
@@ -189,7 +189,7 @@ contract HookUtilsTest is Test {
         expected[2] = true;   // Another normal address
         
         for (uint i = 0; i < addresses.length; i++) {
-            IAori.DstHook memory hook = IAori.DstHook({
+            DstHook memory hook = DstHook({
                 hookAddress: addresses[i],
                 preferredToken: address(0),
                 preferedDstInputAmount: 0,

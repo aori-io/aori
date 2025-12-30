@@ -16,6 +16,7 @@ pragma solidity 0.8.28;
 import "forge-std/Test.sol";
 import {Aori} from "../../contracts/Aori.sol";
 import {IAori} from "../../contracts/interfaces/IAori.sol";
+import {Order, OrderStatus, SrcHook, DstHook, Balance} from "../../contracts/types/AoriTypes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
@@ -333,7 +334,7 @@ contract UpgradeTests is TestHelperOz5 {
      */
     function testNativeDepositThroughProxy() public {
         // Create order for native token
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE, // Native token
@@ -366,7 +367,7 @@ contract UpgradeTests is TestHelperOz5 {
      */
     function testWithdrawThroughProxy() public {
         // First do a native deposit
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE,
@@ -420,7 +421,7 @@ contract UpgradeTests is TestHelperOz5 {
      * @notice Test that order hashing works through proxy
      */
     function testOrderHashingThroughProxy() public view {
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),

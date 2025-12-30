@@ -13,6 +13,7 @@ pragma solidity 0.8.28;
  */
 import {Aori, IAori} from "../../contracts/Aori.sol";
 import {TestUtils} from "./TestUtils.sol";
+import {Order, OrderStatus, SrcHook, DstHook, Balance} from "../../contracts/types/AoriTypes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
@@ -55,7 +56,7 @@ contract NativeTokenTests is TestUtils {
      * @notice Test successful native token deposit for cross-chain order
      */
     function testDepositNative_CrossChain_Success() public {
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             user,                        // offerer
             recipient,                   // recipient
             NATIVE_TOKEN,                // inputToken (native)
@@ -82,14 +83,14 @@ contract NativeTokenTests is TestUtils {
         
         // Verify order status
         bytes32 orderId = localAori.hash(order);
-        assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Active, "Order should be Active");
+        assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
     }
 
     /**
      * @notice Test successful native token deposit for single-chain order
      */
     function testDepositNative_SingleChain_Success() public {
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             user,                        // offerer
             recipient,                   // recipient
             NATIVE_TOKEN,                // inputToken (native)
@@ -109,14 +110,14 @@ contract NativeTokenTests is TestUtils {
 
         // Verify order status
         bytes32 orderId = localAori.hash(order);
-        assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Active, "Order should be Active");
+        assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
     }
 
     /**
      * @notice Test successful native token deposit with native output token
      */
     function testDepositNative_NativeToNative_Success() public {
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             user,                        // offerer
             recipient,                   // recipient
             NATIVE_TOKEN,                // inputToken (native)
@@ -135,7 +136,7 @@ contract NativeTokenTests is TestUtils {
         localAori.depositNative{value: INPUT_AMOUNT}(order);
 
         bytes32 orderId = localAori.hash(order);
-        assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Active, "Order should be Active");
+        assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -146,7 +147,7 @@ contract NativeTokenTests is TestUtils {
      * @notice Test failure when order doesn't specify native token as input
      */
     function testDepositNative_Revert_NonNativeInputToken() public {
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             user,                        // offerer
             recipient,                   // recipient
             address(inputToken),         // inputToken (ERC20, not native)
@@ -170,7 +171,7 @@ contract NativeTokenTests is TestUtils {
      * @notice Test failure when msg.value doesn't match order.inputAmount
      */
     function testDepositNative_Revert_IncorrectNativeAmount_TooLow() public {
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             user,                        // offerer
             recipient,                   // recipient
             NATIVE_TOKEN,                // inputToken (native)
@@ -194,7 +195,7 @@ contract NativeTokenTests is TestUtils {
      * @notice Test failure when msg.value doesn't match order.inputAmount (too high)
      */
     function testDepositNative_Revert_IncorrectNativeAmount_TooHigh() public {
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             user,                        // offerer
             recipient,                   // recipient
             NATIVE_TOKEN,                // inputToken (native)
@@ -218,7 +219,7 @@ contract NativeTokenTests is TestUtils {
      * @notice Test failure when caller is not the order offerer
      */
     function testDepositNative_Revert_NotOfferer() public {
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             user,                        // offerer
             recipient,                   // recipient
             NATIVE_TOKEN,                // inputToken (native)
@@ -246,7 +247,7 @@ contract NativeTokenTests is TestUtils {
      * @notice Test failure when order already exists
      */
     function testDepositNative_Revert_OrderAlreadyExists() public {
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             user,                        // offerer
             recipient,                   // recipient
             NATIVE_TOKEN,                // inputToken (native)
@@ -278,7 +279,7 @@ contract NativeTokenTests is TestUtils {
     function testDepositNative_Revert_DestinationChainNotSupported() public {
         uint32 unsupportedEid = 999;
         
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             user,                        // offerer
             recipient,                   // recipient
             NATIVE_TOKEN,                // inputToken (native)
@@ -303,7 +304,7 @@ contract NativeTokenTests is TestUtils {
      * @dev After the security improvement, signature validation was removed since msg.sender validation is sufficient
      */
     function testDepositNative_NoSignatureRequired() public {
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             user,                        // offerer
             recipient,                   // recipient
             NATIVE_TOKEN,                // inputToken (native)
@@ -321,14 +322,14 @@ contract NativeTokenTests is TestUtils {
         localAori.depositNative{value: INPUT_AMOUNT}(order);
         
         bytes32 orderId = localAori.hash(order);
-        assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Active, "Order should be Active");
+        assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
     }
 
     /**
      * @notice Test failure when source chain doesn't match current chain
      */
     function testDepositNative_Revert_ChainMismatch() public {
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             user,                        // offerer
             recipient,                   // recipient
             NATIVE_TOKEN,                // inputToken (native)
@@ -356,7 +357,7 @@ contract NativeTokenTests is TestUtils {
      * @notice Test failure with invalid offerer (zero address)
      */
     function testDepositNative_Revert_InvalidOfferer() public {
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             address(0),                  // offerer (invalid)
             recipient,                   // recipient
             NATIVE_TOKEN,                // inputToken (native)
@@ -381,7 +382,7 @@ contract NativeTokenTests is TestUtils {
      * @notice Test failure with invalid recipient (zero address)
      */
     function testDepositNative_Revert_InvalidRecipient() public {
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             user,                        // offerer
             address(0),                  // recipient (invalid)
             NATIVE_TOKEN,                // inputToken (native)
@@ -408,7 +409,7 @@ contract NativeTokenTests is TestUtils {
         uint32 startTime = uint32(block.timestamp + 1 hours);
         uint32 endTime = uint32(block.timestamp); // End before start
         
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             user,                        // offerer
             recipient,                   // recipient
             NATIVE_TOKEN,                // inputToken (native)
@@ -434,7 +435,7 @@ contract NativeTokenTests is TestUtils {
     function testDepositNative_Revert_OrderNotStarted() public {
         uint32 futureTime = uint32(block.timestamp + 1 hours);
         
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             user,                        // offerer
             recipient,                   // recipient
             NATIVE_TOKEN,                // inputToken (native)
@@ -465,7 +466,7 @@ contract NativeTokenTests is TestUtils {
         uint32 pastStartTime = currentTime - 7200; // 2 hours ago
         uint32 pastEndTime = currentTime - 3600;   // 1 hour ago
         
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             user,                        // offerer
             recipient,                   // recipient
             NATIVE_TOKEN,                // inputToken (native)
@@ -489,7 +490,7 @@ contract NativeTokenTests is TestUtils {
      * @notice Test failure with zero input amount
      */
     function testDepositNative_Revert_InvalidInputAmount() public {
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             user,                        // offerer
             recipient,                   // recipient
             NATIVE_TOKEN,                // inputToken (native)
@@ -513,7 +514,7 @@ contract NativeTokenTests is TestUtils {
      * @notice Test failure with zero output amount
      */
     function testDepositNative_Revert_InvalidOutputAmount() public {
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             user,                        // offerer
             recipient,                   // recipient
             NATIVE_TOKEN,                // inputToken (native)
@@ -537,7 +538,7 @@ contract NativeTokenTests is TestUtils {
      * @notice Test failure with invalid output token (zero address)
      */
     function testDepositNative_Revert_InvalidOutputToken() public {
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             user,                        // offerer
             recipient,                   // recipient
             NATIVE_TOKEN,                // inputToken (native)
@@ -565,7 +566,7 @@ contract NativeTokenTests is TestUtils {
      * @notice Test failure when contract is paused
      */
     function testDepositNative_Revert_WhenPaused() public {
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             user,                        // offerer
             recipient,                   // recipient
             NATIVE_TOKEN,                // inputToken (native)
@@ -601,7 +602,7 @@ contract NativeTokenTests is TestUtils {
         // Give user enough ETH (this will likely fail due to gas limits in practice)
         vm.deal(user, maxAmount);
         
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             user,                        // offerer
             recipient,                   // recipient
             NATIVE_TOKEN,                // inputToken (native)
@@ -618,7 +619,7 @@ contract NativeTokenTests is TestUtils {
         localAori.depositNative{value: maxAmount}(order);
 
         bytes32 orderId = localAori.hash(order);
-        assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Active, "Order should be Active");
+        assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
     }
 
     /**
@@ -627,7 +628,7 @@ contract NativeTokenTests is TestUtils {
     function testDepositNative_MinAmounts() public {
         uint128 minAmount = 1;
         
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             user,                        // offerer
             recipient,                   // recipient
             NATIVE_TOKEN,                // inputToken (native)
@@ -644,7 +645,7 @@ contract NativeTokenTests is TestUtils {
         localAori.depositNative{value: minAmount}(order);
 
         bytes32 orderId = localAori.hash(order);
-        assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Active, "Order should be Active");
+        assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
     }
 
     /**
@@ -653,7 +654,7 @@ contract NativeTokenTests is TestUtils {
     function testDepositNative_ExactTimeBoundaries() public {
         uint32 currentTime = uint32(block.timestamp);
         
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             user,                        // offerer
             recipient,                   // recipient
             NATIVE_TOKEN,                // inputToken (native)
@@ -672,7 +673,7 @@ contract NativeTokenTests is TestUtils {
         localAori.depositNative{value: INPUT_AMOUNT}(order);
 
         bytes32 orderId = localAori.hash(order);
-        assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Active, "Order should be Active");
+        assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -684,7 +685,7 @@ contract NativeTokenTests is TestUtils {
      */
     function testDepositNative_MultipleDeposits() public {
         for (uint256 i = 0; i < 3; i++) {
-            IAori.Order memory order = createCustomOrder(
+            Order memory order = createCustomOrder(
                 user,                        // offerer
                 recipient,                   // recipient
                 NATIVE_TOKEN,                // inputToken (native)
@@ -703,7 +704,7 @@ contract NativeTokenTests is TestUtils {
             localAori.depositNative{value: INPUT_AMOUNT}(order);
 
             bytes32 orderId = localAori.hash(order);
-            assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Active, "Order should be Active");
+            assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
         }
 
         // Verify total locked balance
@@ -714,7 +715,7 @@ contract NativeTokenTests is TestUtils {
      * @notice Test event emission
      */
     function testDepositNative_EventEmission() public {
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             user,                        // offerer
             recipient,                   // recipient
             NATIVE_TOKEN,                // inputToken (native)

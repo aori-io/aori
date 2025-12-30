@@ -40,6 +40,7 @@ pragma solidity 0.8.28;
  * 22. testContractState_TimeBoundaryAfter - Tests after expiry time
  * 
  */
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import {IAori} from "../../contracts/interfaces/IAori.sol";
 import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
@@ -57,8 +58,8 @@ contract CancellationTests is TestUtils {
     /**
      * @notice Create a single-chain order
      */
-    function createSingleChainOrder() internal view returns (IAori.Order memory) {
-        return IAori.Order({
+    function createSingleChainOrder() internal view returns (Order memory) {
+        return Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -75,8 +76,8 @@ contract CancellationTests is TestUtils {
     /**
      * @notice Create a cross-chain order
      */
-    function createCrossChainOrder() internal view returns (IAori.Order memory) {
-        return IAori.Order({
+    function createCrossChainOrder() internal view returns (Order memory) {
+        return Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -101,7 +102,7 @@ contract CancellationTests is TestUtils {
         vm.chainId(localEid);
         
         // Create order with different srcEid
-        IAori.Order memory order = createSingleChainOrder();
+        Order memory order = createSingleChainOrder();
         order.srcEid = remoteEid; // Different from current chain
         bytes32 orderId = localAori.hash(order);
         
@@ -117,7 +118,7 @@ contract CancellationTests is TestUtils {
         vm.chainId(localEid);
         
         // Create order and store it but with Cancelled status
-        IAori.Order memory order = createSingleChainOrder();
+        Order memory order = createSingleChainOrder();
         bytes memory signature = signOrder(order);
         
         // First deposit to create the order
@@ -145,7 +146,7 @@ contract CancellationTests is TestUtils {
         vm.chainId(localEid);
         
         // Create and deposit cross-chain order
-        IAori.Order memory order = createCrossChainOrder();
+        Order memory order = createCrossChainOrder();
         bytes memory signature = signOrder(order);
         
         vm.prank(userA);
@@ -167,7 +168,7 @@ contract CancellationTests is TestUtils {
         vm.chainId(localEid);
         
         // Create and deposit single-chain order
-        IAori.Order memory order = createSingleChainOrder();
+        Order memory order = createSingleChainOrder();
         bytes memory signature = signOrder(order);
         
         vm.prank(userA);
@@ -191,7 +192,7 @@ contract CancellationTests is TestUtils {
         vm.chainId(localEid);
         
         // Create and deposit single-chain order
-        IAori.Order memory order = createSingleChainOrder();
+        Order memory order = createSingleChainOrder();
         bytes memory signature = signOrder(order);
         
         vm.prank(userA);
@@ -211,7 +212,7 @@ contract CancellationTests is TestUtils {
         // Verify cancellation
         assertEq(
             uint8(localAori.orderStatus(orderId)),
-            uint8(IAori.OrderStatus.Cancelled),
+            uint8(OrderStatus.Cancelled),
             "Order should be cancelled"
         );
     }
@@ -223,7 +224,7 @@ contract CancellationTests is TestUtils {
         vm.chainId(localEid);
         
         // Create and deposit single-chain order
-        IAori.Order memory order = createSingleChainOrder();
+        Order memory order = createSingleChainOrder();
         bytes memory signature = signOrder(order);
         
         vm.prank(userA);
@@ -240,7 +241,7 @@ contract CancellationTests is TestUtils {
         // Verify cancellation
         assertEq(
             uint8(localAori.orderStatus(orderId)),
-            uint8(IAori.OrderStatus.Cancelled),
+            uint8(OrderStatus.Cancelled),
             "Order should be cancelled"
         );
     }
@@ -252,7 +253,7 @@ contract CancellationTests is TestUtils {
         vm.chainId(localEid);
         
         // Create and deposit single-chain order
-        IAori.Order memory order = createSingleChainOrder();
+        Order memory order = createSingleChainOrder();
         bytes memory signature = signOrder(order);
         
         vm.prank(userA);
@@ -283,7 +284,7 @@ contract CancellationTests is TestUtils {
         vm.chainId(remoteEid);
         
         // Create order and modify it to create hash mismatch
-        IAori.Order memory order = createCrossChainOrder();
+        Order memory order = createCrossChainOrder();
         bytes32 orderId = remoteAori.hash(order);
         
         // Modify order to create mismatch
@@ -303,7 +304,7 @@ contract CancellationTests is TestUtils {
         vm.chainId(localEid); // Wrong chain
         
         // Create cross-chain order but try to cancel from wrong chain
-        IAori.Order memory order = createCrossChainOrder();
+        Order memory order = createCrossChainOrder();
         order.dstEid = localEid; // This would cause LayerZero NoPeer error
         bytes32 orderId = localAori.hash(order);
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
@@ -320,7 +321,7 @@ contract CancellationTests is TestUtils {
         vm.chainId(remoteEid);
         
         // Create order and set it to Cancelled status on destination chain
-        IAori.Order memory order = createCrossChainOrder();
+        Order memory order = createCrossChainOrder();
         bytes32 orderId = remoteAori.hash(order);
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
         
@@ -344,7 +345,7 @@ contract CancellationTests is TestUtils {
     function testDestChain_NonSolverBeforeExpiry() public {
         vm.chainId(remoteEid);
         
-        IAori.Order memory order = createCrossChainOrder();
+        Order memory order = createCrossChainOrder();
         bytes32 orderId = remoteAori.hash(order);
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
         
@@ -360,7 +361,7 @@ contract CancellationTests is TestUtils {
     function testDestChain_OffererAfterExpiry() public {
         vm.chainId(remoteEid);
         
-        IAori.Order memory order = createCrossChainOrder();
+        Order memory order = createCrossChainOrder();
         bytes32 orderId = remoteAori.hash(order);
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
         
@@ -376,7 +377,7 @@ contract CancellationTests is TestUtils {
         // Verify cancellation
         assertEq(
             uint8(remoteAori.orderStatus(orderId)),
-            uint8(IAori.OrderStatus.Cancelled),
+            uint8(OrderStatus.Cancelled),
             "Order should be cancelled"
         );
     }
@@ -387,7 +388,7 @@ contract CancellationTests is TestUtils {
     function testDestChain_RecipientAfterExpiry() public {
         vm.chainId(remoteEid);
         
-        IAori.Order memory order = createCrossChainOrder();
+        Order memory order = createCrossChainOrder();
         address recipient = makeAddr("recipient");
         order.recipient = recipient;
         bytes32 orderId = remoteAori.hash(order);
@@ -405,7 +406,7 @@ contract CancellationTests is TestUtils {
         // Verify cancellation
         assertEq(
             uint8(remoteAori.orderStatus(orderId)),
-            uint8(IAori.OrderStatus.Cancelled),
+            uint8(OrderStatus.Cancelled),
             "Order should be cancelled"
         );
     }
@@ -416,7 +417,7 @@ contract CancellationTests is TestUtils {
     function testDestChain_SolverAnytime() public {
         vm.chainId(remoteEid);
         
-        IAori.Order memory order = createCrossChainOrder();
+        Order memory order = createCrossChainOrder();
         bytes32 orderId = remoteAori.hash(order);
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
         
@@ -429,7 +430,7 @@ contract CancellationTests is TestUtils {
         // Verify cancellation
         assertEq(
             uint8(remoteAori.orderStatus(orderId)),
-            uint8(IAori.OrderStatus.Cancelled),
+            uint8(OrderStatus.Cancelled),
             "Order should be cancelled"
         );
     }
@@ -484,7 +485,7 @@ contract CancellationTests is TestUtils {
         
         // PHASE 1: Deposit on source chain
         vm.chainId(localEid);
-        IAori.Order memory order = createCrossChainOrder();
+        Order memory order = createCrossChainOrder();
         bytes memory signature = signOrder(order);
 
         vm.prank(userA);
@@ -521,7 +522,7 @@ contract CancellationTests is TestUtils {
         assertEq(inputToken.balanceOf(userA), initialUserBalance, "User should have tokens back");
         assertEq(
             uint8(localAori.orderStatus(orderHash)),
-            uint8(IAori.OrderStatus.Cancelled),
+            uint8(OrderStatus.Cancelled),
             "Order should be cancelled on source chain"
         );
     }
@@ -537,7 +538,7 @@ contract CancellationTests is TestUtils {
         vm.chainId(localEid);
         
         // Create and deposit order
-        IAori.Order memory order = createSingleChainOrder();
+        Order memory order = createSingleChainOrder();
         bytes memory signature = signOrder(order);
         
         vm.prank(userA);
@@ -566,7 +567,7 @@ contract CancellationTests is TestUtils {
         vm.prank(address(this));
         remoteAori.pause();
         
-        IAori.Order memory order = createCrossChainOrder();
+        Order memory order = createCrossChainOrder();
         bytes32 orderId = remoteAori.hash(order);
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
         
@@ -581,7 +582,7 @@ contract CancellationTests is TestUtils {
     function testContractState_TimeBoundaryExact() public {
         vm.chainId(localEid);
         
-        IAori.Order memory order = createSingleChainOrder();
+        Order memory order = createSingleChainOrder();
         bytes memory signature = signOrder(order);
         
         vm.prank(userA);
@@ -605,7 +606,7 @@ contract CancellationTests is TestUtils {
     function testContractState_TimeBoundaryAfter() public {
         vm.chainId(localEid);
         
-        IAori.Order memory order = createSingleChainOrder();
+        Order memory order = createSingleChainOrder();
         bytes memory signature = signOrder(order);
         
         vm.prank(userA);
@@ -624,7 +625,7 @@ contract CancellationTests is TestUtils {
         // Verify cancellation
         assertEq(
             uint8(localAori.orderStatus(orderId)),
-            uint8(IAori.OrderStatus.Cancelled),
+            uint8(OrderStatus.Cancelled),
             "Order should be cancelled"
         );
     }

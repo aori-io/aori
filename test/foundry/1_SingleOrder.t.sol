@@ -14,11 +14,12 @@ pragma solidity 0.8.28;
 import {Aori, IAori} from "../../contracts/Aori.sol";
 import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import {TestUtils} from "./TestUtils.sol";
+import {Order, OrderStatus, SrcHook, DstHook, Balance} from "../../contracts/types/AoriTypes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Test} from "forge-std/Test.sol";
 
 contract SingleOrderSuccessTest is TestUtils {
-    IAori.Order private order;
+    Order private order;
 
     function setUp() public override {
         super.setUp();

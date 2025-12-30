@@ -31,6 +31,7 @@ pragma solidity 0.8.28;
  */
 import "forge-std/Test.sol";
 import {Aori, IAori} from "../../contracts/Aori.sol";
+import {Order, OrderStatus, SrcHook, DstHook, Balance} from "../../contracts/types/AoriTypes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {OAppUpgradeable, Origin, MessagingFee} from "@layerzerolabs/oapp-evm-upgradeable/contracts/oapp/OAppUpgradeable.sol";
 import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
@@ -201,7 +202,7 @@ contract TestUtils is TestHelperOz5 {
      * @notice Creates a valid order for testing with unique parameters
      * @param salt Optional salt value to make orders unique when called multiple times in same block
      */
-    function createValidOrder(uint256 salt) public view returns (IAori.Order memory order) {
+    function createValidOrder(uint256 salt) public view returns (Order memory order) {
         // Use current timestamp for startTime to comply with contract requirements
         // Only endTime has an offset for testing
         uint256 endTimeOffset = 1 days;
@@ -214,7 +215,7 @@ contract TestUtils is TestHelperOz5 {
         uint256 inputAmount = 1e18 + (randomSeed % 1e17); // Between 1-1.1 ETH
         uint256 outputAmount = 2e18 + (randomSeed % 2e17); // Between 2-2.2 ETH
 
-        order = IAori.Order({
+        order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -231,7 +232,7 @@ contract TestUtils is TestHelperOz5 {
     /**
      * @notice Creates a valid order for testing with default salt value
      */
-    function createValidOrder() public view returns (IAori.Order memory) {
+    function createValidOrder() public view returns (Order memory) {
         return createValidOrder(0);
     }
 
@@ -249,8 +250,8 @@ contract TestUtils is TestHelperOz5 {
         uint256 _endTime,
         uint32 _srcEid,
         uint32 _dstEid
-    ) public pure returns (IAori.Order memory order) {
-        order = IAori.Order({
+    ) public pure returns (Order memory order) {
+        order = Order({
             offerer: _offerer,
             recipient: _recipient,
             inputToken: _inputToken,
@@ -267,14 +268,14 @@ contract TestUtils is TestHelperOz5 {
     /**
      * @notice Signs an order using EIP712
      */
-    function signOrder(IAori.Order memory order) public view returns (bytes memory) {
+    function signOrder(Order memory order) public view returns (bytes memory) {
         return signOrder(order, userAPrivKey);
     }
 
     /**
      * @notice Signs an order using EIP712 with a custom private key
      */
-    function signOrder(IAori.Order memory order, uint256 privKey) public view returns (bytes memory) {
+    function signOrder(Order memory order, uint256 privKey) public view returns (bytes memory) {
         bytes32 structHash = keccak256(
             abi.encode(
                 keccak256(
@@ -311,8 +312,8 @@ contract TestUtils is TestHelperOz5 {
      * @notice Creates default source solver data with hook conversion
      * @param inputAmount The amount of input tokens to use in the hook instructions (defaults to 1e18)
      */
-    function defaultSrcSolverData(uint256 inputAmount) public view returns (IAori.SrcHook memory) {
-        return IAori.SrcHook({
+    function defaultSrcSolverData(uint256 inputAmount) public view returns (SrcHook memory) {
+        return SrcHook({
             hookAddress: address(mockHook),
             preferredToken: address(convertedToken),
             minPreferedTokenAmountOut: 1500,
@@ -324,7 +325,7 @@ contract TestUtils is TestHelperOz5 {
     /**
      * @notice Creates default source solver data with hook conversion using default input amount
      */
-    function defaultSrcSolverData() public view returns (IAori.SrcHook memory) {
+    function defaultSrcSolverData() public view returns (SrcHook memory) {
         return defaultSrcSolverData(1e18);
     }
 
@@ -332,8 +333,8 @@ contract TestUtils is TestHelperOz5 {
      * @notice Creates default destination solver data with hook conversion
      * @param outputAmount The amount of output tokens for the hook instructions
      */
-    function defaultDstSolverData(uint256 outputAmount) public view returns (IAori.DstHook memory) {
-        return IAori.DstHook({
+    function defaultDstSolverData(uint256 outputAmount) public view returns (DstHook memory) {
+        return DstHook({
             hookAddress: address(mockHook),
             preferredToken: address(dstPreferredToken),
             instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(outputToken), outputAmount),
@@ -344,7 +345,7 @@ contract TestUtils is TestHelperOz5 {
     /**
      * @notice Creates default destination solver data with hook conversion using default output amount
      */
-    function defaultDstSolverData() public view returns (IAori.DstHook memory) {
+    function defaultDstSolverData() public view returns (DstHook memory) {
         return defaultDstSolverData(2e18);
     }
 

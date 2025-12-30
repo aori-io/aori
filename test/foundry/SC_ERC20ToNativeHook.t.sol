@@ -15,6 +15,7 @@ pragma solidity 0.8.28;
  */
 import {Aori, IAori} from "../../contracts/Aori.sol";
 import {TestUtils} from "./TestUtils.sol";
+import {Order, OrderStatus, SrcHook, DstHook, Balance} from "../../contracts/types/AoriTypes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
@@ -39,7 +40,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
     uint256 public solverSCPrivKey = 0xDEAD;
 
     // Order details
-    IAori.Order private order;
+    Order private order;
     MockHook2 private mockHook2;
 
     /**
@@ -139,7 +140,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         bytes memory signature = signOrder(order, userSCPrivKey);
 
         // Setup hook data for ERC20 → Native conversion
-        IAori.SrcHook memory srcHook = IAori.SrcHook({
+        SrcHook memory srcHook = SrcHook({
             hookAddress: address(mockHook2),
             preferredToken: NATIVE_TOKEN,        // Hook outputs native tokens
             minPreferedTokenAmountOut: OUTPUT_AMOUNT, // Minimum native tokens expected
@@ -188,7 +189,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         );
 
         // Verify order status is Settled (atomic settlement for single-chain with hook)
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
     }
 
     /**
@@ -268,7 +269,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         console.log("");
 
         // Verify final state
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
         
         // Verify no locked balances remain (atomic settlement)
         assertEq(localAori.getLockedBalances(userSC, address(inputToken)), 0, "User should have no locked balance after atomic settlement");
@@ -288,7 +289,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         assertEq(localAori.getLockedBalances(userSC, address(inputToken)), 0);
         
         // Order should be immediately settled
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
     }
 
     /**
@@ -339,7 +340,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         bytes memory signature = signOrder(order, userSCPrivKey);
         bytes32 expectedOrderId = localAori.hash(order);
 
-        IAori.SrcHook memory srcHook = IAori.SrcHook({
+        SrcHook memory srcHook = SrcHook({
             hookAddress: address(mockHook2),
             preferredToken: NATIVE_TOKEN,
             minPreferedTokenAmountOut: OUTPUT_AMOUNT,
@@ -389,7 +390,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         bytes memory signature = signOrder(order, userSCPrivKey);
 
         // Setup hook with insufficient output
-        IAori.SrcHook memory srcHook = IAori.SrcHook({
+        SrcHook memory srcHook = SrcHook({
             hookAddress: address(mockHook2),
             preferredToken: NATIVE_TOKEN,
             minPreferedTokenAmountOut: OUTPUT_AMOUNT,
@@ -434,7 +435,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
 
         bytes memory signature = signOrder(order, userSCPrivKey);
 
-        IAori.SrcHook memory srcHook = IAori.SrcHook({
+        SrcHook memory srcHook = SrcHook({
             hookAddress: address(mockHook2),
             preferredToken: NATIVE_TOKEN,
             minPreferedTokenAmountOut: customOutputAmount,
@@ -478,7 +479,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         
         // Verify order was settled atomically (not just filled)
         assertTrue(
-            localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Settled,
+            localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled,
             "Single-chain swap should be immediately settled"
         );
         
@@ -499,7 +500,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         // Execute first swap
         _createAndExecuteDepositWithHook();
         assertTrue(
-            localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Settled,
+            localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled,
             "First single-chain swap should be immediately settled"
         );
 
@@ -510,7 +511,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         
         vm.chainId(localEid);
         
-        IAori.Order memory order2 = createCustomOrder(
+        Order memory order2 = createCustomOrder(
             userSC,                      // offerer
             userSC,                      // recipient
             address(inputToken),         // inputToken (ERC20)
@@ -525,7 +526,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
 
         bytes memory signature2 = signOrder(order2, userSCPrivKey);
 
-        IAori.SrcHook memory srcHook2 = IAori.SrcHook({
+        SrcHook memory srcHook2 = SrcHook({
             hookAddress: address(mockHook2),
             preferredToken: NATIVE_TOKEN,
             minPreferedTokenAmountOut: customOutputAmount,
@@ -545,11 +546,11 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
 
         // Verify both orders were settled immediately
         assertTrue(
-            localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Settled,
+            localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled,
             "First order should be settled"
         );
         assertTrue(
-            localAori.orderStatus(localAori.hash(order2)) == IAori.OrderStatus.Settled,
+            localAori.orderStatus(localAori.hash(order2)) == OrderStatus.Settled,
             "Second order should be settled"
         );
         

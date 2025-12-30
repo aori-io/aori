@@ -18,6 +18,7 @@ pragma solidity 0.8.28;
  * manipulation during the settlement process. It ensures that filled orders are correctly
  * tracked, processed, and removed from the fills array after processing.
  */
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import { Aori, IAori } from "../../contracts/Aori.sol";
 import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import "./TestUtils.sol";
@@ -136,7 +137,7 @@ contract SettlementTests is TestUtils {
      */
     function testRevertSettleBeforeFill() public {
         // Create and deposit an order
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
         vm.prank(userA);
@@ -162,7 +163,7 @@ contract SettlementTests is TestUtils {
      */
     function testBasicSettlement() public {
         // Create and deposit an order
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrderWithContract(order, userAPrivKey, address(testLocalAori));
         bytes32 orderId = keccak256(abi.encode(order));
 
@@ -175,7 +176,7 @@ contract SettlementTests is TestUtils {
         // Verify order is active
         assertEq(
             uint8(testLocalAori.orderStatus(orderId)),
-            uint8(IAori.OrderStatus.Active),
+            uint8(OrderStatus.Active),
             "Order should be active after deposit"
         );
 
@@ -192,7 +193,7 @@ contract SettlementTests is TestUtils {
         // Verify order is filled
         assertEq(
             uint8(testRemoteAori.orderStatus(orderId)),
-            uint8(IAori.OrderStatus.Filled),
+            uint8(OrderStatus.Filled),
             "Order should be filled after fill operation"
         );
 
@@ -236,7 +237,7 @@ contract SettlementTests is TestUtils {
         vm.chainId(localEid);
         assertEq(
             uint8(testLocalAori.orderStatus(orderId)),
-            uint8(IAori.OrderStatus.Settled),
+            uint8(OrderStatus.Settled),
             "Order should be settled after settlement"
         );
     }
@@ -248,7 +249,7 @@ contract SettlementTests is TestUtils {
         // Create 5 orders and add them to the fills array
         vm.chainId(remoteEid);
 
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes32 orderId = keccak256(abi.encode(order));
 
         uint256 numOrders = 5;
@@ -280,7 +281,7 @@ contract SettlementTests is TestUtils {
         // Create MAX_FILLS_PER_SETTLE + 5 orders
         vm.chainId(remoteEid);
 
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes32 orderId = keccak256(abi.encode(order));
 
         uint256 totalOrders = MAX_FILLS_PER_SETTLE + 5;
@@ -312,7 +313,7 @@ contract SettlementTests is TestUtils {
         // Create MAX_FILLS_PER_SETTLE + 5 orders
         vm.chainId(remoteEid);
 
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes32 orderId = keccak256(abi.encode(order));
 
         uint256 totalOrders = MAX_FILLS_PER_SETTLE + 5;
@@ -349,7 +350,7 @@ contract SettlementTests is TestUtils {
      * This function is needed when testing with custom contract instances
      */
     function signOrderWithContract(
-        IAori.Order memory order,
+        Order memory order,
         uint256 privKey,
         address contractAddress
     ) internal pure returns (bytes memory) {
@@ -388,11 +389,11 @@ contract SettlementTests is TestUtils {
     /**
      * @notice Test the early return when trying to settle an inactive order
      * This tests line 613 in Aori.sol:
-     * if (orderStatus[orderId] != IAori.OrderStatus.Active) { return; }
+     * if (orderStatus[orderId] != OrderStatus.Active) { return; }
      */
     function testSettleOrderWithInactiveOrder() public {
         // Create an order to use for testing
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes32 orderId = keccak256(abi.encode(order));
 
         // Set up a settlement payload with the order hash
@@ -435,7 +436,7 @@ contract SettlementTests is TestUtils {
         // Verify order status didn't change
         assertEq(
             uint8(testLocalAori.orderStatus(orderId)),
-            uint8(IAori.OrderStatus.Unknown),
+            uint8(OrderStatus.Unknown),
             "Order status should remain Unknown"
         );
     }
@@ -450,7 +451,7 @@ contract SettlementTests is TestUtils {
         // and simulate balance operation failures
 
         // Set up the order and make it active
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes32 orderId = keccak256(abi.encode(order));
 
         // Create order and corrupt the balance state
@@ -469,7 +470,7 @@ contract SettlementTests is TestUtils {
 
         // Add a second order hash to the same account but with much higher amount
         // This will ensure that when we settle, the locked balance will be too low
-        IAori.Order memory largeOrder = createValidOrder();
+        Order memory largeOrder = createValidOrder();
         uint128 largeAmount = uint128(order.inputAmount) * 10; // Make it much larger
         largeOrder.inputAmount = largeAmount;
 
@@ -489,7 +490,7 @@ contract SettlementTests is TestUtils {
         vm.store(
             address(testLocalAori),
             keccak256(abi.encode(largeOrderId, uint256(keccak256("orderStatus")))),
-            bytes32(uint256(uint8(IAori.OrderStatus.Active)))
+            bytes32(uint256(uint8(OrderStatus.Active)))
         );
 
         // Store the large order in the orders mapping
@@ -547,7 +548,7 @@ contract SettlementTests is TestUtils {
         // The key thing we're testing is that the status didn't change to Settled (which would be 3)
         assertNotEq(
             actualStatus,
-            uint8(IAori.OrderStatus.Settled),
+            uint8(OrderStatus.Settled),
             "Order status should not be Settled"
         );
     }

@@ -32,6 +32,7 @@ pragma solidity 0.8.28;
  * empty payloads, maximum sizes, and invalid indices are thoroughly tested to ensure the 
  * protocol can handle all possible scenarios correctly.
  */
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import "forge-std/Test.sol";
 import "./TestUtils.sol";
 import "../../contracts/libraries/AoriUtils.sol";

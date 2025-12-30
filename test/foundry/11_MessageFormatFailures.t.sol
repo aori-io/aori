@@ -15,6 +15,7 @@ pragma solidity 0.8.28;
  * This test file focuses on edge cases and failure conditions related to the LayerZero cross-chain messaging
  * system used by Aori, including payload format violations, authorization issues, and fee-related failures.
  */
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import {IAori} from "../../contracts/interfaces/IAori.sol";
 import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
@@ -157,7 +158,7 @@ contract MessageFormatFailuresTest is TestUtils {
         vm.chainId(remoteEid);
 
         // Create a valid order and fill it
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
 
         // Warp to after the order start time
         vm.warp(order.startTime + 10);

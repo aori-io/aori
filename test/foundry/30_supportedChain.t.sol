@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import { TestUtils } from "./TestUtils.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import { MockERC20 } from "../Mock/MockERC20.sol";
 import { Aori, IAori } from "../../contracts/Aori.sol";
 import { OApp } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
@@ -74,7 +75,7 @@ contract SupportedChainTest is TestUtils {
      */
     function testDepositWithUnsupportedDestination() public {
         // Create an order to an unsupported chain
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             userA,                    // offerer
             userA,                    // recipient
             address(inputToken),      // inputToken 
@@ -110,7 +111,7 @@ contract SupportedChainTest is TestUtils {
         localAori.addSupportedChain(remoteEid);
         
         // Create a valid order using TestUtils helper
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         
         // Generate signature
         bytes memory signature = signOrder(order);
@@ -125,7 +126,7 @@ contract SupportedChainTest is TestUtils {
         
         // Verify order was created
         bytes32 orderId = localAori.hash(order);
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Active), "Order should be active");
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Active), "Order should be active");
     }
     
     /**

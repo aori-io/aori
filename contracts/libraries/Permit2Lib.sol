@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 import {ISignatureTransfer} from "@permit2/src/interfaces/ISignatureTransfer.sol";
-import {IAori} from "../interfaces/IAori.sol";
+import {Order} from "../types/AoriTypes.sol";
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                          PERMIT2                            */
@@ -47,7 +47,7 @@ library Permit2Lib {
      * @param order The order to hash
      * @return The keccak256 hash of the order following EIP-712 struct hashing
      */
-    function hashOrder(IAori.Order calldata order) internal pure returns (bytes32) {
+    function hashOrder(Order calldata order) internal pure returns (bytes32) {
         return keccak256(
             abi.encode(
                 ORDER_TYPEHASH,
@@ -72,7 +72,7 @@ library Permit2Lib {
      * @param deadline Signature expiration timestamp
      * @return permit The constructed PermitTransferFrom struct
      */
-    function buildPermit(IAori.Order calldata order, uint256 nonce, uint256 deadline)
+    function buildPermit(Order calldata order, uint256 nonce, uint256 deadline)
         internal
         pure
         returns (ISignatureTransfer.PermitTransferFrom memory permit)

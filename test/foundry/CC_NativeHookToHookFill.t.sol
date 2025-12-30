@@ -19,6 +19,7 @@ pragma solidity 0.8.28;
 import {Aori, IAori} from "../../contracts/Aori.sol";
 import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import {TestUtils} from "./TestUtils.sol";
+import {Order, OrderStatus, SrcHook, DstHook, Balance} from "../../contracts/types/AoriTypes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
@@ -49,7 +50,7 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
     uint256 public solverDestPrivKey = 0xBEEF;
 
     // Order details
-    IAori.Order private order;
+    Order private order;
     MockHook2 private srcMockHook;
     MockHook2 private dstMockHook;
 
@@ -185,8 +186,8 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
     /**
      * @notice Helper to create srcHook that converts native ETH to preferred token
      */
-    function _createSrcHook() internal view returns (IAori.SrcHook memory) {
-        return IAori.SrcHook({
+    function _createSrcHook() internal view returns (SrcHook memory) {
+        return SrcHook({
             hookAddress: address(srcMockHook),
             preferredToken: address(convertedToken),   // Hook outputs this ERC20
             minPreferedTokenAmountOut: MIN_SRC_PREFERRED_OUT,
@@ -202,8 +203,8 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
     /**
      * @notice Helper to create dstHook that converts preferred token to native ETH
      */
-    function _createDstHook() internal view returns (IAori.DstHook memory) {
-        return IAori.DstHook({
+    function _createDstHook() internal view returns (DstHook memory) {
+        return DstHook({
             hookAddress: address(dstMockHook),
             preferredToken: address(dstPreferredToken), // Solver's preferred ERC20 (input)
             instructions: abi.encodeWithSelector(
@@ -220,7 +221,7 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
      */
     function _depositNativeWithSrcHook() internal {
         _createOrder();
-        IAori.SrcHook memory srcHook = _createSrcHook();
+        SrcHook memory srcHook = _createSrcHook();
 
         vm.prank(userSource);
         localAori.depositNative{value: INPUT_AMOUNT}(order, srcHook);
@@ -233,7 +234,7 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
         vm.chainId(remoteEid);
         vm.warp(order.startTime + 1);
 
-        IAori.DstHook memory dstHook = _createDstHook();
+        DstHook memory dstHook = _createDstHook();
 
         // Approve solver's preferred tokens
         vm.prank(solverDest);
@@ -302,7 +303,7 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
         
         // Verify order status
         assertTrue(
-            localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Active,
+            localAori.orderStatus(localAori.hash(order)) == OrderStatus.Active,
             "Order should be Active"
         );
     }
@@ -339,7 +340,7 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
         
         // Verify order status
         assertTrue(
-            remoteAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Filled,
+            remoteAori.orderStatus(localAori.hash(order)) == OrderStatus.Filled,
             "Order should be Filled"
         );
     }
@@ -356,7 +357,7 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
         // Verify order status on source chain
         vm.chainId(localEid);
         assertTrue(
-            localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Settled,
+            localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled,
             "Order should be Settled"
         );
         
@@ -451,7 +452,7 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
         console.log("  srcHook conversion: 1 ETH -> 1500 converted tokens");
         console.log("");
         
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Active, "Order should be Active");
+        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Active, "Order should be Active");
 
         // === PHASE 2: FILL WITH DSTHOOK ===
         console.log("=== PHASE 2: SOLVER FILLS WITH DSTHOOK ===");
@@ -470,7 +471,7 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
         console.log("  User received: 1 ETH, Surplus to solver: 0.1 ETH");
         console.log("");
         
-        assertTrue(remoteAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Filled, "Order should be Filled");
+        assertTrue(remoteAori.orderStatus(localAori.hash(order)) == OrderStatus.Filled, "Order should be Filled");
 
         // === PHASE 3: SETTLEMENT ===
         console.log("=== PHASE 3: SETTLEMENT VIA LAYERZERO ===");
@@ -486,7 +487,7 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
         console.log("  Solver unlocked tokens:", afterSettleUnlockedTokens / 1e18, "tokens");
         console.log("");
         
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
 
         // === PHASE 4: WITHDRAWAL ===
         console.log("=== PHASE 4: SOLVER WITHDRAWS EARNED TOKENS ===");

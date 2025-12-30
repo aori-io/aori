@@ -14,6 +14,7 @@ pragma solidity 0.8.28;
  */
 import {Aori, IAori} from "../../contracts/Aori.sol";
 import {TestUtils} from "./TestUtils.sol";
+import {Order, OrderStatus, SrcHook, DstHook, Balance} from "../../contracts/types/AoriTypes.sol";
 import {MockHook} from "../Mock/MockHook.sol";
 import {MockERC20} from "../Mock/MockERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -75,8 +76,8 @@ contract SingleChainSwapTests is TestUtils {
         uint256 _inputAmount,
         address _outputToken,
         uint256 _outputAmount
-    ) internal view returns (IAori.Order memory) {
-        return IAori.Order({
+    ) internal view returns (Order memory) {
+        return Order({
             offerer: userA,
             recipient: _recipient,
             inputToken: _inputToken,
@@ -112,7 +113,7 @@ contract SingleChainSwapTests is TestUtils {
      */
     function testDepositThenFill() public {
         // Create order
-        IAori.Order memory order = createSingleChainOrder(
+        Order memory order = createSingleChainOrder(
             recipient,
             address(inputToken),
             INPUT_AMOUNT,
@@ -137,7 +138,7 @@ contract SingleChainSwapTests is TestUtils {
         localAori.deposit(order, signature);
         
         // Verify order status after deposit
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Active), "Order should be active after deposit");
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Active), "Order should be active after deposit");
         
         // Verify input tokens have been locked
         assertEq(inputToken.balanceOf(userA), initialInputTokenUserA - INPUT_AMOUNT, "UserA input token balance should decrease");
@@ -160,7 +161,7 @@ contract SingleChainSwapTests is TestUtils {
         localAori.fill(order);
         
         // Verify order status after fill
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Settled), "Order should be settled after fill");
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Settled), "Order should be settled after fill");
         
         // Verify token transfers - output should transfer exactly once
         assertEq(outputToken.balanceOf(solver), solverOutputTokenBeforeFill - OUTPUT_AMOUNT, "Solver output token balance should decrease");
@@ -176,7 +177,7 @@ contract SingleChainSwapTests is TestUtils {
      */
     function testDepositThenFillByDifferentSolver() public {
         // Create the order
-        IAori.Order memory order = createSingleChainOrder(
+        Order memory order = createSingleChainOrder(
             recipient,
             address(inputToken),
             INPUT_AMOUNT,
@@ -201,7 +202,7 @@ contract SingleChainSwapTests is TestUtils {
         localAori.deposit(order, signature);
         
         // Verify order status after deposit
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Active), "Order should be active after deposit");
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Active), "Order should be active after deposit");
         assertEq(localAori.getLockedBalances(userA, address(inputToken)), INPUT_AMOUNT, "Input tokens should be locked");
         
         // Step 2: Simulate secondary solver sourcing the output tokens from a liquidity source
@@ -221,7 +222,7 @@ contract SingleChainSwapTests is TestUtils {
         localAori.fill(order);
         
         // Verify order status after fill
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Settled), "Order should be settled after fill");
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Settled), "Order should be settled after fill");
         
         // Verify token transfers
         assertEq(inputToken.balanceOf(userA), initialInputTokenUserA - INPUT_AMOUNT, "UserA input token balance should decrease");
@@ -241,7 +242,7 @@ contract SingleChainSwapTests is TestUtils {
         uint256 initialUserBalance = inputToken.balanceOf(userA);
         
         // Create the order
-        IAori.Order memory order = createSingleChainOrder(
+        Order memory order = createSingleChainOrder(
             recipient,
             address(inputToken),
             INPUT_AMOUNT,
@@ -262,14 +263,14 @@ contract SingleChainSwapTests is TestUtils {
         localAori.deposit(order, signature);
         
         // Verify order status after deposit
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Active), "Order should be active after deposit");
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Active), "Order should be active after deposit");
         
         // Step 2: Cancel the order
         vm.prank(solver);
         localAori.cancel(orderId);
         
         // Verify order status after cancel
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Cancelled), "Order should be cancelled");
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Cancelled), "Order should be cancelled");
         
         // Verify input tokens have been transferred directly back to user
         uint256 finalUserBalance = inputToken.balanceOf(userA);
@@ -297,7 +298,7 @@ contract SingleChainSwapTests is TestUtils {
      */
     function testDepositThenFillWithDelay() public {
         // Create the order
-        IAori.Order memory order = createSingleChainOrder(
+        Order memory order = createSingleChainOrder(
             recipient,
             address(inputToken),
             INPUT_AMOUNT,
@@ -324,7 +325,7 @@ contract SingleChainSwapTests is TestUtils {
         localAori.deposit(order, signature);
         
         // Verify order status after deposit
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Active), "Order should be active after deposit");
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Active), "Order should be active after deposit");
         
         // Simulate time passing (4 hours) - This is the key part of this test
         // Simulating the solver finding the output tokens over time
@@ -346,7 +347,7 @@ contract SingleChainSwapTests is TestUtils {
         localAori.fill(order);
         
         // Verify order status after fill
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Settled), "Order should be settled after fill");
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Settled), "Order should be settled after fill");
         
         // Verify token transfers
         assertEq(inputToken.balanceOf(userA), initialInputTokenUserA - INPUT_AMOUNT, "UserA input token balance should decrease");
@@ -359,7 +360,7 @@ contract SingleChainSwapTests is TestUtils {
      */
     function testDepositThenFillAfterExpiry() public {
         // Create the order with short expiration time
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: recipient,
             inputToken: address(inputToken),
@@ -385,7 +386,7 @@ contract SingleChainSwapTests is TestUtils {
         localAori.deposit(order, signature);
         
         // Verify order status after deposit
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Active), "Order should be active after deposit");
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Active), "Order should be active after deposit");
         
         // Warp time past expiration
         vm.warp(block.timestamp + 2 hours);
@@ -400,7 +401,7 @@ contract SingleChainSwapTests is TestUtils {
         localAori.fill(order);
         
         // Order should still be active but expired
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Active), "Order should still be active until cancelled");
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Active), "Order should still be active until cancelled");
     }
     
     /**
@@ -412,7 +413,7 @@ contract SingleChainSwapTests is TestUtils {
         uint256 initialUserBalance = inputToken.balanceOf(userA);
         
         // Create the order with short expiration time
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: recipient,
             inputToken: address(inputToken),
@@ -438,7 +439,7 @@ contract SingleChainSwapTests is TestUtils {
         localAori.deposit(order, signature);
         
         // Verify order status after deposit
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Active), "Order should be active after deposit");
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Active), "Order should be active after deposit");
         assertEq(localAori.getLockedBalances(userA, address(inputToken)), INPUT_AMOUNT, "Input tokens should be locked");
         
         // Warp time past expiration
@@ -449,7 +450,7 @@ contract SingleChainSwapTests is TestUtils {
         localAori.cancel(orderId);
         
         // Verify order status after cancellation
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Cancelled), "Order should be cancelled");
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Cancelled), "Order should be cancelled");
         
         // Verify tokens are transferred directly back to the user
         assertEq(localAori.getLockedBalances(userA, address(inputToken)), 0, "No tokens should remain locked");
@@ -466,7 +467,7 @@ contract SingleChainSwapTests is TestUtils {
      */
     function testInsufficientFillAmount() public {
         // Create the order
-        IAori.Order memory order = createSingleChainOrder(
+        Order memory order = createSingleChainOrder(
             recipient,
             address(inputToken),
             INPUT_AMOUNT,
@@ -487,7 +488,7 @@ contract SingleChainSwapTests is TestUtils {
         localAori.deposit(order, signature);
         
         // Verify order status after deposit
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Active), "Order should be active after deposit");
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Active), "Order should be active after deposit");
         
         // Step 2: Prepare insufficient output tokens (less than required)
         uint256 insufficientAmount = OUTPUT_AMOUNT - 1;
@@ -502,7 +503,7 @@ contract SingleChainSwapTests is TestUtils {
         localAori.fill(order);
         
         // Order should still be active
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Active), "Order should still be active");
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Active), "Order should still be active");
     }
     
     /**
@@ -510,7 +511,7 @@ contract SingleChainSwapTests is TestUtils {
      */
     function testDepositThenMultipleFillAttempts() public {
         // Create the order
-        IAori.Order memory order = createSingleChainOrder(
+        Order memory order = createSingleChainOrder(
             recipient,
             address(inputToken),
             INPUT_AMOUNT,
@@ -531,7 +532,7 @@ contract SingleChainSwapTests is TestUtils {
         localAori.deposit(order, signature);
         
         // Verify order status after deposit
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Active), "Order should be active after deposit");
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Active), "Order should be active after deposit");
         
         // Step 2: First solver execution (should succeed)
         vm.startPrank(solver);
@@ -540,7 +541,7 @@ contract SingleChainSwapTests is TestUtils {
         vm.stopPrank();
         
         // Verify order status after first fill
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Settled), "Order should be settled after first fill");
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Settled), "Order should be settled after first fill");
         
         // Step 3: Second solver attempts to fill the same order (should fail)
         vm.startPrank(secondarySolver);
@@ -555,7 +556,7 @@ contract SingleChainSwapTests is TestUtils {
      */
     function testDepositThenFillWithExtraOutput() public {
         // Create the order
-        IAori.Order memory order = createSingleChainOrder(
+        Order memory order = createSingleChainOrder(
             recipient,
             address(inputToken),
             INPUT_AMOUNT,
@@ -623,7 +624,7 @@ contract SingleChainSwapTests is TestUtils {
         );
         
         // Create the order
-        IAori.Order memory order = createSingleChainOrder(
+        Order memory order = createSingleChainOrder(
             recipient,
             address(inputToken),
             INPUT_AMOUNT,
@@ -637,7 +638,7 @@ contract SingleChainSwapTests is TestUtils {
         inputToken.approve(address(localAori), type(uint256).max);
         
         // Create hook structure
-        IAori.SrcHook memory hook = IAori.SrcHook({
+        SrcHook memory hook = SrcHook({
             hookAddress: address(testHook),
             preferredToken: address(outputToken),
             minPreferedTokenAmountOut: OUTPUT_AMOUNT,
@@ -661,7 +662,7 @@ contract SingleChainSwapTests is TestUtils {
         assertEq(outputToken.balanceOf(recipient), initialRecipientBalance + OUTPUT_AMOUNT, "Output tokens should be sent exactly once");
         
         // Verify order status
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Settled), "Order should be settled immediately");
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Settled), "Order should be settled immediately");
         
         // In the hook path, solver does NOT receive credit for input tokens
         // since they went directly to the hook, not through the contract
@@ -683,7 +684,7 @@ contract SingleChainSwapTests is TestUtils {
         );
         
         // Create the order
-        IAori.Order memory order = createSingleChainOrder(
+        Order memory order = createSingleChainOrder(
             recipient,
             address(inputToken),
             INPUT_AMOUNT,
@@ -697,7 +698,7 @@ contract SingleChainSwapTests is TestUtils {
         inputToken.approve(address(localAori), type(uint256).max);
         
         // Create hook structure
-        IAori.SrcHook memory hook = IAori.SrcHook({
+        SrcHook memory hook = SrcHook({
             hookAddress: address(testHook),
             preferredToken: address(outputToken),
             minPreferedTokenAmountOut: OUTPUT_AMOUNT,
@@ -730,7 +731,7 @@ contract SingleChainSwapTests is TestUtils {
      */
     function testNoDoubleChargingInHookPath() public {
         // Create order
-        IAori.Order memory order = createSingleChainOrder(
+        Order memory order = createSingleChainOrder(
             recipient,
             address(inputToken),
             INPUT_AMOUNT,
@@ -744,7 +745,7 @@ contract SingleChainSwapTests is TestUtils {
             OUTPUT_AMOUNT
         );
         
-        IAori.SrcHook memory hook = IAori.SrcHook({
+        SrcHook memory hook = SrcHook({
             hookAddress: address(testHook),
             preferredToken: address(outputToken),
             minPreferedTokenAmountOut: OUTPUT_AMOUNT,
@@ -775,7 +776,7 @@ contract SingleChainSwapTests is TestUtils {
      */
     function testNoDoubleTransferInFillPath() public {
         // Create and deposit order first
-        IAori.Order memory order = createSingleChainOrder(
+        Order memory order = createSingleChainOrder(
             recipient,
             address(inputToken),
             INPUT_AMOUNT,
@@ -824,10 +825,10 @@ contract SingleChainSwapTests is TestUtils {
      */
     function testAllPathsConsistency() public {
         // Create two orders with slight differences
-        IAori.Order memory order1 = createSingleChainOrder(
+        Order memory order1 = createSingleChainOrder(
             recipient, address(inputToken), INPUT_AMOUNT, address(outputToken), OUTPUT_AMOUNT
         );
-        IAori.Order memory order2 = createSingleChainOrder(
+        Order memory order2 = createSingleChainOrder(
             recipient, address(inputToken), INPUT_AMOUNT + 1, address(outputToken), OUTPUT_AMOUNT
         );
         
@@ -848,7 +849,7 @@ contract SingleChainSwapTests is TestUtils {
         vm.stopPrank();
         
         // Setup hook for path 2
-        IAori.SrcHook memory hook = IAori.SrcHook({
+        SrcHook memory hook = SrcHook({
             hookAddress: address(testHook),
             preferredToken: address(outputToken),
             minPreferedTokenAmountOut: OUTPUT_AMOUNT,
@@ -883,8 +884,8 @@ contract SingleChainSwapTests is TestUtils {
         bytes32 id1 = localAori.hash(order1);
         bytes32 id2 = localAori.hash(order2);
         
-        assertEq(uint8(localAori.orderStatus(id1)), uint8(IAori.OrderStatus.Settled), "Order 1 should be settled");
-        assertEq(uint8(localAori.orderStatus(id2)), uint8(IAori.OrderStatus.Settled), "Order 2 should be settled");
+        assertEq(uint8(localAori.orderStatus(id1)), uint8(OrderStatus.Settled), "Order 1 should be settled");
+        assertEq(uint8(localAori.orderStatus(id2)), uint8(OrderStatus.Settled), "Order 2 should be settled");
     }
 
 

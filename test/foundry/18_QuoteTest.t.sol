@@ -22,6 +22,7 @@ pragma solidity 0.8.28;
  * - The tests create real orders and fills to generate authentic settlement payloads of varying sizes
  */
 import {TestUtils} from "./TestUtils.sol";
+import {Order, OrderStatus, SrcHook, DstHook, Balance} from "../../contracts/types/AoriTypes.sol";
 import {IAori} from "../../contracts/Aori.sol";
 import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 
@@ -36,8 +37,8 @@ contract QuoteTest is TestUtils {
     }
 
     /// @dev Helper to create and deposit orders
-    function createAndDepositOrder(uint256 index) internal returns (IAori.Order memory order, bytes32 orderHash) {
-        order = IAori.Order({
+    function createAndDepositOrder(uint256 index) internal returns (Order memory order, bytes32 orderHash) {
+        order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -104,7 +105,7 @@ contract QuoteTest is TestUtils {
 
         // Now deposit and fill multiple orders to test quotes with different payload sizes
         vm.chainId(localEid);
-        IAori.Order[] memory orders = new IAori.Order[](3);
+        Order[] memory orders = new Order[](3);
         bytes32[] memory orderHashes = new bytes32[](3);
 
         // Create and deposit multiple orders
@@ -174,7 +175,7 @@ contract QuoteTest is TestUtils {
 
             // Fill each order
             for (uint256 i = 0; i < numOrders; i++) {
-                IAori.Order memory order = IAori.Order({
+                Order memory order = Order({
                     offerer: userA,
                     recipient: userA,
                     inputToken: address(inputToken),
@@ -231,7 +232,7 @@ contract QuoteTest is TestUtils {
 
         // Create and fill a single order to get a settle quote
         vm.chainId(localEid);
-        (IAori.Order memory order,) = createAndDepositOrder(0);
+        (Order memory order,) = createAndDepositOrder(0);
 
         vm.chainId(remoteEid);
         vm.warp(order.startTime + 1);

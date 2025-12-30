@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import "./TestUtils.sol";
 import { ISignatureTransfer } from "@permit2/src/interfaces/ISignatureTransfer.sol";
 import { Permit2Lib } from "../../contracts/libraries/Permit2Lib.sol";
@@ -42,7 +43,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
      * @notice Signs a Permit2 transfer with Order as witness
      */
     function signPermit2Order(
-        IAori.Order memory order,
+        Order memory order,
         uint256 privKey,
         uint256 nonce,
         uint256 deadline
@@ -98,7 +99,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     function testDepositWithPermit2_Success() public {
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
 
         uint256 nonce = 0;
         uint256 deadline = block.timestamp + 1 hours;
@@ -117,7 +118,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
 
         // Check order is stored
         bytes32 orderId = localAori.hash(order);
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Active));
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Active));
 
         // Check locked balance
         assertEq(localAori.getLockedBalances(userA, address(inputToken)), order.inputAmount);
@@ -125,7 +126,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
 
     function testDepositWithPermit2_DifferentNonces() public {
         // First deposit
-        IAori.Order memory order1 = createValidOrder(1);
+        Order memory order1 = createValidOrder(1);
         uint256 deadline = block.timestamp + 1 hours;
 
         bytes memory sig1 = signPermit2Order(order1, userAPrivKey, 0, deadline);
@@ -133,14 +134,14 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
         localAori.depositWithPermit2(order1, 0, deadline, sig1);
 
         // Second deposit with different nonce
-        IAori.Order memory order2 = createValidOrder(2);
+        Order memory order2 = createValidOrder(2);
         bytes memory sig2 = signPermit2Order(order2, userAPrivKey, 1, deadline);
         vm.prank(solver);
         localAori.depositWithPermit2(order2, 1, deadline, sig2);
 
         // Both orders should be active
-        assertEq(uint8(localAori.orderStatus(localAori.hash(order1))), uint8(IAori.OrderStatus.Active));
-        assertEq(uint8(localAori.orderStatus(localAori.hash(order2))), uint8(IAori.OrderStatus.Active));
+        assertEq(uint8(localAori.orderStatus(localAori.hash(order1))), uint8(OrderStatus.Active));
+        assertEq(uint8(localAori.orderStatus(localAori.hash(order2))), uint8(OrderStatus.Active));
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -148,7 +149,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     function testDepositWithPermit2_ExpiredDeadline() public {
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
 
         uint256 nonce = 0;
         uint256 deadline = block.timestamp - 1; // Already expired
@@ -161,7 +162,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
     }
 
     function testDepositWithPermit2_ReusedNonce() public {
-        IAori.Order memory order1 = createValidOrder(1);
+        Order memory order1 = createValidOrder(1);
         uint256 nonce = 0;
         uint256 deadline = block.timestamp + 1 hours;
 
@@ -171,7 +172,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
         localAori.depositWithPermit2(order1, nonce, deadline, sig1);
 
         // Try to use same nonce again with different order
-        IAori.Order memory order2 = createValidOrder(2);
+        Order memory order2 = createValidOrder(2);
         bytes memory sig2 = signPermit2Order(order2, userAPrivKey, nonce, deadline);
 
         vm.prank(solver);
@@ -180,7 +181,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
     }
 
     function testDepositWithPermit2_WrongSigner() public {
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
 
         uint256 nonce = 0;
         uint256 deadline = block.timestamp + 1 hours;
@@ -195,7 +196,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
     }
 
     function testDepositWithPermit2_ModifiedOrder() public {
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
 
         uint256 nonce = 0;
         uint256 deadline = block.timestamp + 1 hours;
@@ -212,7 +213,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
     }
 
     function testDepositWithPermit2_OnlySolver() public {
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
 
         uint256 nonce = 0;
         uint256 deadline = block.timestamp + 1 hours;
@@ -226,7 +227,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
     }
 
     function testDepositWithPermit2_OrderAlreadyExists() public {
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
 
         uint256 deadline = block.timestamp + 1 hours;
 
@@ -243,7 +244,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
     }
 
     function testDepositWithPermit2_NativeTokenNotAllowed() public {
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         order.inputToken = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE; // Native token
 
         uint256 nonce = 0;
@@ -257,7 +258,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
     }
 
     function testDepositWithPermit2_UnsupportedDestinationChain() public {
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         order.dstEid = 999; // Unsupported chain
 
         uint256 nonce = 0;
@@ -275,8 +276,8 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     function testDepositWithPermit2_WithHook() public {
-        IAori.Order memory order = createValidOrder();
-        IAori.SrcHook memory hook = defaultSrcSolverData(order.inputAmount);
+        Order memory order = createValidOrder();
+        SrcHook memory hook = defaultSrcSolverData(order.inputAmount);
 
         uint256 nonce = 0;
         uint256 deadline = block.timestamp + 1 hours;
@@ -293,15 +294,15 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
 
         // Check order is stored
         bytes32 orderId = localAori.hash(order);
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Active));
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Active));
 
         // Check converted token is locked (hook converts input to convertedToken)
         assertGt(localAori.getLockedBalances(userA, address(convertedToken)), 0);
     }
 
     function testDepositWithPermit2_WithHook_UnallowedHook() public {
-        IAori.Order memory order = createValidOrder();
-        IAori.SrcHook memory hook = defaultSrcSolverData(order.inputAmount);
+        Order memory order = createValidOrder();
+        SrcHook memory hook = defaultSrcSolverData(order.inputAmount);
         hook.hookAddress = address(0x999); // Not whitelisted
 
         uint256 nonce = 0;

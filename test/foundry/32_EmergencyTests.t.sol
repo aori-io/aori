@@ -51,6 +51,7 @@ pragma solidity 0.8.28;
  * - State consistency: Contract remains functional after emergency operations
  * - Integration scenarios: Complex workflows and edge cases
  */
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import {IAori} from "../../contracts/interfaces/IAori.sol";
 import {Aori} from "../../contracts/Aori.sol";
 import "./TestUtils.sol";
@@ -83,7 +84,7 @@ contract EmergencyTests is TestUtils {
      */
     function testEmergencyCancelBasic() public {
         // Setup: Create and deposit order
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
         vm.prank(userA);
@@ -98,7 +99,7 @@ contract EmergencyTests is TestUtils {
         localAori.emergencyCancel(orderId, userA);
 
         // Verify results
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Cancelled), "Order should be cancelled");
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Cancelled), "Order should be cancelled");
         assertEq(localAori.getLockedBalances(userA, address(inputToken)), 0, "Locked balance should be zero");
         assertEq(inputToken.balanceOf(userA), userBalanceBefore + order.inputAmount, "User should receive tokens");
     }
@@ -108,7 +109,7 @@ contract EmergencyTests is TestUtils {
      */
     function testEmergencyCancelToCustomRecipient() public {
         // Setup order
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
         vm.prank(userA);
@@ -128,7 +129,7 @@ contract EmergencyTests is TestUtils {
             recipientBalanceBefore + order.inputAmount, 
             "Custom recipient should receive tokens"
         );
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Cancelled), "Order should be cancelled");
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Cancelled), "Order should be cancelled");
     }
 
     /**
@@ -136,7 +137,7 @@ contract EmergencyTests is TestUtils {
      */
     function testEmergencyCancelSourceChainValidation() public {
         // Setup order on source chain (should work)
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
         vm.prank(userA);
@@ -148,7 +149,7 @@ contract EmergencyTests is TestUtils {
 
         // Should work on source chain (order.srcEid == localEid)
         localAori.emergencyCancel(orderId, userA);
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Cancelled), "Should cancel on source chain");
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Cancelled), "Should cancel on source chain");
         
         // Note: Testing the negative case (wrong source chain) is complex because
         // we can't deposit an order with wrong srcEid due to validation.
@@ -160,7 +161,7 @@ contract EmergencyTests is TestUtils {
      */
     function testEmergencyCancelAccessControl() public {
         // Setup order
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
         vm.prank(userA);
@@ -177,7 +178,7 @@ contract EmergencyTests is TestUtils {
 
         // Owner should succeed
         localAori.emergencyCancel(orderId, userA);
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Cancelled), "Owner should be able to cancel");
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Cancelled), "Owner should be able to cancel");
     }
 
     /**
@@ -185,7 +186,7 @@ contract EmergencyTests is TestUtils {
      */
     function testEmergencyCancelInvalidParameters() public {
         // Setup order
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
         vm.prank(userA);
@@ -205,7 +206,7 @@ contract EmergencyTests is TestUtils {
      */
     function testEmergencyCancelInsufficientBalance() public {
         // Setup order
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
         vm.prank(userA);
@@ -234,7 +235,7 @@ contract EmergencyTests is TestUtils {
         localAori.emergencyCancel(fakeOrderId, userA);
 
         // Test with already cancelled order
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
         vm.prank(userA);
@@ -383,7 +384,7 @@ contract EmergencyTests is TestUtils {
      */
     function testEmergencyWithdrawFromLockedBalance() public {
         // Setup locked balance
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
         vm.prank(userA);
@@ -430,7 +431,7 @@ contract EmergencyTests is TestUtils {
      */
     function testEmergencyWithdrawFromUnlockedBalance() public {
         // Create unlocked balance via single-chain swap
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         order.srcEid = localEid;
         order.dstEid = localEid; // Single chain
         bytes memory signature = signOrder(order);
@@ -515,9 +516,9 @@ contract EmergencyTests is TestUtils {
      */
     function testEmergencyWithdrawAccountingConsistency() public {
         // Setup multiple orders for same user
-        IAori.Order memory order1 = createValidOrder();
+        Order memory order1 = createValidOrder();
         order1.inputAmount = uint128(100e18);
-        IAori.Order memory order2 = createValidOrder(1);
+        Order memory order2 = createValidOrder(1);
         order2.inputAmount = uint128(200e18);
 
         bytes memory sig1 = signOrder(order1);
@@ -551,7 +552,7 @@ contract EmergencyTests is TestUtils {
      */
     function testEmergencyWorkflowAfterWithdraw() public {
         // Setup order
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
         vm.prank(userA);
@@ -575,7 +576,7 @@ contract EmergencyTests is TestUtils {
         localAori.emergencyCancel(orderId, userA);
 
         // Verify order is still active but balance is gone
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Active), "Order should still be active");
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Active), "Order should still be active");
         assertEq(localAori.getLockedBalances(userA, address(inputToken)), 0, "Locked balance should be zero");
     }
 
@@ -584,7 +585,7 @@ contract EmergencyTests is TestUtils {
      */
     function testContractFunctionalityAfterEmergency() public {
         // Setup and perform emergency operations
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
         vm.prank(userA);
@@ -599,7 +600,7 @@ contract EmergencyTests is TestUtils {
 
         // Verify contract still works normally
         // 1. Can create new orders
-        IAori.Order memory newOrder = createValidOrder(1);
+        Order memory newOrder = createValidOrder(1);
         newOrder.srcEid = localEid;
         newOrder.dstEid = localEid;
         bytes memory newSig = signOrder(newOrder);
@@ -610,10 +611,10 @@ contract EmergencyTests is TestUtils {
         localAori.deposit(newOrder, newSig);
 
         bytes32 newOrderId = localAori.hash(newOrder);
-        assertEq(uint8(localAori.orderStatus(newOrderId)), uint8(IAori.OrderStatus.Active), "New order should be active");
+        assertEq(uint8(localAori.orderStatus(newOrderId)), uint8(OrderStatus.Active), "New order should be active");
 
         // 2. Can perform swaps
-        IAori.Order memory swapOrder = createValidOrder(2);
+        Order memory swapOrder = createValidOrder(2);
         swapOrder.srcEid = localEid;
         swapOrder.dstEid = localEid;
         bytes memory swapSig = signOrder(swapOrder);
@@ -629,7 +630,7 @@ contract EmergencyTests is TestUtils {
         localAori.fill(swapOrder);
 
         bytes32 swapOrderId = localAori.hash(swapOrder);
-        assertEq(uint8(localAori.orderStatus(swapOrderId)), uint8(IAori.OrderStatus.Settled), "Swap should be settled");
+        assertEq(uint8(localAori.orderStatus(swapOrderId)), uint8(OrderStatus.Settled), "Swap should be settled");
 
         // 3. Can withdraw unlocked balances
         uint256 unlockedBalance = localAori.getUnlockedBalances(solver, address(inputToken));

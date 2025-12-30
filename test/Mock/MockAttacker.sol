@@ -3,17 +3,18 @@ pragma solidity 0.8.28;
 
 import "../../contracts/interfaces/IAori.sol";
 import "../../contracts/Aori.sol";
+import {Order} from "../../contracts/types/AoriTypes.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract ReentrantAttacker {
     Aori public aori;
-    IAori.Order public targetOrder;
+    Order public targetOrder;
 
     constructor(address payable _aori) {
         aori = Aori(_aori);
     }
 
-    function setTargetOrder(IAori.Order memory _order) external {
+    function setTargetOrder(Order memory _order) external {
         targetOrder = _order;
     }
 
@@ -22,7 +23,7 @@ contract ReentrantAttacker {
         bytes memory signature = new bytes(65);
 
         // Create solver data
-        IAori.SrcHook memory data = IAori.SrcHook({
+        SrcHook memory data = SrcHook({
             hookAddress: address(this), // Use this contract as the hook
             preferredToken: address(0x1234), // Use a different token for conversion
             minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount

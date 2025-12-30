@@ -15,6 +15,7 @@ pragma solidity 0.8.28;
  */
 import {Aori, IAori} from "../../contracts/Aori.sol";
 import {TestUtils} from "./TestUtils.sol";
+import {Order, OrderStatus, SrcHook, DstHook, Balance} from "../../contracts/types/AoriTypes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
@@ -40,7 +41,7 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
     uint256 public solverSCPrivKey = 0xDEAD;
 
     // Order details
-    IAori.Order private order;
+    Order private order;
     MockHook2 private mockHook2;
 
     /**
@@ -178,7 +179,7 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
         vm.warp(order.startTime + 1); // Advance time so order has started
 
         // Setup hook data for Preferred ERC20 → Output ERC20 conversion
-        IAori.DstHook memory dstHook = IAori.DstHook({
+        DstHook memory dstHook = DstHook({
             hookAddress: address(mockHook2),
             preferredToken: address(dstPreferredToken),  // Solver's preferred ERC20 token (input to hook)
             instructions: abi.encodeWithSelector(
@@ -223,7 +224,7 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
         );
 
         // Verify order status is Active (waiting for fill)
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Active, "Order should be Active");
+        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Active, "Order should be Active");
     }
 
     /**
@@ -257,7 +258,7 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
         );
 
         // Verify order status is Settled (atomic settlement for single-chain)
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
     }
 
     /**
@@ -375,7 +376,7 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
         // Verify final state
         assertEq(localAori.getLockedBalances(userSC, NATIVE_TOKEN), 0, "User should have no locked balance after atomic settlement");
         assertEq(localAori.getUnlockedBalances(solverSC, NATIVE_TOKEN), INPUT_AMOUNT, "Solver should have unlocked native balance");
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
     }
 
     /**
@@ -477,7 +478,7 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
         
         // Verify order was settled atomically (not just filled)
         assertTrue(
-            localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Settled,
+            localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled,
             "Single-chain swap should be immediately settled"
         );
         
@@ -496,7 +497,7 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
         _createAndDepositNativeOrder();
         _fillOrderWithHook();
         assertTrue(
-            localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Settled,
+            localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled,
             "First single-chain swap should be immediately settled"
         );
 

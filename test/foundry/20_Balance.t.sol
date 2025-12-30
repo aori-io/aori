@@ -31,11 +31,13 @@ pragma solidity 0.8.28;
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import "../../contracts/libraries/AoriUtils.sol";
+import {Balance} from "../../contracts/types/AoriTypes.sol";
 
 /**
  * @notice Tests for the Balance utility struct which manages locked and unlocked token balances
  */
 contract BalanceUtilsTest is Test {
+    using BalanceUtils for Balance;
     Balance private balance;
 
     function setUp() public {

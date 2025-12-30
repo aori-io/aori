@@ -2,56 +2,9 @@
 pragma solidity 0.8.28;
 
 import { MessagingFee } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
+import { Order, OrderStatus, SrcHook, DstHook } from "../types/AoriTypes.sol";
 
 interface IAori {
-    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                           STATUS                           */
-    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-    enum OrderStatus {
-        Unknown, // Order not found
-        Active, // Order deposited but not filled
-        Filled, // Pending settlement
-        Cancelled, // Order cancelled
-        Settled // Order settled
-    }
-
-    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                             ORDER                          */
-    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-    struct Order {
-        uint128 inputAmount;
-        uint128 outputAmount;
-        address inputToken;
-        address outputToken;
-        uint32 startTime;
-        uint32 endTime;
-        uint32 srcEid;
-        uint32 dstEid;
-        address offerer;
-        address recipient;
-    }
-
-    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                            HOOKS                           */
-    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-    struct SrcHook {
-        address hookAddress;
-        address preferredToken;
-        uint256 minPreferedTokenAmountOut;
-        bytes instructions;
-        address solver;
-    }
-
-    struct DstHook {
-        address hookAddress;
-        address preferredToken;
-        bytes instructions;
-        uint256 preferedDstInputAmount;
-    }
-
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                          SRC EVENTS                        */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/

@@ -18,6 +18,7 @@ pragma solidity 0.8.28;
  * particularly the pause/unpause mechanisms and emergency fund recovery features.
  * The admin is set to the test contract itself to simplify testing of admin-only functions.
  */
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import {IAori} from "../../contracts/interfaces/IAori.sol";
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import "./TestUtils.sol";
@@ -87,10 +88,10 @@ contract PausedTests is TestUtils {
         localAori.pause();
 
         // Setup for deposit
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
-        IAori.SrcHook memory srcData = IAori.SrcHook({
+        SrcHook memory srcData = SrcHook({
             hookAddress: address(0),
             preferredToken: address(inputToken),
             minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount since no conversion
@@ -117,7 +118,7 @@ contract PausedTests is TestUtils {
         remoteAori.pause();
 
         // Setup for fill
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         order.dstEid = remoteEid;
         order.srcEid = localEid;
 
@@ -136,7 +137,7 @@ contract PausedTests is TestUtils {
         
         // First set up some balance for userA
         // Create a valid SINGLE-CHAIN order (not cross-chain)
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         order.dstEid = localEid; // Make it single-chain to allow source chain cancellation
         bytes memory signature = signOrder(order);
 
@@ -230,7 +231,7 @@ contract PausedTests is TestUtils {
      */
     function testEmergencyWithdrawFromUserBalance() public {
         // Setup: Create and deposit an order to establish user balance
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
         // Approve and deposit tokens
@@ -272,7 +273,7 @@ contract PausedTests is TestUtils {
      */
     function testEmergencyWithdrawFromUnlockedBalance() public {
         // Use a different approach - create unlocked balance directly using the swap function
-        IAori.Order memory swapOrder = createValidOrder();
+        Order memory swapOrder = createValidOrder();
         swapOrder.offerer = userA;
         swapOrder.srcEid = localEid;
         swapOrder.dstEid = localEid; // Single chain swap to avoid cross-chain restrictions
@@ -322,7 +323,7 @@ contract PausedTests is TestUtils {
      */
     function testEmergencyWithdrawFromUserBalanceOnlyAdmin() public {
         // Setup user balance first
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
         vm.prank(userA);

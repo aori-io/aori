@@ -9,6 +9,7 @@ import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import {MockERC20} from "../Mock/MockERC20.sol";
 import {TestUtils} from "./TestUtils.sol";
+import {Order, OrderStatus, SrcHook, DstHook, Balance} from "../../contracts/types/AoriTypes.sol";
 import "../../contracts/libraries/AoriUtils.sol";
 
 /**
@@ -20,17 +21,17 @@ contract GasReportTest is TestUtils {
     using OptionsBuilder for bytes;
 
     // Common order that will be used across tests
-    IAori.Order public commonOrder;
+    Order public commonOrder;
     bytes public commonSignature;
-    IAori.SrcHook public commonSrcData;
-    IAori.DstHook public commonDstData;
+    SrcHook public commonSrcData;
+    DstHook public commonDstData;
 
     function setUp() public override {
         // Use parent setUp for common infrastructure
         super.setUp();
 
         // Setup common order data
-        commonOrder = IAori.Order({
+        commonOrder = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -44,7 +45,7 @@ contract GasReportTest is TestUtils {
         });
 
         commonSignature = signOrder(commonOrder);
-        commonSrcData = IAori.SrcHook({
+        commonSrcData = SrcHook({
             hookAddress: address(0),
             preferredToken: address(inputToken),
             minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount since no conversion
@@ -52,7 +53,7 @@ contract GasReportTest is TestUtils {
             solver: solver
         });
 
-        commonDstData = IAori.DstHook({
+        commonDstData = DstHook({
             hookAddress: address(0),
             preferredToken: address(outputToken),
             instructions: "",

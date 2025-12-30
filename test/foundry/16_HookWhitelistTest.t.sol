@@ -23,6 +23,7 @@ pragma solidity 0.8.28;
  * - The whitelist management test demonstrates the dynamic nature of the whitelist
  */
 import {TestUtils} from "./TestUtils.sol";
+import {Order, OrderStatus, SrcHook, DstHook, Balance} from "../../contracts/types/AoriTypes.sol";
 import {MockHook} from "../Mock/MockHook.sol";
 import {IAori} from "../../contracts/Aori.sol";
 import "forge-std/console.sol";
@@ -54,7 +55,7 @@ contract HookWhitelistTest is TestUtils {
      */
     function testRevertDepositNonWhitelistedHook() public {
         vm.chainId(localEid);
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
         // Approve inputToken for deposit
@@ -62,7 +63,7 @@ contract HookWhitelistTest is TestUtils {
         inputToken.approve(address(localAori), order.inputAmount);
 
         // Create SrcSolverData with a non-whitelisted hook
-        IAori.SrcHook memory srcData = IAori.SrcHook({
+        SrcHook memory srcData = SrcHook({
             hookAddress: address(nonWhitelistedHook),
             preferredToken: address(convertedToken),
             minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
@@ -83,7 +84,7 @@ contract HookWhitelistTest is TestUtils {
      */
     function testDepositWithWhitelistedHook() public {
         vm.chainId(localEid);
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
         // Approve inputToken for deposit
@@ -91,7 +92,7 @@ contract HookWhitelistTest is TestUtils {
         inputToken.approve(address(localAori), order.inputAmount);
 
         // Create SrcSolverData with the whitelisted hook
-        IAori.SrcHook memory srcData = IAori.SrcHook({
+        SrcHook memory srcData = SrcHook({
             hookAddress: address(mockHook),
             preferredToken: address(convertedToken),
             minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
@@ -119,13 +120,13 @@ contract HookWhitelistTest is TestUtils {
     function testRevertFillNonWhitelistedHook() public {
         // First deposit with whitelisted hook
         vm.chainId(localEid);
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
 
-        IAori.SrcHook memory srcData = IAori.SrcHook({
+        SrcHook memory srcData = SrcHook({
             hookAddress: address(mockHook),
             preferredToken: address(convertedToken),
             minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
@@ -140,7 +141,7 @@ contract HookWhitelistTest is TestUtils {
         vm.chainId(remoteEid);
         vm.warp(order.startTime + 1);
 
-        IAori.DstHook memory dstData = IAori.DstHook({
+        DstHook memory dstData = DstHook({
             hookAddress: address(nonWhitelistedHook),
             preferredToken: address(outputToken),
             instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(outputToken), order.outputAmount),
@@ -164,13 +165,13 @@ contract HookWhitelistTest is TestUtils {
     function testFillWithWhitelistedHook() public {
         // First deposit with whitelisted hook
         vm.chainId(localEid);
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
 
-        IAori.SrcHook memory srcData = IAori.SrcHook({
+        SrcHook memory srcData = SrcHook({
             hookAddress: address(mockHook),
             preferredToken: address(convertedToken),
             minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
@@ -185,7 +186,7 @@ contract HookWhitelistTest is TestUtils {
         vm.chainId(remoteEid);
         vm.warp(order.startTime + 1);
 
-        IAori.DstHook memory dstData = IAori.DstHook({
+        DstHook memory dstData = DstHook({
             hookAddress: address(mockHook),
             preferredToken: address(outputToken),
             instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(outputToken), order.outputAmount),
@@ -223,13 +224,13 @@ contract HookWhitelistTest is TestUtils {
         assertEq(localAori.isAllowedHook(address(nonWhitelistedHook)), true, "Hook should be whitelisted after adding");
 
         // Now operations with this hook should work
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
 
-        IAori.SrcHook memory srcData = IAori.SrcHook({
+        SrcHook memory srcData = SrcHook({
             hookAddress: address(nonWhitelistedHook),
             preferredToken: address(convertedToken),
             minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
@@ -250,7 +251,7 @@ contract HookWhitelistTest is TestUtils {
         );
 
         // Create a unique second order
-        IAori.Order memory order2 = order;
+        Order memory order2 = order;
         order2.inputAmount = 2e18;
         order2.outputAmount = 4e18;
         order2.startTime = uint32(block.timestamp); // current timestamp

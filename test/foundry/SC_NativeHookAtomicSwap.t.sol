@@ -17,6 +17,7 @@ pragma solidity 0.8.28;
  */
 import {Aori, IAori} from "../../contracts/Aori.sol";
 import {TestUtils} from "./TestUtils.sol";
+import {Order, OrderStatus, SrcHook, DstHook, Balance} from "../../contracts/types/AoriTypes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
@@ -41,7 +42,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
     uint256 public solverSCPrivKey = 0xDEAD;
 
     // Order details
-    IAori.Order private order;
+    Order private order;
     MockHook2 private mockHook2;
 
     /**
@@ -138,8 +139,8 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
     /**
      * @notice Helper function to create srcHook configuration
      */
-    function _createSrcHook() internal view returns (IAori.SrcHook memory) {
-        return IAori.SrcHook({
+    function _createSrcHook() internal view returns (SrcHook memory) {
+        return SrcHook({
             hookAddress: address(mockHook2),
             preferredToken: address(outputToken),     // Hook outputs ERC20 tokens
             minPreferedTokenAmountOut: OUTPUT_AMOUNT, // Minimum tokens expected
@@ -157,7 +158,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
      */
     function _executeDepositNativeWithHook() internal {
         _createOrder();
-        IAori.SrcHook memory srcHook = _createSrcHook();
+        SrcHook memory srcHook = _createSrcHook();
 
         // User executes depositNative with srcHook
         vm.prank(userSC);
@@ -197,7 +198,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
 
         // Verify order status is Settled
         assertTrue(
-            localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Settled,
+            localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled,
             "Order should be Settled"
         );
     }
@@ -239,7 +240,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
         );
 
         // Setup srcHook with insufficient output
-        IAori.SrcHook memory srcHook = IAori.SrcHook({
+        SrcHook memory srcHook = SrcHook({
             hookAddress: address(mockHook2),
             preferredToken: address(outputToken),
             minPreferedTokenAmountOut: OUTPUT_AMOUNT,
@@ -264,7 +265,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
         
         bytes32 orderId = localAori.hash(order);
         assertTrue(
-            localAori.orderStatus(orderId) == IAori.OrderStatus.Settled,
+            localAori.orderStatus(orderId) == OrderStatus.Settled,
             "Single-chain swap should be immediately Settled"
         );
     }
@@ -320,7 +321,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
      */
     function testRevertNonOffererCannotDeposit() public {
         _createOrder();
-        IAori.SrcHook memory srcHook = _createSrcHook();
+        SrcHook memory srcHook = _createSrcHook();
 
         // Try to deposit as solver instead of user
         vm.deal(solverSC, 5 ether);
@@ -334,7 +335,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
      */
     function testRevertIncorrectNativeAmount() public {
         _createOrder();
-        IAori.SrcHook memory srcHook = _createSrcHook();
+        SrcHook memory srcHook = _createSrcHook();
 
         vm.prank(userSC);
         vm.expectRevert("Incorrect native amount");
@@ -361,7 +362,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
             localEid
         );
 
-        IAori.SrcHook memory srcHook = _createSrcHook();
+        SrcHook memory srcHook = _createSrcHook();
 
         vm.prank(userSC);
         vm.expectRevert("Order must specify native token");
@@ -378,7 +379,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
         
         address nonWhitelistedSolver = makeAddr("nonWhitelistedSolver");
         
-        IAori.SrcHook memory srcHook = IAori.SrcHook({
+        SrcHook memory srcHook = SrcHook({
             hookAddress: address(mockHook2),
             preferredToken: address(outputToken),
             minPreferedTokenAmountOut: OUTPUT_AMOUNT,
@@ -452,7 +453,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
         assertEq(address(mockHook2).balance, initialHookNative + INPUT_AMOUNT, "Hook received 1 ETH");
         assertEq(outputToken.balanceOf(address(mockHook2)), initialHookTokens - HOOK_OUTPUT, "Hook sent 1100 tokens");
         
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Settled, "Order is Settled");
+        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order is Settled");
         
         console.log("All assertions passed!");
     }

@@ -16,6 +16,7 @@ pragma solidity 0.8.28;
  * limiting features. Some tests use extreme token values to ensure the contract
  * can handle large amounts correctly.
  */
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import "./TestUtils.sol";
 import "../../contracts/libraries/AoriUtils.sol";
 import { Aori, IAori } from "../../contracts/Aori.sol";
@@ -117,7 +118,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
     /**
      * @dev Helper to hash an order
      */
-    function hash(IAori.Order memory order) internal pure returns (bytes32) {
+    function hash(Order memory order) internal pure returns (bytes32) {
         return keccak256(abi.encode(order));
     }
 
@@ -126,7 +127,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
      * Only whitelisted solvers can perform operations
      */
     function testWhitelistEnforcement() public {
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -196,7 +197,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         vm.chainId(localEid);
 
         // Create a single order for test simplicity
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -265,7 +266,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         vm.chainId(localEid);
 
         // Test zero input amount
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -338,7 +339,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
     function testInvalidSolverData() public {
         vm.chainId(localEid);
 
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -358,7 +359,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
 
         // Test non-whitelisted hook
         address nonWhitelistedHook = address(0x400);
-        IAori.SrcHook memory srcData = IAori.SrcHook({
+        SrcHook memory srcData = SrcHook({
             hookAddress: nonWhitelistedHook,
             preferredToken: address(inputToken),
             minPreferedTokenAmountOut: 1000,
@@ -404,7 +405,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
 
         vm.chainId(remoteEid);
 
-        IAori.DstHook memory dstData = IAori.DstHook({
+        DstHook memory dstData = DstHook({
             hookAddress: address(0x400), // Non-whitelisted hook
             preferredToken: address(outputToken),
             instructions: "",
@@ -439,7 +440,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         vm.chainId(localEid);
 
         // Create a valid order
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -475,7 +476,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         testLocalAori.deposit(order, signature);
 
         // Create a new order for the remote chain test
-        IAori.Order memory remoteOrder = IAori.Order({
+        Order memory remoteOrder = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -565,7 +566,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
      * This function is needed when testing with custom contract instances
      */
     function signOrderWithContract(
-        IAori.Order memory order,
+        Order memory order,
         uint256 privKey,
         address contractAddress
     ) internal pure returns (bytes memory) {

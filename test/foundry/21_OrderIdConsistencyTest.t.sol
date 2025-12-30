@@ -8,11 +8,12 @@ pragma solidity 0.8.28;
  * - The orderId emitted in events is consistent with the original hash of the order
  * - Any modifications to the stored order object do not affect the orderId throughout the order lifecycle
  */
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import {IAori} from "../../contracts/Aori.sol";
 import "./TestUtils.sol";
 
 contract OrderIdConsistencyTest is TestUtils {
-    IAori.Order internal order;
+    Order internal order;
     
     function setUp() public override {
         super.setUp();
@@ -38,7 +39,7 @@ contract OrderIdConsistencyTest is TestUtils {
         // Verify the order status is active with the expected orderId
         assertEq(
             uint8(localAori.orderStatus(expectedOrderId)),
-            uint8(IAori.OrderStatus.Active),
+            uint8(OrderStatus.Active),
             "Order should be marked Active"
         );
         

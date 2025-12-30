@@ -38,6 +38,7 @@ pragma solidity 0.8.28;
  *
  */
 
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import {Aori, IAori} from "../../contracts/Aori.sol";
 import {TestUtils} from "../foundry/TestUtils.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -88,7 +89,7 @@ contract WithdrawTests is TestUtils {
         // Solver will provide tokenForSolver and receive outputToken
         // After the swap, solver gets unlocked balance in outputToken (the input token)
         
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             userA,                    // offerer (regular user)
             userA,                    // recipient  
             address(outputToken),     // inputToken (what userA is giving)
@@ -366,7 +367,7 @@ contract WithdrawTests is TestUtils {
         
         // Create additional balance in a different token through another trade
         // userA trades inputToken for testTokenA, solver provides testTokenA
-        IAori.Order memory order = createCustomOrder(
+        Order memory order = createCustomOrder(
             userA,                    // offerer
             userA,                    // recipient  
             address(inputToken),      // inputToken

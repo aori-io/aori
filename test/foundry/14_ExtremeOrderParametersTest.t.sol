@@ -15,6 +15,7 @@ pragma solidity 0.8.28;
  * such as maximum/minimum token amounts and time windows, while maintaining proper whitelist enforcement.
  * These edge cases are important to test the robustness of the contract's validation logic.
  */
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import {IAori} from "../../contracts/interfaces/IAori.sol";
 import "./TestUtils.sol";
 
@@ -39,7 +40,7 @@ contract ExtremeOrderParametersTest is TestUtils {
      * while maintaining proper whitelist-based solver restrictions
      */
     function testMaxValueOrder() public {
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -88,7 +89,7 @@ contract ExtremeOrderParametersTest is TestUtils {
      * while maintaining proper whitelist-based solver restrictions
      */
     function testMinValueOrder() public {
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -132,7 +133,7 @@ contract ExtremeOrderParametersTest is TestUtils {
     function testShortDurationOrder() public {
         vm.warp(1000); // Set a starting time
 
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -173,7 +174,7 @@ contract ExtremeOrderParametersTest is TestUtils {
      * while maintaining proper whitelist-based solver restrictions
      */
     function testLongDurationOrder() public {
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -215,7 +216,7 @@ contract ExtremeOrderParametersTest is TestUtils {
      * removing a solver from the whitelist prevents it from performing operations
      */
     function testWhitelistEnforcement() public {
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),

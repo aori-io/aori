@@ -13,6 +13,7 @@ pragma solidity 0.8.28;
 import {Aori, IAori} from "../../contracts/Aori.sol";
 import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import {TestUtils} from "./TestUtils.sol";
+import {Order, OrderStatus, SrcHook, DstHook, Balance} from "../../contracts/types/AoriTypes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
@@ -37,7 +38,7 @@ contract CC_NativeToNativeNoHook is TestUtils {
     uint256 public solverDestPrivKey = 0xBEEF;
 
     // Order details
-    IAori.Order private order;
+    Order private order;
 
     /**
      * @notice Helper function to format wei amount to ETH string
@@ -186,7 +187,7 @@ contract CC_NativeToNativeNoHook is TestUtils {
         );
 
         // Verify order status
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Active, "Order should be Active");
+        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Active, "Order should be Active");
     }
 
     /**
@@ -220,7 +221,7 @@ contract CC_NativeToNativeNoHook is TestUtils {
         );
 
         // Verify order status
-        assertTrue(remoteAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Filled, "Order should be Filled");
+        assertTrue(remoteAori.orderStatus(localAori.hash(order)) == OrderStatus.Filled, "Order should be Filled");
     }
 
     /**
@@ -250,7 +251,7 @@ contract CC_NativeToNativeNoHook is TestUtils {
         );
 
         // Verify order status
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
 
         // Verify locked balance is cleared
         assertEq(
@@ -492,6 +493,6 @@ contract CC_NativeToNativeNoHook is TestUtils {
         assertEq(userDest.balance, initialUserBalance + OUTPUT_AMOUNT, "User should receive output amount");
         
         // Verify order status
-        assertTrue(remoteAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Filled, "Order should be Filled");
+        assertTrue(remoteAori.orderStatus(localAori.hash(order)) == OrderStatus.Filled, "Order should be Filled");
     }
 }

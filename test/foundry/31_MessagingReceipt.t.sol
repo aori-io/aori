@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import "forge-std/Test.sol";
 import {IAori} from "../../contracts/interfaces/IAori.sol";
 import {TestUtils} from "./TestUtils.sol";
+import {Order, OrderStatus, SrcHook, DstHook, Balance} from "../../contracts/types/AoriTypes.sol";
 import {MockERC20} from "../Mock/MockERC20.sol";
 import {MessagingReceipt, MessagingFee} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 
@@ -32,7 +33,7 @@ contract MessagingReceiptTest is TestUtils {
      */
     function testSettleSentReceiptInfo() public {
         // Create and deposit an order
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
         
         // Deposit the order on the source chain
@@ -101,7 +102,7 @@ contract MessagingReceiptTest is TestUtils {
      */
     function testCancelSentReceiptInfo() public {
         // Create and deposit an order
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
         bytes32 orderId = localAori.hash(order);
         
@@ -164,7 +165,7 @@ contract MessagingReceiptTest is TestUtils {
      */
     function testLocalCancelEmptyReceiptInfo() public {
         // Create and deposit a single-chain order (for local cancellation)
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         order.dstEid = order.srcEid; // Make it a single-chain order
         bytes memory signature = signOrder(order);
         bytes32 orderId = localAori.hash(order);

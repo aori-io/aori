@@ -16,6 +16,7 @@ pragma solidity 0.8.28;
  */
 import {Aori, IAori} from "../../contracts/Aori.sol";
 import {TestUtils} from "./TestUtils.sol";
+import {Order, OrderStatus, SrcHook, DstHook, Balance} from "../../contracts/types/AoriTypes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
@@ -41,7 +42,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
     uint256 public solverSCPrivKey = 0xDEAD;
 
     // Order details
-    IAori.Order private order;
+    Order private order;
     MockHook2 private mockHook2;
 
     /**
@@ -206,7 +207,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         console.log("");
 
         // Verify deposit worked correctly
-        assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Active, "Order should be Active after deposit");
+        assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active after deposit");
         assertEq(localAori.getLockedBalances(userSC, address(inputToken)), INPUT_AMOUNT, "User should have locked balance");
     }
 
@@ -217,7 +218,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         console.log("=== PHASE 2: SOLVER FILL WITH DSTHOOK ===");
 
         // Setup dstHook for native token conversion
-        IAori.DstHook memory dstHook = IAori.DstHook({
+        DstHook memory dstHook = DstHook({
             hookAddress: address(mockHook2),
             preferredToken: NATIVE_TOKEN,
             preferedDstInputAmount: DST_HOOK_INPUT,    // Solver provides 1.2 ETH
@@ -282,7 +283,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         // === FINAL ASSERTIONS ===
         
         // Order should be settled
-        assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(orderId) == OrderStatus.Settled, "Order should be Settled");
         
         // User should receive exact output amount
         assertEq(userSC.balance, OUTPUT_AMOUNT, "User should receive exact output amount");
@@ -347,7 +348,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         vm.chainId(localEid);
         
         // Create order with standard amounts (no need to vary input amount anymore)
-        IAori.Order memory testOrder = createCustomOrder(
+        Order memory testOrder = createCustomOrder(
             testUser,
             testUser,
             address(inputToken),
@@ -371,7 +372,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         localAori.deposit(testOrder, signature);
 
         // Phase 2: Fill with dstHook
-        IAori.DstHook memory dstHook = IAori.DstHook({
+        DstHook memory dstHook = DstHook({
             hookAddress: address(mockHook2),
             preferredToken: NATIVE_TOKEN,
             preferedDstInputAmount: hookInput,
@@ -404,7 +405,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         int256 expectedNetChange = int256(uint256(expectedSurplus)) - int256(uint256(hookInput));
         assertEq(solverNetChange, expectedNetChange, string(abi.encodePacked(scenarioName, ": Solver net change should be surplus minus input")));
         
-        assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Settled, string(abi.encodePacked(scenarioName, ": Order should be settled")));
+        assertTrue(localAori.orderStatus(orderId) == OrderStatus.Settled, string(abi.encodePacked(scenarioName, ": Order should be settled")));
         
         // Check that solver has unlocked tokens in the contract (should be exactly INPUT_AMOUNT)
         assertEq(localAori.getUnlockedBalances(testSolver, address(inputToken)), INPUT_AMOUNT, string(abi.encodePacked(scenarioName, ": Solver should have unlocked tokens")));
@@ -444,11 +445,11 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         localAori.deposit(order, signature);
 
         // Verify deposit state
-        assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Active, "Order should be Active after deposit");
+        assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active after deposit");
         assertEq(localAori.getLockedBalances(userSC, address(inputToken)), INPUT_AMOUNT, "User should have locked balance");
 
         // Phase 2: Solver fills with exact amount (no surplus)
-        IAori.DstHook memory dstHook = IAori.DstHook({
+        DstHook memory dstHook = DstHook({
             hookAddress: address(mockHook2),
             preferredToken: NATIVE_TOKEN,
             preferedDstInputAmount: OUTPUT_AMOUNT,  // Exact amount
@@ -466,7 +467,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         localAori.fill{value: OUTPUT_AMOUNT}(order, dstHook);
 
         // Verify final state
-        assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(orderId) == OrderStatus.Settled, "Order should be Settled");
         assertEq(userSC.balance, initialUserNative + OUTPUT_AMOUNT, "User should receive native tokens");
         assertEq(solverSC.balance, initialSolverNative - OUTPUT_AMOUNT, "Solver should pay for hook input");
         assertEq(localAori.getLockedBalances(userSC, address(inputToken)), 0, "User locked balance should be cleared");
@@ -490,7 +491,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         bytes32 orderId = localAori.hash(order);
 
         // Initial: Unknown
-        assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Unknown, "Order should start as Unknown");
+        assertTrue(localAori.orderStatus(orderId) == OrderStatus.Unknown, "Order should start as Unknown");
 
         // After deposit: Active
         vm.prank(userSC);
@@ -499,10 +500,10 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         vm.prank(solverSC);
         localAori.deposit(order, signature);
 
-        assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Active, "Order should be Active after deposit");
+        assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active after deposit");
 
         // After fill: Settled (single-chain atomic settlement)
-        IAori.DstHook memory dstHook = IAori.DstHook({
+        DstHook memory dstHook = DstHook({
             hookAddress: address(mockHook2),
             preferredToken: NATIVE_TOKEN,
             preferedDstInputAmount: OUTPUT_AMOUNT,
@@ -512,7 +513,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         vm.prank(solverSC);
         localAori.fill{value: OUTPUT_AMOUNT}(order, dstHook);
 
-        assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Settled, "Order should be Settled after fill");
+        assertTrue(localAori.orderStatus(orderId) == OrderStatus.Settled, "Order should be Settled after fill");
     }
 
     /**
@@ -541,8 +542,8 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         vm.prank(solverSC);
         localAori.deposit(order, signature);
 
-        // Phase 2: Fill should emit DstHookExecuted and Settle events
-        IAori.DstHook memory dstHook = IAori.DstHook({
+        // Phase 2: Fill should emit IAori.DstHookExecuted and Settle events
+        DstHook memory dstHook = DstHook({
             hookAddress: address(mockHook2),
             preferredToken: NATIVE_TOKEN,
             preferedDstInputAmount: DST_HOOK_INPUT,
@@ -582,7 +583,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         localAori.deposit(order, signature);
 
         // Try to fill with insufficient hook output
-        IAori.DstHook memory dstHook = IAori.DstHook({
+        DstHook memory dstHook = DstHook({
             hookAddress: address(mockHook2),
             preferredToken: NATIVE_TOKEN,
             preferedDstInputAmount: OUTPUT_AMOUNT,

@@ -18,6 +18,7 @@ pragma solidity 0.8.28;
  * solver whitelisting. It simulates cross-chain communication by using LayerZero's test helpers
  * and manually constructing the settlement and cancellation payloads.
  */
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import {IAori} from "../../contracts/Aori.sol";
 import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
@@ -49,7 +50,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         vm.chainId(localEid);
 
         // Create a valid order
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
 
         // Sign and deposit the order
         bytes memory signature = signOrder(order);
@@ -77,7 +78,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         vm.chainId(localEid);
 
         // Create a valid order
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
 
         // Sign and deposit the order
         bytes memory signature = signOrder(order);
@@ -163,7 +164,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         uint256 initialUserBalance = inputToken.balanceOf(userA);
 
         // Create a valid SINGLE-CHAIN order (not cross-chain)
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         order.dstEid = localEid; // Make it single-chain to allow source chain cancellation
 
         // Sign and deposit the order
@@ -209,7 +210,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         vm.chainId(localEid);
 
         // Create a valid SINGLE-CHAIN order (not cross-chain)
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         order.dstEid = localEid; // Make it single-chain to allow source chain cancellation
 
         // Sign and deposit the order
@@ -255,7 +256,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         vm.chainId(localEid);
 
         // Create a valid order
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
 
         // Sign and deposit the order
         bytes memory signature = signOrder(order);
@@ -290,7 +291,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         bytes32 orderHash = localAori.hash(order);
         // Add a check to verify the order state is actually Filled
         assertEq(
-            uint8(remoteAori.orderStatus(orderHash)), uint8(IAori.OrderStatus.Filled), "Order should be in filled state"
+            uint8(remoteAori.orderStatus(orderHash)), uint8(OrderStatus.Filled), "Order should be in filled state"
         );
         vm.expectRevert("Order not active");
         remoteAori.cancel(orderHash, order, defaultOptions());
@@ -303,7 +304,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         vm.chainId(localEid);
 
         // Create a valid order
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
 
         // Sign and deposit the order
         bytes memory signature = signOrder(order);
@@ -333,7 +334,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
 
         assertEq(
             uint8(remoteAori.orderStatus(orderHash)),
-            uint256(IAori.OrderStatus.Cancelled),
+            uint256(OrderStatus.Cancelled),
             "Order should be in cancelled state"
         );
 

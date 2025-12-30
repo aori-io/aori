@@ -18,6 +18,7 @@ pragma solidity 0.8.28;
  */
 import {Aori, IAori} from "../../contracts/Aori.sol";
 import {TestUtils} from "./TestUtils.sol";
+import {Order, OrderStatus, SrcHook, DstHook, Balance} from "../../contracts/types/AoriTypes.sol";
 import {MockHook} from "../Mock/MockHook.sol";
 import {MockERC20} from "../Mock/MockERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -65,8 +66,8 @@ contract SingleChainHookTest is TestUtils {
         address _outputToken,
         uint256 _outputAmount,
         address _hook
-    ) internal view returns (IAori.Order memory) {
-        return IAori.Order({
+    ) internal view returns (Order memory) {
+        return Order({
             offerer: userA, // Always use userA as offerer to match the signing key
             recipient: _recipient,
             inputToken: _inputToken,
@@ -106,7 +107,7 @@ contract SingleChainHookTest is TestUtils {
         );
         
         // Create the order
-        IAori.Order memory order = createSingleChainOrderWithHook(
+        Order memory order = createSingleChainOrderWithHook(
             recipient,
             address(inputToken),
             inputAmount,
@@ -132,7 +133,7 @@ contract SingleChainHookTest is TestUtils {
         outputToken.approve(address(localAori), type(uint256).max);
         
         // Create hook structure
-        IAori.SrcHook memory hook = IAori.SrcHook({
+        SrcHook memory hook = SrcHook({
             hookAddress: address(testHook),
             preferredToken: address(outputToken),
             minPreferedTokenAmountOut: uint256(outputAmount),
@@ -184,7 +185,7 @@ contract SingleChainHookTest is TestUtils {
         );
         
         // Create the order
-        IAori.Order memory order = createSingleChainOrderWithHook(
+        Order memory order = createSingleChainOrderWithHook(
             recipient,
             address(inputToken),
             inputAmount,
@@ -212,7 +213,7 @@ contract SingleChainHookTest is TestUtils {
         bytes32 orderId = localAori.hash(order);
         
         // Create hook structure
-        IAori.SrcHook memory hook = IAori.SrcHook({
+        SrcHook memory hook = SrcHook({
             hookAddress: address(testHook),
             preferredToken: address(outputToken),
             minPreferedTokenAmountOut: uint256(outputAmount),
@@ -256,7 +257,7 @@ contract SingleChainHookTest is TestUtils {
      */
     function testSingleChainDepositWithHookCancel() public {
         // Create a SINGLE-CHAIN order to allow source chain cancellation
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: recipient,
             inputToken: address(inputToken),
@@ -286,7 +287,7 @@ contract SingleChainHookTest is TestUtils {
         inputToken.approve(address(localAori), type(uint256).max);
         
         // Create hook structure
-        IAori.SrcHook memory hook = IAori.SrcHook({
+        SrcHook memory hook = SrcHook({
             hookAddress: address(testHook),
             preferredToken: address(outputToken), // For single-chain, this should be output token
             minPreferedTokenAmountOut: uint256(outputAmount),
@@ -301,7 +302,7 @@ contract SingleChainHookTest is TestUtils {
         
         // For single-chain swaps with hooks, the order is immediately settled, not active
         // So we can't test cancellation in this scenario since the order is already settled
-        assertEq(uint8(localAori.orderStatus(orderId)), uint8(IAori.OrderStatus.Settled), "Single-chain swap with hook should be immediately settled");
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Settled), "Single-chain swap with hook should be immediately settled");
         
         // Verify that the recipient received the output tokens
         assertEq(outputToken.balanceOf(recipient), outputAmount, "Recipient should receive output tokens");
@@ -327,7 +328,7 @@ contract SingleChainHookTest is TestUtils {
         );
         
         // Create the order
-        IAori.Order memory order = createSingleChainOrderWithHook(
+        Order memory order = createSingleChainOrderWithHook(
             recipient,
             address(inputToken),
             inputAmount,
@@ -344,7 +345,7 @@ contract SingleChainHookTest is TestUtils {
         inputToken.approve(address(localAori), type(uint256).max);
         
         // Create hook structure
-        IAori.SrcHook memory hook = IAori.SrcHook({
+        SrcHook memory hook = SrcHook({
             hookAddress: address(mockFailingHook),
             preferredToken: address(outputToken),
             minPreferedTokenAmountOut: uint256(outputAmount),
@@ -372,7 +373,7 @@ contract SingleChainHookTest is TestUtils {
         );
         
         // Create the order
-        IAori.Order memory order = createSingleChainOrderWithHook(
+        Order memory order = createSingleChainOrderWithHook(
             recipient,
             address(inputToken),
             inputAmount,
@@ -392,7 +393,7 @@ contract SingleChainHookTest is TestUtils {
         inputToken.approve(address(localAori), type(uint256).max);
         
         // Create hook structure
-        IAori.SrcHook memory hook = IAori.SrcHook({
+        SrcHook memory hook = SrcHook({
             hookAddress: address(nonWhitelistedHook),
             preferredToken: address(outputToken),
             minPreferedTokenAmountOut: uint256(outputAmount),
@@ -420,7 +421,7 @@ contract SingleChainHookTest is TestUtils {
         );
         
         // Create the order
-        IAori.Order memory order = createSingleChainOrderWithHook(
+        Order memory order = createSingleChainOrderWithHook(
             recipient,
             address(inputToken),
             inputAmount,
@@ -440,7 +441,7 @@ contract SingleChainHookTest is TestUtils {
         inputToken.approve(address(localAori), type(uint256).max);
         
         // Create hook structure
-        IAori.SrcHook memory hook = IAori.SrcHook({
+        SrcHook memory hook = SrcHook({
             hookAddress: address(testHook),
             preferredToken: address(outputToken),
             minPreferedTokenAmountOut: uint256(outputAmount),

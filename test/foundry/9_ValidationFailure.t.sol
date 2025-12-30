@@ -17,6 +17,7 @@ pragma solidity 0.8.28;
  * This test file focuses specifically on validation failures in the fill function of the Aori contract,
  * testing various edge cases and invalid input conditions.
  */
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import {IAori} from "../../contracts/interfaces/IAori.sol";
 import {FailingHook} from "../Mock/FailHook.sol";
 import "./TestUtils.sol";
@@ -45,7 +46,7 @@ contract ValidationFailuresTest is TestUtils {
     function testRevertFillZeroOutputAmount() public {
         vm.chainId(remoteEid);
 
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         // Make sure the order can pass time validation by setting it to active
         vm.warp(order.startTime + 1);
         order.outputAmount = 0; // Invalid output amount
@@ -64,7 +65,7 @@ contract ValidationFailuresTest is TestUtils {
     function testRevertFillZeroInputAmount() public {
         vm.chainId(remoteEid);
 
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         // Make sure the order can pass time validation by setting it to active
         vm.warp(order.startTime + 1);
         order.inputAmount = 0; // Invalid input amount
@@ -83,7 +84,7 @@ contract ValidationFailuresTest is TestUtils {
     function testRevertFillInvalidChainID() public {
         vm.chainId(remoteEid);
 
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         // Make sure the order can pass time validation by setting it to active
         vm.warp(order.startTime + 1);
         order.dstEid = 999; // Wrong destination EID
@@ -103,7 +104,7 @@ contract ValidationFailuresTest is TestUtils {
         vm.chainId(remoteEid);
 
         // Create order and remove solver from whitelist
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         remoteAori.removeAllowedSolver(solver);
 
         // Set time to after order start
@@ -126,7 +127,7 @@ contract ValidationFailuresTest is TestUtils {
     function testRevertFillDeadlineCheck() public {
         vm.chainId(remoteEid);
 
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
 
         // Warp to after the deadline
         vm.warp(order.endTime + 1);
@@ -145,7 +146,7 @@ contract ValidationFailuresTest is TestUtils {
     function testRevertFillBeforeStart() public {
         vm.chainId(remoteEid);
 
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
 
         // Current time is before order.startTime
         vm.warp(order.startTime - 1);
@@ -164,7 +165,7 @@ contract ValidationFailuresTest is TestUtils {
     function testRevertFillDuplicate() public {
         vm.chainId(remoteEid);
 
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         vm.warp(order.startTime + 1);
 
         // Approve and fill the order
@@ -182,7 +183,7 @@ contract ValidationFailuresTest is TestUtils {
         // Verify order status
         bytes32 orderHash = remoteAori.hash(order);
         assertEq(
-            uint8(remoteAori.orderStatus(orderHash)), uint8(IAori.OrderStatus.Filled), "Order should be in filled state"
+            uint8(remoteAori.orderStatus(orderHash)), uint8(OrderStatus.Filled), "Order should be in filled state"
         );
     }
 
@@ -192,10 +193,10 @@ contract ValidationFailuresTest is TestUtils {
     function testRevertFillWithFailingHook() public {
         vm.chainId(remoteEid);
 
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         vm.warp(order.startTime + 1);
 
-        IAori.DstHook memory dstData = IAori.DstHook({
+        DstHook memory dstData = DstHook({
             hookAddress: address(failingHook),
             preferredToken: address(outputToken),
             instructions: abi.encodeWithSelector(FailingHook.alwaysFail.selector),

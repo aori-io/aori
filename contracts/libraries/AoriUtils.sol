@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SignatureCheckerLib } from "solady/src/utils/SignatureCheckerLib.sol";
-import { IAori } from "../interfaces/IAori.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../types/AoriTypes.sol";
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                          VALIDATION                        */
@@ -20,7 +20,7 @@ library ValidationUtils {
      * @dev Checks offerer, recipient, time bounds, amounts, and token addresses
      * @param order The order to validate
      */
-    function validateCommonOrderParams(IAori.Order calldata order) internal view {
+    function validateCommonOrderParams(Order calldata order) internal view {
         require(order.offerer != address(0), "Invalid offerer");
         require(order.recipient != address(0), "Invalid recipient");
         require(order.startTime < order.endTime, "Invalid end time");
@@ -43,15 +43,15 @@ library ValidationUtils {
      * @return orderId The calculated order hash
      */
     function validateDeposit(
-        IAori.Order calldata order,
+        Order calldata order,
         bytes calldata signature,
         bytes32 digest,
         uint32 endpointId,
-        function(bytes32) external view returns (IAori.OrderStatus) orderStatus,
+        function(bytes32) external view returns (OrderStatus) orderStatus,
         function(uint32) external view returns (bool) isSupportedChain
     ) internal view returns (bytes32 orderId) {
         orderId = keccak256(abi.encode(order));
-        require(orderStatus(orderId) == IAori.OrderStatus.Unknown, "Order already exists");
+        require(orderStatus(orderId) == OrderStatus.Unknown, "Order already exists");
         require(isSupportedChain(order.dstEid), "Destination chain not supported");
 
 
@@ -79,9 +79,9 @@ library ValidationUtils {
      * @return orderId The calculated order hash
      */
     function validateFill(
-        IAori.Order calldata order,
+        Order calldata order,
         uint32 endpointId,
-        function(bytes32) external view returns (IAori.OrderStatus) orderStatus
+        function(bytes32) external view returns (OrderStatus) orderStatus
     ) internal view returns (bytes32 orderId) {
         // Order parameter validation
         validateCommonOrderParams(order);
@@ -92,10 +92,10 @@ library ValidationUtils {
         // Different validation based on whether it's a single-chain or cross-chain swap
         if (order.srcEid == order.dstEid) {
             // For single-chain swaps, the order should already be Active
-            require(orderStatus(orderId) == IAori.OrderStatus.Active, "Order not active");
+            require(orderStatus(orderId) == OrderStatus.Active, "Order not active");
         } else {
             // For cross-chain swaps, the order should be Unknown on the destination chain
-            require(orderStatus(orderId) == IAori.OrderStatus.Unknown, "Order not active");
+            require(orderStatus(orderId) == OrderStatus.Unknown, "Order not active");
         }
     }
 
@@ -110,15 +110,15 @@ library ValidationUtils {
      * @param isAllowedSolver A function to check if an address is a whitelisted solver
      */
     function validateCancel(
-        IAori.Order calldata order,
+        Order calldata order,
         bytes32 orderId,
         uint32 endpointId,
-        function(bytes32) external view returns (IAori.OrderStatus) orderStatus,
+        function(bytes32) external view returns (OrderStatus) orderStatus,
         address sender,
         function(address) external view returns (bool) isAllowedSolver
     ) internal view {
         require(order.dstEid == endpointId, "Not on destination chain");
-        require(orderStatus(orderId) == IAori.OrderStatus.Unknown, "Order not active");
+        require(orderStatus(orderId) == OrderStatus.Unknown, "Order not active");
         require(
             (isAllowedSolver(sender)) ||
                 (sender == order.offerer && block.timestamp > order.endTime) ||
@@ -138,10 +138,10 @@ library ValidationUtils {
      * @param isAllowedSolver The function to check if an address is a whitelisted solver
      */
     function validateSourceChainCancel(
-        IAori.Order memory order,
+        Order memory order,
         bytes32 orderId,
         uint32 endpointId,
-        function(bytes32) external view returns (IAori.OrderStatus) orderStatus,
+        function(bytes32) external view returns (OrderStatus) orderStatus,
         address sender,
         function(address) external view returns (bool) isAllowedSolver
     ) internal view {
@@ -149,7 +149,7 @@ library ValidationUtils {
         require(order.srcEid == endpointId, "Not on source chain");
         
         // Verify order exists and is active
-        require(orderStatus(orderId) == IAori.OrderStatus.Active, "Order not active");
+        require(orderStatus(orderId) == OrderStatus.Active, "Order not active");
         
         // Cross-chain orders cannot be cancelled from the source chain to prevent race conditions
         // with settlement messages. Use emergencyCancel for emergency situations.
@@ -168,7 +168,7 @@ library ValidationUtils {
      * @param order The order to check
      * @return True if the order is a single-chain swap
      */
-    function isSingleChainSwap(IAori.Order calldata order) internal pure returns (bool) {
+    function isSingleChainSwap(Order calldata order) internal pure returns (bool) {
         return order.srcEid == order.dstEid;
     }
 }
@@ -176,17 +176,6 @@ library ValidationUtils {
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                         BALANCE                           */
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-/**
- * @notice Balance struct for tracking locked and unlocked token amounts
- * @dev Uses uint128 for both values to pack them into a single storage slot
- */
-struct Balance {
-    uint128 locked; // Tokens locked in active orders
-    uint128 unlocked; // Tokens available for withdrawal
-}
-
-using BalanceUtils for Balance global;
 
 /**
  * @notice Utility library for managing token balances
@@ -211,14 +200,14 @@ library BalanceUtils {
      * @param amount The amount to unlock
      */
     function unlock(Balance storage balance, uint128 amount) internal {
-        (uint128 locked, uint128 unlocked) = balance.loadBalance();
+        (uint128 locked, uint128 unlocked) = loadBalance(balance);
         require(locked >= amount, "Insufficient locked balance");
         unchecked {
             locked -= amount;
         }
         unlocked += amount;
 
-        balance.storeBalance(locked, unlocked);
+        storeBalance(balance, locked, unlocked);
     }
 
     /**
@@ -272,12 +261,12 @@ library BalanceUtils {
      * @return amount The amount that was unlocked
      */
     function unlockAll(Balance storage balance) internal returns (uint128 amount) {
-        (uint128 locked, uint128 unlocked) = balance.loadBalance();
+        (uint128 locked, uint128 unlocked) = loadBalance(balance);
         amount = locked;
         unlocked += amount;
         locked = 0;
 
-        balance.storeBalance(locked, unlocked);
+        storeBalance(balance, locked, unlocked);
     }
 
     /**
@@ -442,7 +431,7 @@ library HookUtils {
      * @param isAllowedSolver Function to check solver whitelist
      */
     function validateSrcHook(
-        IAori.SrcHook calldata hook,
+        SrcHook calldata hook,
         function(address) external view returns (bool) isAllowedHook,
         function(address) external view returns (bool) isAllowedSolver
     ) internal view {
@@ -458,7 +447,7 @@ library HookUtils {
      * @param isAllowedHook Function to check hook whitelist
      */
     function validateDstHook(
-        IAori.DstHook calldata hook,
+        DstHook calldata hook,
         function(address) external view returns (bool) isAllowedHook
     ) internal view {
         require(hook.hookAddress != address(0), "Missing hook");

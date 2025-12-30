@@ -11,6 +11,7 @@ import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils
 import { EIP712 } from "solady/src/utils/EIP712.sol";
 import { ECDSA } from "solady/src/utils/ECDSA.sol";
 import { IAori } from "./interfaces/IAori.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "./types/AoriTypes.sol";
 import "./libraries/AoriUtils.sol";
 import { ISignatureTransfer } from "@permit2/src/interfaces/ISignatureTransfer.sol";
 import { Permit2Lib } from "./libraries/Permit2Lib.sol";
@@ -50,7 +51,7 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
     using HookUtils for DstHook;
     using SafeERC20 for IERC20;
     using BalanceUtils for Balance;
-    using ValidationUtils for IAori.Order;
+    using ValidationUtils for Order;
     using NativeTokenUtils for address;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -65,7 +66,7 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
         mapping(uint32 => bool) isSupportedChain;
         // DST STATE
         uint16 maxFillsPerSettle;
-        mapping(bytes32 => IAori.OrderStatus) orderStatus;
+        mapping(bytes32 => OrderStatus) orderStatus;
         mapping(address => bool) isAllowedHook;
         mapping(address => bool) isAllowedSolver;
         mapping(uint32 => mapping(address => bytes32[])) srcEidToFillerFills;
@@ -166,7 +167,7 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
         return _getAoriStorage().maxFillsPerSettle;
     }
 
-    function orderStatus(bytes32 orderId) public view returns (IAori.OrderStatus) {
+    function orderStatus(bytes32 orderId) public view returns (OrderStatus) {
         return _getAoriStorage().orderStatus[orderId];
     }
 
@@ -299,7 +300,7 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
     */
     function emergencyCancel(bytes32 orderId, address recipient) external onlyOwner {
         AoriStorage storage $ = _getAoriStorage();
-        require($.orderStatus[orderId] == IAori.OrderStatus.Active, "Can only cancel active orders");
+        require($.orderStatus[orderId] == OrderStatus.Active, "Can only cancel active orders");
         require(recipient != address(0), "Invalid recipient address");
         Order memory order = $.orders[orderId];
         require(order.srcEid == ENDPOINT_ID, "Emergency cancel only allowed on source chain");
@@ -307,7 +308,7 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
         uint128 amountToReturn = order.inputAmount;
         // Validate sufficient balance
         tokenAddress.validateSufficientBalance(amountToReturn);
-        $.orderStatus[orderId] = IAori.OrderStatus.Cancelled;
+        $.orderStatus[orderId] = OrderStatus.Cancelled;
         bool success = $.balances[order.offerer][tokenAddress].decreaseLockedNoRevert(amountToReturn);
         require(success, "Failed to decrease locked balance");
 
@@ -446,7 +447,7 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
             // Single-chain: immediate settlement (tokens already transferred to recipient)
             AoriStorage storage $ = _getAoriStorage();
             $.orders[orderId] = order;
-            $.orderStatus[orderId] = IAori.OrderStatus.Settled;
+            $.orderStatus[orderId] = OrderStatus.Settled;
             emit Settle(orderId);
         } else {
             // Cross-chain: lock converted tokens for later settlement
@@ -537,7 +538,7 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
     ) internal {
         AoriStorage storage $ = _getAoriStorage();
         $.balances[order.offerer][depositToken].lock(SafeCast.toUint128(depositAmount));
-        $.orderStatus[orderId] = IAori.OrderStatus.Active;
+        $.orderStatus[orderId] = OrderStatus.Active;
         $.orders[orderId] = order;
         $.orders[orderId].inputToken = depositToken;
         $.orders[orderId].inputAmount = SafeCast.toUint128(depositAmount);
@@ -560,7 +561,7 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
         // Calculate order ID and validate uniqueness
         bytes32 orderId = hash(order);
         AoriStorage storage $ = _getAoriStorage();
-        require($.orderStatus[orderId] == IAori.OrderStatus.Unknown, "Order already exists");
+        require($.orderStatus[orderId] == OrderStatus.Unknown, "Order already exists");
         require($.isSupportedChain[order.dstEid], "Destination chain not supported");
         require(order.srcEid == ENDPOINT_ID, "Chain mismatch");
 
@@ -590,7 +591,7 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
         // Calculate order ID and validate uniqueness
         bytes32 orderId = hash(order);
         AoriStorage storage $ = _getAoriStorage();
-        require($.orderStatus[orderId] == IAori.OrderStatus.Unknown, "Order already exists");
+        require($.orderStatus[orderId] == OrderStatus.Unknown, "Order already exists");
         require($.isSupportedChain[order.dstEid], "Destination chain not supported");
         require(order.srcEid == ENDPOINT_ID, "Chain mismatch");
 
@@ -606,7 +607,7 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
         if (order.isSingleChainSwap()) {
             // Single-chain: immediate settlement (tokens already transferred to recipient)
             $.orders[orderId] = order;
-            $.orderStatus[orderId] = IAori.OrderStatus.Settled;
+            $.orderStatus[orderId] = OrderStatus.Settled;
             emit Settle(orderId);
         } else {
             // Cross-chain: lock converted tokens for later settlement
@@ -637,7 +638,7 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
 
         bytes32 orderId = hash(order);
         AoriStorage storage $ = _getAoriStorage();
-        require($.orderStatus[orderId] == IAori.OrderStatus.Unknown, "Order already exists");
+        require($.orderStatus[orderId] == OrderStatus.Unknown, "Order already exists");
         require($.isSupportedChain[order.dstEid], "Destination chain not supported");
         require(order.srcEid == ENDPOINT_ID, "Chain mismatch");
 
@@ -689,7 +690,7 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
 
         bytes32 orderId = hash(order);
         AoriStorage storage $ = _getAoriStorage();
-        require($.orderStatus[orderId] == IAori.OrderStatus.Unknown, "Order already exists");
+        require($.orderStatus[orderId] == OrderStatus.Unknown, "Order already exists");
         require($.isSupportedChain[order.dstEid], "Destination chain not supported");
         require(order.srcEid == ENDPOINT_ID, "Chain mismatch");
 
@@ -739,7 +740,7 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
 
             // Single-chain: immediate settlement
             $.orders[orderId] = order;
-            $.orderStatus[orderId] = IAori.OrderStatus.Settled;
+            $.orderStatus[orderId] = OrderStatus.Settled;
             emit Settle(orderId);
         } else {
             // Cross-chain: convert to preferred token for cross-chain transfer
@@ -805,7 +806,7 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
      */
     function fill(
         Order calldata order,
-        IAori.DstHook calldata hook
+        DstHook calldata hook
     ) external payable nonReentrant whenNotPaused onlySolver {
 
         bytes32 orderId = order.validateFill(
@@ -841,7 +842,7 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
      */
     function _executeDstHook(
         Order calldata order,
-        IAori.DstHook calldata hook
+        DstHook calldata hook
     ) internal returns (uint256 balChg) {
         // Validate hook struct upfront
         hook.validateDstHook(this.isAllowedHook);
@@ -880,7 +881,7 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
      */
     function _postFill(bytes32 orderId, Order calldata order) internal {
         AoriStorage storage $ = _getAoriStorage();
-        $.orderStatus[orderId] = IAori.OrderStatus.Filled;
+        $.orderStatus[orderId] = OrderStatus.Filled;
         $.srcEidToFillerFills[order.srcEid][msg.sender].push(orderId);
         emit Fill(orderId, order);
     }
@@ -925,7 +926,7 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
      */
     function _settleOrder(bytes32 orderId, address filler) internal {
         AoriStorage storage $ = _getAoriStorage();
-        if ($.orderStatus[orderId] != IAori.OrderStatus.Active) {
+        if ($.orderStatus[orderId] != OrderStatus.Active) {
             return; // Skip non-active orders
         }
 
@@ -950,7 +951,7 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
             return; // Exit with no state changes
         }
 
-        $.orderStatus[orderId] = IAori.OrderStatus.Settled;
+        $.orderStatus[orderId] = OrderStatus.Settled;
         emit Settle(orderId);
     }
 
@@ -1028,7 +1029,7 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
             order.inputAmount
         );
 
-        $.orderStatus[orderId] = IAori.OrderStatus.Settled;
+        $.orderStatus[orderId] = OrderStatus.Settled;
         emit Settle(orderId);
     }
 
@@ -1084,7 +1085,7 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
             this.isAllowedSolver
         );
 
-        _getAoriStorage().orderStatus[orderId] = IAori.OrderStatus.Cancelled;
+        _getAoriStorage().orderStatus[orderId] = OrderStatus.Cancelled;
 
         bytes memory payload = PayloadPackUtils.packCancellation(orderId);
         MessagingReceipt memory receipt = __lzSend(orderToCancel.srcEid, payload, extraOptions);
@@ -1098,7 +1099,7 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
      */
     function _cancel(bytes32 orderId) internal {
         AoriStorage storage $ = _getAoriStorage();
-        require($.orderStatus[orderId] == IAori.OrderStatus.Active, "Can only cancel active orders");
+        require($.orderStatus[orderId] == OrderStatus.Active, "Can only cancel active orders");
 
         Order memory order = $.orders[orderId];
         uint128 amountToReturn = order.inputAmount;
@@ -1109,7 +1110,7 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
         tokenAddress.validateSufficientBalance(amountToReturn);
 
         // Update state first
-        $.orderStatus[orderId] = IAori.OrderStatus.Cancelled;
+        $.orderStatus[orderId] = OrderStatus.Cancelled;
         bool success = $.balances[recipient][tokenAddress].decreaseLockedNoRevert(amountToReturn);
         require(success, "Failed to decrease locked balance");
 
@@ -1269,7 +1270,7 @@ contract Aori is IAori, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpg
      * @param order The order to hash
      * @return The computed hash
      */
-    function hash(IAori.Order calldata order) public pure returns (bytes32) {
+    function hash(Order calldata order) public pure returns (bytes32) {
         return keccak256(abi.encode(order));
     }
 

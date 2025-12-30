@@ -20,6 +20,7 @@ pragma solidity 0.8.28;
  * - Custom mock contracts are used to test specific attack vectors and edge cases
  */
 import {TestUtils} from "./TestUtils.sol";
+import {Order, OrderStatus, SrcHook, DstHook, Balance} from "../../contracts/types/AoriTypes.sol";
 import {IAori} from "../../contracts/Aori.sol";
 import "../Mock/MockRevertingToken.sol";
 import "../Mock/MockFeeOnTransferToken.sol";
@@ -86,7 +87,7 @@ contract EdgeCasesTest is TestUtils {
     // Test EIP712 signature manipulation
     function testSignatureManipulation() public {
         vm.chainId(localEid);
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: maker,
             recipient: maker,
             inputToken: address(inputToken),
@@ -115,7 +116,7 @@ contract EdgeCasesTest is TestUtils {
     // Test fee-on-transfer tokens
     function testFeeOnTransferToken() public {
         vm.chainId(localEid);
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: maker,
             recipient: maker,
             inputToken: address(feeToken),
@@ -143,7 +144,7 @@ contract EdgeCasesTest is TestUtils {
     // Test reverting token transfer in hook
     function testRevertingTokenInHook() public {
         vm.chainId(localEid);
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: maker,
             recipient: maker,
             inputToken: address(revertingToken),
@@ -160,7 +161,7 @@ contract EdgeCasesTest is TestUtils {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(makerPrivateKey, digest);
         bytes memory signature = abi.encodePacked(r, s, v);
 
-        IAori.SrcHook memory data = IAori.SrcHook({
+        SrcHook memory data = SrcHook({
             hookAddress: address(mockHook),
             preferredToken: address(inputToken),
             minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
@@ -177,7 +178,7 @@ contract EdgeCasesTest is TestUtils {
     }
 
     // Helper function to generate EIP712 digest for signing
-    function _getOrderDigest(IAori.Order memory order) internal view returns (bytes32) {
+    function _getOrderDigest(Order memory order) internal view returns (bytes32) {
         bytes32 ORDER_TYPEHASH = keccak256(
             "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient)"
         );

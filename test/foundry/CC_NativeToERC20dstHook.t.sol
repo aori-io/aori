@@ -17,6 +17,7 @@ pragma solidity 0.8.28;
 import {Aori, IAori} from "../../contracts/Aori.sol";
 import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import {TestUtils} from "./TestUtils.sol";
+import {Order, OrderStatus, SrcHook, DstHook, Balance} from "../../contracts/types/AoriTypes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
@@ -43,7 +44,7 @@ contract CC_NativeToERC20DstHook is TestUtils {
     uint256 public solverDestPrivKey = 0xBEEF;
 
     // Order details
-    IAori.Order private order;
+    Order private order;
     
     // Mock hook for token conversion (override from TestUtils)
     MockHook2 public dstHook;
@@ -164,7 +165,7 @@ contract CC_NativeToERC20DstHook is TestUtils {
         vm.warp(order.startTime + 1); // Advance time so order has started
 
         // Create destination hook configuration
-        IAori.DstHook memory dstHookConfig = IAori.DstHook({
+        DstHook memory dstHookConfig = DstHook({
             hookAddress: address(dstHook),
             preferredToken: address(inputToken),        // Solver's preferred token
             preferedDstInputAmount: PREFERRED_INPUT,    // Amount solver will provide
@@ -258,7 +259,7 @@ contract CC_NativeToERC20DstHook is TestUtils {
         );
 
         // Verify order status
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Active, "Order should be Active");
+        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Active, "Order should be Active");
     }
 
     /**
@@ -307,7 +308,7 @@ contract CC_NativeToERC20DstHook is TestUtils {
         );
 
         // Verify order status
-        assertTrue(remoteAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Filled, "Order should be Filled");
+        assertTrue(remoteAori.orderStatus(localAori.hash(order)) == OrderStatus.Filled, "Order should be Filled");
     }
 
     /**
@@ -337,7 +338,7 @@ contract CC_NativeToERC20DstHook is TestUtils {
         );
 
         // Verify order status
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
 
         // Verify locked balance is cleared
         assertEq(

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import {IAori} from "../../contracts/Aori.sol";
 import "./TestUtils.sol";
 
@@ -35,7 +36,7 @@ contract DepositTests is TestUtils {
      * @notice Test successful cross-chain deposit
      */
     function testDeposit_CrossChain_Success() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         bytes memory signature = signOrder(order);
 
         uint256 initialLocked = localAori.getLockedBalances(userA, address(inputToken));
@@ -52,14 +53,14 @@ contract DepositTests is TestUtils {
         assertEq(inputToken.balanceOf(userA), initialBalance - order.inputAmount);
         
         bytes32 orderHash = localAori.hash(order);
-        assertEq(uint8(localAori.orderStatus(orderHash)), uint8(IAori.OrderStatus.Active));
+        assertEq(uint8(localAori.orderStatus(orderHash)), uint8(OrderStatus.Active));
     }
 
     /**
      * @notice Test successful single-chain deposit
      */
     function testDeposit_SingleChain_Success() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         order.dstEid = localEid; // Make it single-chain
         bytes memory signature = signOrder(order);
         
@@ -75,7 +76,7 @@ contract DepositTests is TestUtils {
         assertEq(localAori.getLockedBalances(userA, address(inputToken)), initialLocked + order.inputAmount);
         
         bytes32 orderHash = localAori.hash(order);
-        assertEq(uint8(localAori.orderStatus(orderHash)), uint8(IAori.OrderStatus.Active));
+        assertEq(uint8(localAori.orderStatus(orderHash)), uint8(OrderStatus.Active));
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -86,7 +87,7 @@ contract DepositTests is TestUtils {
      * @notice Test deposit fails when order already exists
      */
     function testDeposit_OrderAlreadyExists() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         bytes memory signature = signOrder(order);
         
         vm.prank(userA);
@@ -106,7 +107,7 @@ contract DepositTests is TestUtils {
      * @notice Test deposit fails when destination chain not supported
      */
     function testDeposit_DestinationChainNotSupported() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         order.dstEid = 99999; // Unsupported chain
         bytes memory signature = signOrder(order);
         
@@ -122,7 +123,7 @@ contract DepositTests is TestUtils {
      * @notice Test deposit fails with invalid signature
      */
     function testDeposit_InvalidSignature() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         bytes memory signature = signOrder(order);
         
         // Modify order after signing to make signature invalid
@@ -140,7 +141,7 @@ contract DepositTests is TestUtils {
      * @notice Test deposit fails with wrong signer
      */
     function testDeposit_WrongSigner() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         
         // Sign with wrong private key (different from userA's key)
         uint256 wrongPrivateKey = 0xDEAD;
@@ -159,7 +160,7 @@ contract DepositTests is TestUtils {
      * @dev Signature validation happens before offerer validation, so we expect InvalidSignature
      */
     function testDeposit_InvalidOfferer() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         order.offerer = address(0);
         bytes memory signature = signOrder(order);
         
@@ -172,7 +173,7 @@ contract DepositTests is TestUtils {
      * @notice Test deposit fails with invalid recipient (zero address)
      */
     function testDeposit_InvalidRecipient() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         order.recipient = address(0);
         bytes memory signature = signOrder(order);
         
@@ -185,7 +186,7 @@ contract DepositTests is TestUtils {
      * @notice Test deposit fails with invalid end time (before start time)
      */
     function testDeposit_InvalidEndTime() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         order.endTime = order.startTime - 1;
         bytes memory signature = signOrder(order);
         
@@ -198,7 +199,7 @@ contract DepositTests is TestUtils {
      * @notice Test deposit fails when order not started yet
      */
     function testDeposit_OrderNotStarted() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         order.startTime = uint32(block.timestamp + 1 hours);
         order.endTime = uint32(block.timestamp + 2 hours);
         bytes memory signature = signOrder(order);
@@ -212,7 +213,7 @@ contract DepositTests is TestUtils {
      * @notice Test deposit fails when order has expired
      */
     function testDeposit_OrderExpired() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         // Use warp to move time forward, then set expired times
         vm.warp(block.timestamp + 3 hours);
         order.startTime = uint32(block.timestamp - 2 hours);
@@ -228,7 +229,7 @@ contract DepositTests is TestUtils {
      * @notice Test deposit fails with zero input amount
      */
     function testDeposit_InvalidInputAmount() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         order.inputAmount = 0;
         bytes memory signature = signOrder(order);
         
@@ -241,7 +242,7 @@ contract DepositTests is TestUtils {
      * @notice Test deposit fails with zero output amount
      */
     function testDeposit_InvalidOutputAmount() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         order.outputAmount = 0;
         bytes memory signature = signOrder(order);
         
@@ -254,7 +255,7 @@ contract DepositTests is TestUtils {
      * @notice Test deposit fails with zero input token address
      */
     function testDeposit_InvalidInputToken() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         order.inputToken = address(0);
         bytes memory signature = signOrder(order);
         
@@ -267,7 +268,7 @@ contract DepositTests is TestUtils {
      * @notice Test deposit fails with zero output token address
      */
     function testDeposit_InvalidOutputToken() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         order.outputToken = address(0);
         bytes memory signature = signOrder(order);
         
@@ -280,7 +281,7 @@ contract DepositTests is TestUtils {
      * @notice Test deposit fails with chain mismatch
      */
     function testDeposit_ChainMismatch() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         order.srcEid = remoteEid; // Wrong source chain
         bytes memory signature = signOrder(order);
         
@@ -297,7 +298,7 @@ contract DepositTests is TestUtils {
      * @notice Test deposit fails when called by non-solver
      */
     function testDeposit_OnlySolver() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         bytes memory signature = signOrder(order);
         
         vm.prank(userA);
@@ -312,7 +313,7 @@ contract DepositTests is TestUtils {
      * @notice Test deposit fails when contract is paused
      */
     function testDeposit_WhenPaused() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         bytes memory signature = signOrder(order);
         
         // Pause the contract
@@ -334,10 +335,10 @@ contract DepositTests is TestUtils {
      * @notice Test deposit with hook fails when hook is missing
      */
     function testDepositWithHook_MissingHook() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         bytes memory signature = signOrder(order);
         
-        IAori.SrcHook memory hook = IAori.SrcHook({
+        SrcHook memory hook = SrcHook({
             hookAddress: address(0), // Missing hook
             preferredToken: address(inputToken),
             minPreferedTokenAmountOut: 1e18,
@@ -354,12 +355,12 @@ contract DepositTests is TestUtils {
      * @notice Test deposit with hook fails when hook not whitelisted
      */
     function testDepositWithHook_InvalidHookAddress() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         bytes memory signature = signOrder(order);
         
         address nonWhitelistedHook = address(0x999);
         
-        IAori.SrcHook memory hook = IAori.SrcHook({
+        SrcHook memory hook = SrcHook({
             hookAddress: nonWhitelistedHook,
             preferredToken: address(inputToken),
             minPreferedTokenAmountOut: 1e18,
@@ -383,7 +384,7 @@ contract DepositTests is TestUtils {
      * @notice Test deposit fails when user has insufficient token balance
      */
     function testDeposit_InsufficientBalance() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         order.inputAmount = uint128(inputToken.balanceOf(userA) + 1); // More than balance
         bytes memory signature = signOrder(order);
         
@@ -399,7 +400,7 @@ contract DepositTests is TestUtils {
      * @notice Test deposit fails when user has insufficient allowance
      */
     function testDeposit_InsufficientAllowance() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         bytes memory signature = signOrder(order);
         
         // Don't approve tokens
@@ -417,7 +418,7 @@ contract DepositTests is TestUtils {
      * @notice Test deposit emits correct events
      */
     function testDeposit_EmitsEvents() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         bytes memory signature = signOrder(order);
         bytes32 orderId = localAori.hash(order);
         
@@ -438,7 +439,7 @@ contract DepositTests is TestUtils {
      * @notice Test deposit at exact start time boundary
      */
     function testDeposit_ExactStartTime() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         order.startTime = uint32(block.timestamp);
         bytes memory signature = signOrder(order);
 
@@ -449,14 +450,14 @@ contract DepositTests is TestUtils {
         localAori.deposit(order, signature);
 
         bytes32 orderHash = localAori.hash(order);
-        assertEq(uint8(localAori.orderStatus(orderHash)), uint8(IAori.OrderStatus.Active));
+        assertEq(uint8(localAori.orderStatus(orderHash)), uint8(OrderStatus.Active));
     }
 
     /**
      * @notice Test deposit just before expiry
      */
     function testDeposit_JustBeforeExpiry() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         order.endTime = uint32(block.timestamp + 1);
         bytes memory signature = signOrder(order);
 
@@ -467,14 +468,14 @@ contract DepositTests is TestUtils {
         localAori.deposit(order, signature);
 
         bytes32 orderHash = localAori.hash(order);
-        assertEq(uint8(localAori.orderStatus(orderHash)), uint8(IAori.OrderStatus.Active));
+        assertEq(uint8(localAori.orderStatus(orderHash)), uint8(OrderStatus.Active));
     }
 
     /**
      * @notice Test deposit with maximum uint128 amounts
      */
     function testDeposit_MaxAmounts() public {
-        IAori.Order memory order = createValidTestOrder();
+        Order memory order = createValidTestOrder();
         order.inputAmount = type(uint128).max;
         order.outputAmount = type(uint128).max;
         
@@ -490,7 +491,7 @@ contract DepositTests is TestUtils {
         localAori.deposit(order, signature);
 
         bytes32 orderHash = localAori.hash(order);
-        assertEq(uint8(localAori.orderStatus(orderHash)), uint8(IAori.OrderStatus.Active));
+        assertEq(uint8(localAori.orderStatus(orderHash)), uint8(OrderStatus.Active));
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -500,8 +501,8 @@ contract DepositTests is TestUtils {
     /**
      * @notice Creates a valid order for testing (renamed to avoid conflict)
      */
-    function createValidTestOrder() internal view returns (IAori.Order memory) {
-        return IAori.Order({
+    function createValidTestOrder() internal view returns (Order memory) {
+        return Order({
             offerer: userA,
             recipient: recipient,
             inputToken: address(inputToken),
@@ -519,7 +520,7 @@ contract DepositTests is TestUtils {
     /*                           EVENTS                           */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    event Deposit(bytes32 indexed orderId, IAori.Order order);
+    event Deposit(bytes32 indexed orderId, Order order);
     event SrcHookExecuted(bytes32 indexed orderId, address indexed preferredToken, uint256 amountReceived);
     event Settle(bytes32 indexed orderId);
 } 

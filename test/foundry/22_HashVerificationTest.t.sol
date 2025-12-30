@@ -26,6 +26,7 @@ pragma solidity 0.8.28;
 import "forge-std/Test.sol";
 import { Aori, IAori } from "../../contracts/Aori.sol";
 import { TestUtils } from "./TestUtils.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import { MockERC20 } from "../Mock/MockERC20.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -71,7 +72,7 @@ contract HashVerificationTest is TestUtils {
      */
     function testArbitrumSignature() public {
         // Create a test order that matches the Arbitrum contract's expected chain ID
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: testSigner,
             recipient: testSigner,
             inputToken: address(inputToken),
@@ -217,7 +218,7 @@ contract HashVerificationTest is TestUtils {
      * @notice Calculate the signing hash (EIP-712 digest) for a specific contract address
      */
     function calculateSigningHashWithAddress(
-        IAori.Order memory order,
+        Order memory order,
         address contractAddress
     ) public pure returns (bytes32) {
         bytes32 structHash = keccak256(

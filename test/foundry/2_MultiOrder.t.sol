@@ -32,12 +32,12 @@ contract MultiOrderSuccessTest is TestUtils {
 
     uint256 private constant GAS_LIMIT = 200000;
     uint256 private constant NUM_ORDERS = 3;
-    IAori.Order[] private orders;
+    Order[] private orders;
     uint256 private totalInput;
 
     function setUp() public override {
         super.setUp();
-        orders = new IAori.Order[](NUM_ORDERS);
+        orders = new Order[](NUM_ORDERS);
         totalInput = 0;
     }
 

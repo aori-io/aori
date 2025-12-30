@@ -19,6 +19,7 @@ pragma solidity 0.8.28;
  * - Cancellation permissions are tested to ensure only authorized actors can cancel orders
  */
 import {TestUtils} from "./TestUtils.sol";
+import {Order, OrderStatus, SrcHook, DstHook, Balance} from "../../contracts/types/AoriTypes.sol";
 import {IAori} from "../../contracts/Aori.sol";
 import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 
@@ -39,7 +40,7 @@ contract CrossChainCancelAndSettleTest is TestUtils {
     function testDestinationCancelBySolver() public {
         // PHASE 1: Deposit on Source Chain
         vm.chainId(localEid);
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
 
         // Advance to startTime
         vm.warp(order.startTime + 1);
@@ -73,7 +74,7 @@ contract CrossChainCancelAndSettleTest is TestUtils {
         // Verify order is cancelled
         assertEq(
             uint256(remoteAori.orderStatus(orderHash)),
-            uint8(IAori.OrderStatus.Cancelled),
+            uint8(OrderStatus.Cancelled),
             "Order not cancelled on destination chain"
         );
     }
@@ -87,7 +88,7 @@ contract CrossChainCancelAndSettleTest is TestUtils {
         
         // PHASE 1: Deposit on Source Chain
         vm.chainId(localEid);
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
 
         // Advance to startTime
         vm.warp(order.startTime + 1);
