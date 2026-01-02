@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import {IAori} from "../../contracts/Aori.sol";
@@ -116,7 +116,7 @@ contract DepositTests is TestUtils {
         inputToken.approve(address(localAori), order.inputAmount);
         
         vm.prank(solver);
-        vm.expectRevert(DestinationChainNotSupported.selector);
+        vm.expectRevert(abi.encodeWithSelector(DestinationChainNotSupported.selector, 99999));
         localAori.deposit(order, signature);
     }
 
@@ -188,11 +188,12 @@ contract DepositTests is TestUtils {
      */
     function testDeposit_InvalidEndTime() public {
         Order memory order = createValidTestOrder();
-        order.endTime = order.startTime - 1;
+        uint32 startTime = order.startTime;
+        order.endTime = startTime - 1;
         bytes memory signature = signOrder(order);
-        
+
         vm.prank(solver);
-        vm.expectRevert(InvalidEndTime.selector);
+        vm.expectRevert(abi.encodeWithSelector(InvalidEndTime.selector, startTime, startTime - 1));
         localAori.deposit(order, signature);
     }
 
@@ -201,12 +202,13 @@ contract DepositTests is TestUtils {
      */
     function testDeposit_OrderNotStarted() public {
         Order memory order = createValidTestOrder();
-        order.startTime = uint32(block.timestamp + 1 hours);
+        uint32 startTime = uint32(block.timestamp + 1 hours);
+        order.startTime = startTime;
         order.endTime = uint32(block.timestamp + 2 hours);
         bytes memory signature = signOrder(order);
-        
+
         vm.prank(solver);
-        vm.expectRevert(OrderNotStarted.selector);
+        vm.expectRevert(abi.encodeWithSelector(OrderNotStarted.selector, startTime, block.timestamp));
         localAori.deposit(order, signature);
     }
 
@@ -218,11 +220,12 @@ contract DepositTests is TestUtils {
         // Use warp to move time forward, then set expired times
         vm.warp(block.timestamp + 3 hours);
         order.startTime = uint32(block.timestamp - 2 hours);
-        order.endTime = uint32(block.timestamp - 1 hours);
+        uint32 endTime = uint32(block.timestamp - 1 hours);
+        order.endTime = endTime;
         bytes memory signature = signOrder(order);
-        
+
         vm.prank(solver);
-        vm.expectRevert(OrderExpired.selector);
+        vm.expectRevert(abi.encodeWithSelector(OrderExpired.selector, endTime, block.timestamp));
         localAori.deposit(order, signature);
     }
 
@@ -285,9 +288,9 @@ contract DepositTests is TestUtils {
         Order memory order = createValidTestOrder();
         order.srcEid = remoteEid; // Wrong source chain
         bytes memory signature = signOrder(order);
-        
+
         vm.prank(solver);
-        vm.expectRevert(ChainMismatch.selector);
+        vm.expectRevert(abi.encodeWithSelector(ChainMismatch.selector, localEid, remoteEid));
         localAori.deposit(order, signature);
     }
 

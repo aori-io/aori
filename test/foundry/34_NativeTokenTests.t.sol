@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
 /**
  * @title Native Token Tests
@@ -187,7 +187,7 @@ contract NativeTokenTests is TestUtils {
 
         bytes memory signature = signOrder(order, userPrivKey);
 
-        vm.expectRevert(IncorrectNativeAmount.selector);
+        vm.expectRevert(abi.encodeWithSelector(IncorrectNativeAmount.selector, INPUT_AMOUNT, INPUT_AMOUNT - 1));
         vm.prank(user);
         localAori.depositNative{value: INPUT_AMOUNT - 1}(order); // Send less than required
     }
@@ -211,7 +211,7 @@ contract NativeTokenTests is TestUtils {
 
         bytes memory signature = signOrder(order, userPrivKey);
 
-        vm.expectRevert(IncorrectNativeAmount.selector);
+        vm.expectRevert(abi.encodeWithSelector(IncorrectNativeAmount.selector, INPUT_AMOUNT, INPUT_AMOUNT + 1));
         vm.prank(user);
         localAori.depositNative{value: INPUT_AMOUNT + 1}(order); // Send more than required
     }
@@ -295,7 +295,7 @@ contract NativeTokenTests is TestUtils {
 
         bytes memory signature = signOrder(order, userPrivKey);
 
-        vm.expectRevert(DestinationChainNotSupported.selector);
+        vm.expectRevert(abi.encodeWithSelector(DestinationChainNotSupported.selector, unsupportedEid));
         vm.prank(user);
         localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
@@ -345,7 +345,7 @@ contract NativeTokenTests is TestUtils {
 
         bytes memory signature = signOrder(order, userPrivKey);
 
-        vm.expectRevert(ChainMismatch.selector);
+        vm.expectRevert(abi.encodeWithSelector(ChainMismatch.selector, localEid, remoteEid));
         vm.prank(user);
         localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
@@ -425,7 +425,7 @@ contract NativeTokenTests is TestUtils {
 
         bytes memory signature = signOrder(order, userPrivKey);
 
-        vm.expectRevert(InvalidEndTime.selector);
+        vm.expectRevert(abi.encodeWithSelector(InvalidEndTime.selector, startTime, endTime));
         vm.prank(user);
         localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
@@ -435,7 +435,7 @@ contract NativeTokenTests is TestUtils {
      */
     function testDepositNative_Revert_OrderNotStarted() public {
         uint32 futureTime = uint32(block.timestamp + 1 hours);
-        
+
         Order memory order = createCustomOrder(
             user,                        // offerer
             recipient,                   // recipient
@@ -451,7 +451,7 @@ contract NativeTokenTests is TestUtils {
 
         bytes memory signature = signOrder(order, userPrivKey);
 
-        vm.expectRevert(OrderNotStarted.selector);
+        vm.expectRevert(abi.encodeWithSelector(OrderNotStarted.selector, futureTime, block.timestamp));
         vm.prank(user);
         localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
@@ -462,11 +462,11 @@ contract NativeTokenTests is TestUtils {
     function testDepositNative_Revert_OrderExpired() public {
         // Set a specific timestamp to avoid underflow issues
         vm.warp(10000); // Set block.timestamp to 10000
-        
+
         uint32 currentTime = uint32(block.timestamp);
         uint32 pastStartTime = currentTime - 7200; // 2 hours ago
         uint32 pastEndTime = currentTime - 3600;   // 1 hour ago
-        
+
         Order memory order = createCustomOrder(
             user,                        // offerer
             recipient,                   // recipient
@@ -482,7 +482,7 @@ contract NativeTokenTests is TestUtils {
 
         bytes memory signature = signOrder(order, userPrivKey);
 
-        vm.expectRevert(OrderExpired.selector);
+        vm.expectRevert(abi.encodeWithSelector(OrderExpired.selector, pastEndTime, currentTime));
         vm.prank(user);
         localAori.depositNative{value: INPUT_AMOUNT}(order);
     }

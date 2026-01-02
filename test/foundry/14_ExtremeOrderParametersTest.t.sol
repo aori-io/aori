@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
 /**
  * ExtremeOrderParametersTest - Tests extreme edge cases for order parameters in the Aori contract

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import "./TestUtils.sol";
@@ -260,7 +260,8 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
 
     function testDepositWithPermit2_UnsupportedDestinationChain() public {
         Order memory order = createValidOrder();
-        order.dstEid = 999; // Unsupported chain
+        uint32 unsupportedDstEid = 999;
+        order.dstEid = unsupportedDstEid; // Unsupported chain
 
         uint256 nonce = 0;
         uint256 deadline = block.timestamp + 1 hours;
@@ -268,7 +269,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
         bytes memory signature = signPermit2Order(order, userAPrivKey, nonce, deadline);
 
         vm.prank(solver);
-        vm.expectRevert(DestinationChainNotSupported.selector);
+        vm.expectRevert(abi.encodeWithSelector(DestinationChainNotSupported.selector, unsupportedDstEid));
         localAori.depositWithPermit2(order, nonce, deadline, signature);
     }
 

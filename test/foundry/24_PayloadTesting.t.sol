@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
 /**
  * PayloadPackingUnpackingTest - Comprehensive tests for payload packing and unpacking utilities in AoriUtils.sol
@@ -296,11 +296,11 @@ contract PayloadPackingUnpackingTest is Test {
             TEST_ORDER_HASH                 // order hash 2
         );
         
-        // Act & Assert
-        vm.expectRevert(InvalidPayloadLength.selector);
+        // Act & Assert - expected = 23 + 3*32 = 119, actual = 23 + 2*32 = 87
+        vm.expectRevert(abi.encodeWithSelector(InvalidPayloadLength.selector, 119, 87));
         wrapper.validateSettlementLen(payload, fillCount);
     }
-    
+
     /**********************************/
     /*    Unpacking Tests            */
     /**********************************/
@@ -348,9 +348,9 @@ contract PayloadPackingUnpackingTest is Test {
             uint8(PayloadType.Settlement),
             bytes19(0)  // Only 19 bytes instead of 20 for address
         );
-        
-        // Act & Assert
-        vm.expectRevert(InvalidPayloadLength.selector);
+
+        // Act & Assert - payload is 20 bytes, expected >= 23
+        vm.expectRevert(abi.encodeWithSelector(InvalidPayloadLength.selector, 23, 20));
         wrapper.unpackSettlementHeader(payload);
     }
     

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
 /**
  * FillFailTest - Tests various failure conditions for the fill functionality in the Aori contract
@@ -65,13 +65,15 @@ contract FillFailTest is TestUtils {
         vm.warp(1000); // Initial warp (for underflow safety)
         Order memory order = createValidOrder();
         // Set an invalid time range: startTime > endTime.
-        order.startTime = 1000 + 1 days;
-        order.endTime = 1000;
+        uint32 startTime = 1000 + 1 days;
+        uint32 endTime = 1000;
+        order.startTime = startTime;
+        order.endTime = endTime;
         // Warp time to be after the (invalid) startTime.
         vm.warp(order.startTime);
 
         vm.prank(solver);
-        vm.expectRevert(InvalidEndTime.selector);
+        vm.expectRevert(abi.encodeWithSelector(InvalidEndTime.selector, startTime, endTime));
         remoteAori.fill(order, defaultDstSolverData(order.outputToken, order.outputAmount));
     }
 
@@ -116,15 +118,17 @@ contract FillFailTest is TestUtils {
 
     /// @notice Test that fill reverts when the order has not yet started (filled too early).
     function testRevertFillOrderExpiredBeforeStart() public {
-        vm.warp(100);
+        uint256 currentTime = 100;
+        vm.warp(currentTime);
         Order memory order = createValidOrder();
-        order.startTime = 200; // e.g. current time 100, start at 200
+        uint32 startTime = 200; // e.g. current time 100, start at 200
+        order.startTime = startTime;
         order.endTime = 100 + 1 days;
         vm.prank(solver);
         outputToken.approve(address(remoteAori), order.outputAmount);
 
         vm.prank(solver);
-        vm.expectRevert(OrderNotStarted.selector);
+        vm.expectRevert(abi.encodeWithSelector(OrderNotStarted.selector, startTime, currentTime));
         remoteAori.fill(order, defaultDstSolverData(order.outputToken, order.outputAmount));
     }
 
@@ -134,12 +138,13 @@ contract FillFailTest is TestUtils {
         vm.warp(warpTime);
         Order memory order = createValidOrder();
         order.startTime = uint32(warpTime - 1 days);
-        order.endTime = uint32(warpTime - 10);
+        uint32 endTime = uint32(warpTime - 10);
+        order.endTime = endTime;
         vm.prank(solver);
         outputToken.approve(address(remoteAori), order.outputAmount);
 
         vm.prank(solver);
-        vm.expectRevert(OrderExpired.selector);
+        vm.expectRevert(abi.encodeWithSelector(OrderExpired.selector, endTime, warpTime));
         remoteAori.fill(order, defaultDstSolverData(order.outputToken, order.outputAmount));
     }
 

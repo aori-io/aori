@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
 /**
  * ValidationFailuresTest - Tests various validation failure conditions in the Aori contract
@@ -94,7 +94,7 @@ contract ValidationFailuresTest is TestUtils {
         outputToken.approve(address(remoteAori), 2e18);
 
         vm.prank(solver);
-        vm.expectRevert(ChainMismatch.selector);
+        vm.expectRevert(abi.encodeWithSelector(ChainMismatch.selector, remoteEid, 999));
         remoteAori.fill(order);
     }
 
@@ -129,15 +129,17 @@ contract ValidationFailuresTest is TestUtils {
         vm.chainId(remoteEid);
 
         Order memory order = createValidOrder();
+        uint32 endTime = order.endTime;
 
         // Warp to after the deadline
-        vm.warp(order.endTime + 1);
+        uint256 currentTime = endTime + 1;
+        vm.warp(currentTime);
 
         vm.prank(solver);
         outputToken.approve(address(remoteAori), 2e18);
 
         vm.prank(solver);
-        vm.expectRevert(OrderExpired.selector);
+        vm.expectRevert(abi.encodeWithSelector(OrderExpired.selector, endTime, currentTime));
         remoteAori.fill(order);
     }
 
@@ -148,15 +150,17 @@ contract ValidationFailuresTest is TestUtils {
         vm.chainId(remoteEid);
 
         Order memory order = createValidOrder();
+        uint32 startTime = order.startTime;
 
         // Current time is before order.startTime
-        vm.warp(order.startTime - 1);
+        uint256 currentTime = startTime - 1;
+        vm.warp(currentTime);
 
         vm.prank(solver);
         outputToken.approve(address(remoteAori), 2e18);
 
         vm.prank(solver);
-        vm.expectRevert(OrderNotStarted.selector);
+        vm.expectRevert(abi.encodeWithSelector(OrderNotStarted.selector, startTime, currentTime));
         remoteAori.fill(order);
     }
 

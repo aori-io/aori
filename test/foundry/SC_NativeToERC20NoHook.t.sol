@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
 /**
  * @title End-to-End Test: Single-Chain Native Deposit → ERC20 (No Hooks)
@@ -412,7 +412,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
         bytes memory signature = signOrder(order, userSCPrivKey);
 
         // Try to deposit less than required
-        vm.expectRevert(IncorrectNativeAmount.selector);
+        vm.expectRevert(abi.encodeWithSelector(IncorrectNativeAmount.selector, INPUT_AMOUNT, INPUT_AMOUNT - 1));
         vm.prank(userSC);
         localAori.depositNative{value: INPUT_AMOUNT - 1}(order);
     }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
@@ -98,7 +98,7 @@ contract SupportedChainTest is TestUtils {
         
         // Attempt deposit should revert with unsupported destination
         vm.startPrank(solver);
-        vm.expectRevert(DestinationChainNotSupported.selector);
+        vm.expectRevert(abi.encodeWithSelector(DestinationChainNotSupported.selector, ARBITRUM_EID));
         localAori.deposit(order, signature);
         vm.stopPrank();
     }

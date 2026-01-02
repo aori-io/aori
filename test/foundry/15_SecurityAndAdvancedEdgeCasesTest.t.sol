@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
 /**
  * SecurityAndAdvancedEdgeCasesTest - Tests for security features and advanced edge cases in the Aori protocol
@@ -302,13 +302,15 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
 
         // Test end time before start time
         order.outputAmount = 2e18;
-        order.startTime = uint32(block.timestamp);
-        order.endTime = uint32(block.timestamp - 1); // Invalid: end time before start time
+        uint32 startTime = uint32(block.timestamp);
+        uint32 endTime = uint32(block.timestamp - 1); // Invalid: end time before start time
+        order.startTime = startTime;
+        order.endTime = endTime;
 
         signature = signOrder(order); // Re-sign with updated parameters
 
         vm.prank(solver);
-        vm.expectRevert(InvalidEndTime.selector);
+        vm.expectRevert(abi.encodeWithSelector(InvalidEndTime.selector, startTime, endTime));
         localAori.deposit(order, signature);
 
         // Test invalid tokens (zero address)
@@ -329,7 +331,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         signature = signOrder(order); // Re-sign with updated parameters
 
         vm.prank(solver);
-        vm.expectRevert(ChainMismatch.selector);
+        vm.expectRevert(abi.encodeWithSelector(ChainMismatch.selector, localEid, remoteEid));
         localAori.deposit(order, signature);
     }
 

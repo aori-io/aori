@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
 /**
  * @title End-to-End Test: Single-Chain Native Deposit with SrcHook (Atomic Settlement)
@@ -339,7 +339,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
         SrcHook memory srcHook = _createSrcHook();
 
         vm.prank(userSC);
-        vm.expectRevert(IncorrectNativeAmount.selector);
+        vm.expectRevert(abi.encodeWithSelector(IncorrectNativeAmount.selector, INPUT_AMOUNT, INPUT_AMOUNT - 1));
         localAori.depositNative{value: INPUT_AMOUNT - 1}(order, srcHook);
     }
 

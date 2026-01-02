@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
 /**
  * DepositFailTest - Tests failure conditions for the deposit functionality in the Aori contract
@@ -85,12 +85,14 @@ contract DepositFailTest is TestUtils {
     function testRevertDepositInvalidParameters() public {
         Order memory order = createValidOrder();
         // Set an invalid endTime (endTime must be greater than uint32(block.timestamp)).
-        order.endTime = uint32(block.timestamp);
+        uint32 startTime = order.startTime;
+        uint32 endTime = uint32(block.timestamp);
+        order.endTime = endTime;
         bytes memory signature = signOrder(order);
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
         vm.prank(solver);
-        vm.expectRevert(InvalidEndTime.selector);
+        vm.expectRevert(abi.encodeWithSelector(InvalidEndTime.selector, startTime, endTime));
         localAori.deposit(order, signature);
     }
 
