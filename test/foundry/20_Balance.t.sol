@@ -99,7 +99,7 @@ contract BalanceUtilsTest is Test {
 
         balance.lock(amountToLock);
 
-        vm.expectRevert(InsufficientLockedBalance.selector);
+        vm.expectRevert(abi.encodeWithSelector(LockedBalanceDecreaseFailed.selector, amountToUnlock, amountToLock));
         balance.unlock(amountToUnlock);
     }
 

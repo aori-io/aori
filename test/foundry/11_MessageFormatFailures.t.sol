@@ -46,7 +46,7 @@ contract MessageFormatFailuresTest is TestUtils {
         bytes32 guid = keccak256("mock-guid");
 
         vm.prank(address(endpoints[localEid]));
-        vm.expectRevert(PayloadTooShortForSettlement.selector);
+        vm.expectRevert(abi.encodeWithSelector(InvalidPayloadLength.selector, 23, 21));
         localAori.lzReceive(
             Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),
             guid,
@@ -73,7 +73,8 @@ contract MessageFormatFailuresTest is TestUtils {
         bytes32 guid = keccak256("mock-guid");
 
         vm.prank(address(endpoints[localEid]));
-        vm.expectRevert(InvalidPayloadLength.selector);
+        // Fill count is 2, so expected length is 23 + (2 * 32) = 87, but actual is 55
+        vm.expectRevert(abi.encodeWithSelector(InvalidPayloadLength.selector, 87, 55));
         localAori.lzReceive(
             Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),
             guid,
@@ -96,7 +97,7 @@ contract MessageFormatFailuresTest is TestUtils {
         bytes32 guid = keccak256("mock-guid");
 
         vm.prank(address(endpoints[remoteEid]));
-        vm.expectRevert(InvalidCancellationPayloadLength.selector);
+        vm.expectRevert(abi.encodeWithSelector(InvalidPayloadLength.selector, 33, 1));
         remoteAori.lzReceive(
             Origin(localEid, bytes32(uint256(uint160(address(localAori)))), 1),
             guid,

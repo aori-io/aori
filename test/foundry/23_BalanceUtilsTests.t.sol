@@ -221,9 +221,9 @@ contract BalanceUtilsTest is Test {
         // Arrange
         wrapper.setRawBalance(100, 50);
         uint128 unlockAmount = 101;
-        
+
         // Act & Assert
-        vm.expectRevert(InsufficientLockedBalance.selector);
+        vm.expectRevert(abi.encodeWithSelector(LockedBalanceDecreaseFailed.selector, unlockAmount, 100));
         wrapper.unlock(unlockAmount);
     }
     

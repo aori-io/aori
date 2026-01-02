@@ -198,7 +198,7 @@ contract EmergencyTests is TestUtils {
         bytes32 orderId = localAori.hash(order);
 
         // Invalid recipient (address(0))
-        vm.expectRevert(InvalidRecipientAddress.selector);
+        vm.expectRevert(InvalidRecipient.selector);
         localAori.emergencyCancel(orderId, address(0));
     }
 
@@ -222,7 +222,7 @@ contract EmergencyTests is TestUtils {
         localAori.emergencyWithdraw(address(inputToken), contractBalance);
 
         // Should fail due to insufficient contract balance
-        vm.expectRevert(InsufficientContractBalance.selector);
+        vm.expectRevert(abi.encodeWithSelector(InsufficientContractBalance.selector, address(inputToken)));
         localAori.emergencyCancel(orderId, userA);
     }
 
@@ -493,7 +493,7 @@ contract EmergencyTests is TestUtils {
         localAori.emergencyWithdraw(address(inputToken), 100, address(0), true, customRecipient);
 
         // Invalid recipient
-        vm.expectRevert(InvalidRecipientAddress.selector);
+        vm.expectRevert(InvalidRecipient.selector);
         localAori.emergencyWithdraw(address(inputToken), 100, userA, true, address(0));
     }
 

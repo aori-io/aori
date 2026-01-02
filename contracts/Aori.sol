@@ -284,7 +284,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     function emergencyCancel(bytes32 orderId, address recipient) external onlyOwner {
         AoriStorageData storage $ = _getAoriStorage();
         if ($.orderStatus[orderId] != OrderStatus.Active) revert CanOnlyCancelActiveOrders();
-        if (recipient == address(0)) revert InvalidRecipientAddress();
+        if (recipient == address(0)) revert InvalidRecipient();
         Order memory order = $.orders[orderId];
         if (order.srcEid != ENDPOINT_ID) revert EmergencyCancelOnlyAllowedOnSourceChain();
         address tokenAddress = order.inputToken;
@@ -313,7 +313,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         uint256 etherBalance = address(this).balance;
         if (etherBalance > 0) {
             (bool success, ) = payable(owner()).call{ value: etherBalance }("");
-            if (!success) revert EtherWithdrawalFailed();
+            if (!success) revert NativeTransferFailed();
         }
         if (amount > 0) {
             token.safeTransfer(owner(), amount);
@@ -338,7 +338,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     ) external onlyOwner {
         if (amount == 0) revert AmountMustBeGreaterThanZero();
         if (user == address(0)) revert InvalidUserAddress();
-        if (recipient == address(0)) revert InvalidRecipientAddress();
+        if (recipient == address(0)) revert InvalidRecipient();
 
         AoriStorageData storage $ = _getAoriStorage();
         if (isLocked) {
@@ -467,7 +467,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         if (order.inputToken.isNativeToken()) {
             // Native tokens already received via msg.value, send to hook
             (bool success, ) = payable(hook.hookAddress).call{value: order.inputAmount}("");
-            if (!success) revert NativeTransferToHookFailed();
+            if (!success) revert NativeTransferFailed();
         } else {
             // Pull ERC20 tokens from offerer to hook
             IERC20(order.inputToken).safeTransferFrom(
@@ -540,15 +540,15 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         Order calldata order
     ) external payable nonReentrant whenNotPaused {
         if (!order.inputToken.isNativeToken()) revert OrderMustSpecifyNativeToken();
-        if (msg.value != order.inputAmount) revert IncorrectNativeAmount();
+        if (msg.value != order.inputAmount) revert IncorrectNativeAmount(order.inputAmount, msg.value);
         if (msg.sender != order.offerer) revert OnlyOffererCanDepositNativeTokens();
 
         // Calculate order ID and validate uniqueness
         bytes32 orderId = hash(order);
         AoriStorageData storage $ = _getAoriStorage();
         if ($.orderStatus[orderId] != OrderStatus.Unknown) revert OrderAlreadyExists();
-        if (!$.isSupportedChain[order.dstEid]) revert DestinationChainNotSupported();
-        if (order.srcEid != ENDPOINT_ID) revert ChainMismatch();
+        if (!$.isSupportedChain[order.dstEid]) revert DestinationChainNotSupported(order.dstEid);
+        if (order.srcEid != ENDPOINT_ID) revert ChainMismatch(ENDPOINT_ID, order.srcEid);
 
         // Use validation utility for common order parameter checks
         ValidationUtils.validateCommonOrderParams(order);
@@ -570,15 +570,15 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         SrcHook calldata hook
     ) external payable nonReentrant whenNotPaused {
         if (!order.inputToken.isNativeToken()) revert OrderMustSpecifyNativeToken();
-        if (msg.value != order.inputAmount) revert IncorrectNativeAmount();
+        if (msg.value != order.inputAmount) revert IncorrectNativeAmount(order.inputAmount, msg.value);
         if (msg.sender != order.offerer) revert OnlyOffererCanDepositNativeTokens();
 
         // Calculate order ID and validate uniqueness
         bytes32 orderId = hash(order);
         AoriStorageData storage $ = _getAoriStorage();
         if ($.orderStatus[orderId] != OrderStatus.Unknown) revert OrderAlreadyExists();
-        if (!$.isSupportedChain[order.dstEid]) revert DestinationChainNotSupported();
-        if (order.srcEid != ENDPOINT_ID) revert ChainMismatch();
+        if (!$.isSupportedChain[order.dstEid]) revert DestinationChainNotSupported(order.dstEid);
+        if (order.srcEid != ENDPOINT_ID) revert ChainMismatch(ENDPOINT_ID, order.srcEid);
 
         // Use validation utility for common order parameter checks
         ValidationUtils.validateCommonOrderParams(order);
@@ -624,8 +624,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         bytes32 orderId = hash(order);
         AoriStorageData storage $ = _getAoriStorage();
         if ($.orderStatus[orderId] != OrderStatus.Unknown) revert OrderAlreadyExists();
-        if (!$.isSupportedChain[order.dstEid]) revert DestinationChainNotSupported();
-        if (order.srcEid != ENDPOINT_ID) revert ChainMismatch();
+        if (!$.isSupportedChain[order.dstEid]) revert DestinationChainNotSupported(order.dstEid);
+        if (order.srcEid != ENDPOINT_ID) revert ChainMismatch(ENDPOINT_ID, order.srcEid);
 
         ValidationUtils.validateCommonOrderParams(order);
 
@@ -676,8 +676,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         bytes32 orderId = hash(order);
         AoriStorageData storage $ = _getAoriStorage();
         if ($.orderStatus[orderId] != OrderStatus.Unknown) revert OrderAlreadyExists();
-        if (!$.isSupportedChain[order.dstEid]) revert DestinationChainNotSupported();
-        if (order.srcEid != ENDPOINT_ID) revert ChainMismatch();
+        if (!$.isSupportedChain[order.dstEid]) revert DestinationChainNotSupported(order.dstEid);
+        if (order.srcEid != ENDPOINT_ID) revert ChainMismatch(ENDPOINT_ID, order.srcEid);
 
         ValidationUtils.validateCommonOrderParams(order);
 
@@ -762,9 +762,9 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         
         // Validate payment method matches output token type
         if (order.outputToken.isNativeToken()) {
-            if (msg.value != order.outputAmount) revert IncorrectNativeAmount();
+            if (msg.value != order.outputAmount) revert IncorrectNativeAmount(order.outputAmount, msg.value);
         } else {
-            if (msg.value != 0) revert NoNativeTokensForERC20Fills();
+            if (msg.value != 0) revert UnexpectedNativeTokens();
         }
 
         // Update contract state
@@ -834,12 +834,12 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
 
         if (hook.preferedDstInputAmount > 0) {
             if (hook.preferredToken.isNativeToken()) {
-                if (msg.value != hook.preferedDstInputAmount) revert IncorrectNativeAmount();
+                if (msg.value != hook.preferedDstInputAmount) revert IncorrectNativeAmount(hook.preferedDstInputAmount, msg.value);
                 (bool success, ) = payable(hook.hookAddress).call{value: hook.preferedDstInputAmount}("");
-                if (!success) revert NativeTransferToHookFailed();
+                if (!success) revert NativeTransferFailed();
             } else {
                 // ERC20 token input - no native tokens should be sent
-                if (msg.value != 0) revert NoNativeTokensForERC20PreferredToken();
+                if (msg.value != 0) revert UnexpectedNativeTokens();
                 IERC20(hook.preferredToken).safeTransferFrom(
                     msg.sender,
                     hook.hookAddress,
@@ -848,7 +848,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             }
         } else {
             // Hook expects no input tokens - ensure no ETH was mistakenly sent
-            if (msg.value != 0) revert NoNativeTokensExpected();
+            if (msg.value != 0) revert UnexpectedNativeTokens();
         }
 
         balChg = ExecutionUtils.observeBalChg(
@@ -1197,7 +1197,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         } else if (msgType == PayloadType.Settlement) {
             _handleSettlement(payload, srcEid);
         } else {
-            revert UnsupportedPayloadType();
+            revert InvalidMessageType();
         }
     }
 

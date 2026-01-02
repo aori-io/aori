@@ -268,9 +268,9 @@ contract CancellationTests is TestUtils {
         uint256 contractBalance = inputToken.balanceOf(payable(address(localAori)));
         vm.prank(payable(address(localAori)));
         inputToken.transfer(makeAddr("drain"), contractBalance);
-        
+
         vm.prank(solver);
-        vm.expectRevert(InsufficientContractBalance.selector);
+        vm.expectRevert(abi.encodeWithSelector(InsufficientContractBalance.selector, address(inputToken)));
         localAori.cancel(orderId);
     }
 
@@ -446,10 +446,10 @@ contract CancellationTests is TestUtils {
     function testLayerZero_InvalidPayloadLength() public {
         vm.chainId(localEid);
         
-        bytes memory invalidPayload = abi.encodePacked(uint8(1)); // Too short
-        
+        bytes memory invalidPayload = abi.encodePacked(uint8(1)); // Too short (1 byte, expected 33)
+
         vm.prank(address(endpoints[localEid]));
-        vm.expectRevert(InvalidCancellationPayloadLength.selector);
+        vm.expectRevert(abi.encodeWithSelector(InvalidPayloadLength.selector, 33, 1));
         localAori.lzReceive(
             Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),
             keccak256("mock-guid"),

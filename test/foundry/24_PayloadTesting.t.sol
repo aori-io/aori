@@ -220,9 +220,9 @@ contract PayloadPackingUnpackingTest is Test {
             uint8(PayloadType.Cancellation),
             bytes31(0) // only 31 bytes instead of 32
         );
-        
-        // Act & Assert
-        vm.expectRevert(InvalidCancellationPayloadLength.selector);
+
+        // Act & Assert - payload is 32 bytes, expected 33
+        vm.expectRevert(abi.encodeWithSelector(InvalidPayloadLength.selector, 33, 32));
         wrapper.validateCancellationLen(payload);
 
         // Arrange - incorrect length (too long)
@@ -232,8 +232,8 @@ contract PayloadPackingUnpackingTest is Test {
             bytes1(0) // Extra byte
         );
 
-        // Act & Assert
-        vm.expectRevert(InvalidCancellationPayloadLength.selector);
+        // Act & Assert - payload is 34 bytes, expected 33
+        vm.expectRevert(abi.encodeWithSelector(InvalidPayloadLength.selector, 33, 34));
         wrapper.validateCancellationLen(payload);
     }
     
@@ -260,9 +260,9 @@ contract PayloadPackingUnpackingTest is Test {
             bytes20(TEST_FILLER),          // filler address
             bytes1(0)                      // only 1 byte of fill count
         );
-        
-        // Act & Assert
-        vm.expectRevert(PayloadTooShortForSettlement.selector);
+
+        // Act & Assert - payload is 22 bytes, expected 23
+        vm.expectRevert(abi.encodeWithSelector(InvalidPayloadLength.selector, 23, 22));
         wrapper.validateSettlementLen(payload);
     }
     

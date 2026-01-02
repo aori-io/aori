@@ -24,9 +24,9 @@ library ValidationUtils {
     function validateCommonOrderParams(Order calldata order) internal view {
         if (order.offerer == address(0)) revert InvalidOfferer();
         if (order.recipient == address(0)) revert InvalidRecipient();
-        if (order.startTime >= order.endTime) revert InvalidEndTime();
-        if (order.startTime > block.timestamp) revert OrderNotStarted();
-        if (order.endTime <= block.timestamp) revert OrderExpired();
+        if (order.startTime >= order.endTime) revert InvalidEndTime(order.startTime, order.endTime);
+        if (order.startTime > block.timestamp) revert OrderNotStarted(order.startTime, block.timestamp);
+        if (order.endTime <= block.timestamp) revert OrderExpired(order.endTime, block.timestamp);
         if (order.inputAmount == 0) revert InvalidInputAmount();
         if (order.outputAmount == 0) revert InvalidOutputAmount();
         if (order.inputToken == address(0) || order.outputToken == address(0)) revert InvalidToken();
@@ -53,7 +53,7 @@ library ValidationUtils {
     ) internal view returns (bytes32 orderId) {
         orderId = keccak256(abi.encode(order));
         if (orderStatus(orderId) != OrderStatus.Unknown) revert OrderAlreadyExists();
-        if (!isSupportedChain(order.dstEid)) revert DestinationChainNotSupported();
+        if (!isSupportedChain(order.dstEid)) revert DestinationChainNotSupported(order.dstEid);
 
         // Signature validation - supports both EOAs and smart contract wallets (ERC-1271)
         if (!SignatureCheckerLib.isValidSignatureNowCalldata(order.offerer, digest, signature)) {
@@ -62,7 +62,7 @@ library ValidationUtils {
 
         // Order parameter validation
         validateCommonOrderParams(order);
-        if (order.srcEid != endpointId) revert ChainMismatch();
+        if (order.srcEid != endpointId) revert ChainMismatch(endpointId, order.srcEid);
     }
 
     /**
@@ -80,7 +80,7 @@ library ValidationUtils {
     ) internal view returns (bytes32 orderId) {
         // Order parameter validation
         validateCommonOrderParams(order);
-        if (order.dstEid != endpointId) revert ChainMismatch();
+        if (order.dstEid != endpointId) revert ChainMismatch(endpointId, order.dstEid);
 
         orderId = keccak256(abi.encode(order));
 
@@ -198,7 +198,7 @@ library BalanceUtils {
      */
     function unlock(Balance storage balance, uint128 amount) internal {
         (uint128 locked, uint128 unlocked) = loadBalance(balance);
-        if (locked < amount) revert InsufficientLockedBalance();
+        if (locked < amount) revert LockedBalanceDecreaseFailed(amount, locked);
         unchecked {
             locked -= amount;
         }
@@ -558,7 +558,7 @@ library PayloadUnpackUtils {
      * @param payload The payload to validate
      */
     function validateCancellationLen(bytes calldata payload) internal pure {
-        if (payload.length != 33) revert InvalidCancellationPayloadLength();
+        if (payload.length != 33) revert InvalidPayloadLength(33, payload.length);
     }
 
     /**
@@ -579,7 +579,7 @@ library PayloadUnpackUtils {
      * @param payload The payload to validate
      */
     function validateSettlementLen(bytes calldata payload) internal pure {
-        if (payload.length < 23) revert PayloadTooShortForSettlement();
+        if (payload.length < 23) revert InvalidPayloadLength(23, payload.length);
     }
 
     /**
@@ -589,7 +589,8 @@ library PayloadUnpackUtils {
      * @param fillCount The number of fills in the payload
      */
     function validateSettlementLen(bytes calldata payload, uint16 fillCount) internal pure {
-        if (payload.length != 23 + uint256(fillCount) * 32) revert InvalidPayloadLength();
+        uint256 expectedLen = 23 + uint256(fillCount) * 32;
+        if (payload.length != expectedLen) revert InvalidPayloadLength(expectedLen, payload.length);
     }
 
     /**
@@ -612,7 +613,7 @@ library PayloadUnpackUtils {
     function unpackSettlementHeader(
         bytes calldata payload
     ) internal pure returns (address filler, uint16 fillCount) {
-        if (payload.length < 23) revert InvalidPayloadLength();
+        if (payload.length < 23) revert InvalidPayloadLength(23, payload.length);
         assembly {
             let word := calldataload(add(payload.offset, 1))
             filler := shr(96, word)
@@ -631,7 +632,7 @@ library PayloadUnpackUtils {
         bytes calldata payload,
         uint256 index
     ) internal pure returns (bytes32 orderHash) {
-        if (payload.length < 23) revert InvalidPayloadLength();
+        if (payload.length < 23) revert InvalidPayloadLength(23, payload.length);
         if (index >= (payload.length - 23) / 32) revert PayloadIndexOutOfBounds();
         assembly {
             orderHash := calldataload(add(add(payload.offset, 23), mul(index, 32)))
@@ -749,9 +750,9 @@ library NativeTokenUtils {
      */
     function validateSufficientBalance(address token, uint256 amount) internal view {
         if (isNativeToken(token)) {
-            if (address(this).balance < amount) revert InsufficientContractNativeBalance();
+            if (address(this).balance < amount) revert InsufficientContractBalance(NATIVE_TOKEN);
         } else {
-            if (IERC20(token).balanceOf(address(this)) < amount) revert InsufficientContractBalance();
+            if (IERC20(token).balanceOf(address(this)) < amount) revert InsufficientContractBalance(token);
         }
     }
 }

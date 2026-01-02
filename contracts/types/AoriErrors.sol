@@ -24,13 +24,19 @@ error InvalidOfferer();
 error InvalidRecipient();
 
 /// @notice Thrown when end time is not greater than start time
-error InvalidEndTime();
+/// @param startTime The order start time
+/// @param endTime The order end time
+error InvalidEndTime(uint32 startTime, uint32 endTime);
 
 /// @notice Thrown when order has not started yet
-error OrderNotStarted();
+/// @param startTime The order start time
+/// @param currentTime The current block timestamp
+error OrderNotStarted(uint32 startTime, uint256 currentTime);
 
 /// @notice Thrown when order has expired
-error OrderExpired();
+/// @param endTime The order end time
+/// @param currentTime The current block timestamp
+error OrderExpired(uint32 endTime, uint256 currentTime);
 
 /// @notice Thrown when input amount is zero
 error InvalidInputAmount();
@@ -66,10 +72,13 @@ error InvalidSignature();
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
 /// @notice Thrown when destination chain is not supported
-error DestinationChainNotSupported();
+/// @param dstEid The unsupported destination endpoint ID
+error DestinationChainNotSupported(uint32 dstEid);
 
 /// @notice Thrown when chain ID doesn't match expected
-error ChainMismatch();
+/// @param expected The expected chain endpoint ID
+/// @param actual The actual chain endpoint ID
+error ChainMismatch(uint32 expected, uint32 actual);
 
 /// @notice Thrown when operation is attempted on wrong chain
 error NotOnDestinationChain();
@@ -87,9 +96,6 @@ error EmergencyCancelOnlyAllowedOnSourceChain();
 /*                      BALANCE ERRORS                        */
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-/// @notice Thrown when trying to unlock more than locked balance
-error InsufficientLockedBalance();
-
 /// @notice Thrown when trying to withdraw more than unlocked balance
 error InsufficientUnlockedBalance();
 
@@ -106,11 +112,9 @@ error LockedBalanceDecreaseFailed(uint128 attempted, uint128 available);
 /// @param actual The actual balance
 error BalanceInconsistency(uint256 expected, uint256 actual);
 
-/// @notice Thrown when contract doesn't have enough native balance
-error InsufficientContractNativeBalance();
-
-/// @notice Thrown when contract doesn't have enough token balance
-error InsufficientContractBalance();
+/// @notice Thrown when contract doesn't have enough balance
+/// @param token The token address (NATIVE_TOKEN for native)
+error InsufficientContractBalance(address token);
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                       HOOK ERRORS                          */
@@ -162,28 +166,18 @@ error UseDepositNativeForNativeTokens();
 error OrderMustSpecifyNativeToken();
 
 /// @notice Thrown when incorrect native amount is sent
-error IncorrectNativeAmount();
+/// @param expected The expected native amount
+/// @param actual The actual native amount sent
+error IncorrectNativeAmount(uint256 expected, uint256 actual);
 
 /// @notice Thrown when only offerer can deposit native tokens
 error OnlyOffererCanDepositNativeTokens();
 
-/// @notice Thrown when no native tokens should be sent for ERC20 fills
-error NoNativeTokensForERC20Fills();
-
-/// @notice Thrown when no native tokens should be sent for ERC20 preferred token
-error NoNativeTokensForERC20PreferredToken();
-
-/// @notice Thrown when no native tokens are expected
-error NoNativeTokensExpected();
+/// @notice Thrown when native tokens are sent but not expected
+error UnexpectedNativeTokens();
 
 /// @notice Thrown when native transfer fails
 error NativeTransferFailed();
-
-/// @notice Thrown when native transfer to hook fails
-error NativeTransferToHookFailed();
-
-/// @notice Thrown when ether withdrawal fails
-error EtherWithdrawalFailed();
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                      PERMIT2 ERRORS                        */
@@ -196,23 +190,16 @@ error Permit2SignatureExpired();
 /*                     PAYLOAD ERRORS                         */
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-/// @notice Thrown when cancellation payload has invalid length
-error InvalidCancellationPayloadLength();
-
-/// @notice Thrown when settlement payload is too short
-error PayloadTooShortForSettlement();
-
 /// @notice Thrown when payload has invalid length
-error InvalidPayloadLength();
+/// @param expected The expected payload length
+/// @param actual The actual payload length
+error InvalidPayloadLength(uint256 expected, uint256 actual);
 
 /// @notice Thrown when payload index is out of bounds
 error PayloadIndexOutOfBounds();
 
 /// @notice Thrown when message type is invalid
 error InvalidMessageType();
-
-/// @notice Thrown when payload type is not supported
-error UnsupportedPayloadType();
 
 /// @notice Thrown when payload is empty
 error EmptyPayload();
@@ -230,9 +217,6 @@ error OrderDataMismatch();
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                    EMERGENCY ERRORS                        */
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-/// @notice Thrown when recipient address is invalid
-error InvalidRecipientAddress();
 
 /// @notice Thrown when user address is invalid
 error InvalidUserAddress();
