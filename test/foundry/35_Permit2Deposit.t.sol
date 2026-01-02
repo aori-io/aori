@@ -20,9 +20,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
         "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,Order witness)Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient)TokenPermissions(address token,uint256 amount)"
     );
 
-    bytes32 constant TOKEN_PERMISSIONS_TYPEHASH = keccak256(
-        "TokenPermissions(address token,uint256 amount)"
-    );
+    bytes32 constant TOKEN_PERMISSIONS_TYPEHASH = keccak256("TokenPermissions(address token,uint256 amount)");
 
     function setUp() public override {
         super.setUp();
@@ -66,13 +64,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
             )
         );
 
-        bytes32 tokenPermissionsHash = keccak256(
-            abi.encode(
-                TOKEN_PERMISSIONS_TYPEHASH,
-                order.inputToken,
-                order.inputAmount
-            )
-        );
+        bytes32 tokenPermissionsHash = keccak256(abi.encode(TOKEN_PERMISSIONS_TYPEHASH, order.inputToken, order.inputAmount));
 
         bytes32 msgHash = keccak256(
             abi.encodePacked(

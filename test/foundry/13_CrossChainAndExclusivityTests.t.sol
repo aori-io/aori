@@ -19,9 +19,9 @@ pragma solidity 0.8.33;
  * and manually constructing the settlement and cancellation payloads.
  */
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
-import {IAori} from "../../contracts/Aori.sol";
-import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
-import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
+import { IAori } from "../../contracts/Aori.sol";
+import { Origin } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
+import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import "./TestUtils.sol";
 import "../../contracts/types/AoriErrors.sol";
 
@@ -112,7 +112,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
 
         // Send settlement
         vm.deal(solver, fee);
-        remoteAori.settle{value: fee}(localEid, solver, options);
+        remoteAori.settle{ value: fee }(localEid, solver, options);
         vm.stopPrank();
 
         // Switch back to source chain to simulate receiving the settlement
@@ -143,11 +143,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         // Simulate receipt of settlement message
         vm.prank(address(endpoints[localEid]));
         localAori.lzReceive(
-            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),
-            guid,
-            settlementPayload,
-            address(0),
-            bytes("")
+            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1), guid, settlementPayload, address(0), bytes("")
         );
 
         // Verify that funds were unlocked for the solver
@@ -193,11 +189,11 @@ contract CrossChainAndWhitelistTests is TestUtils {
         // Verify tokens were transferred directly back to the offerer
         uint256 finalUserBalance = inputToken.balanceOf(userA);
         assertEq(finalUserBalance, initialUserBalance, "User should have received their tokens back directly");
-        
+
         // Verify locked balance is now 0
         uint256 lockedAfter = localAori.getLockedBalances(userA, address(inputToken));
         assertEq(lockedAfter, 0, "Locked balance should be zero after cancellation");
-        
+
         // Verify unlocked balance remains 0 (since tokens were transferred directly)
         uint256 unlockedBalance = localAori.getUnlockedBalances(userA, address(inputToken));
         assertEq(unlockedBalance, 0, "Unlocked balance should remain 0 with direct transfer");
@@ -224,12 +220,12 @@ contract CrossChainAndWhitelistTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        // Advance time past order expiry 
+        // Advance time past order expiry
         vm.warp(order.endTime + 1);
 
         // Non-whitelisted solver tries to cancel - should fail
         bytes32 orderHash = localAori.hash(order);
-        
+
         // Place expectRevert directly before the call that should revert
         vm.prank(nonWhitelistedSolver);
         vm.expectRevert(UnauthorizedCancel.selector);
@@ -242,10 +238,10 @@ contract CrossChainAndWhitelistTests is TestUtils {
     function testQuoteFeeCalculation() public view {
         // Create options for quoting
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(uint128(GAS_LIMIT), 0);
-        
+
         // Get a fee quote
         uint256 fee = localAori.quote(remoteEid, uint8(PayloadType.Settlement), options, false, localEid, solver).nativeFee;
-        
+
         // The fee should be non-zero
         assertGt(fee, 0, "Fee should be greater than zero");
     }
@@ -291,9 +287,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         vm.prank(userA);
         bytes32 orderHash = localAori.hash(order);
         // Add a check to verify the order state is actually Filled
-        assertEq(
-            uint8(remoteAori.orderStatus(orderHash)), uint8(OrderStatus.Filled), "Order should be in filled state"
-        );
+        assertEq(uint8(remoteAori.orderStatus(orderHash)), uint8(OrderStatus.Filled), "Order should be in filled state");
         vm.expectRevert(abi.encodeWithSelector(OrderAlreadyProcessed.selector, OrderStatus.Filled));
         remoteAori.cancel(orderHash, order, defaultOptions());
     }
@@ -330,14 +324,10 @@ contract CrossChainAndWhitelistTests is TestUtils {
         vm.deal(userA, cancelFee);
         vm.startPrank(userA);
         bytes32 orderHash = localAori.hash(order);
-        remoteAori.cancel{value: cancelFee}(orderHash, order, options);
+        remoteAori.cancel{ value: cancelFee }(orderHash, order, options);
         vm.stopPrank();
 
-        assertEq(
-            uint8(remoteAori.orderStatus(orderHash)),
-            uint256(OrderStatus.Cancelled),
-            "Order should be in cancelled state"
-        );
+        assertEq(uint8(remoteAori.orderStatus(orderHash)), uint256(OrderStatus.Cancelled), "Order should be in cancelled state");
 
         // Simulate receiving the cancellation message on source chain
         vm.chainId(localEid);
@@ -376,7 +366,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         // Create an invalid payload with an unsupported type (not 0 for settlement or 1 for cancellation)
         bytes memory invalidPayload = new bytes(33); // Same length as a cancellation payload
         invalidPayload[0] = 0x02; // Set unsupported payload type (2)
-        
+
         // Fill the rest with some dummy data
         bytes32 dummyOrderHash = keccak256("dummy-order-hash");
         for (uint256 i = 0; i < 32; i++) {
@@ -389,11 +379,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         // Use generic expectRevert without message since Solidity panics are difficult to match exactly
         vm.expectRevert();
         localAori.lzReceive(
-            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),
-            guid,
-            invalidPayload,
-            address(0),
-            bytes("")
+            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1), guid, invalidPayload, address(0), bytes("")
         );
     }
 }

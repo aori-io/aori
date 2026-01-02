@@ -21,7 +21,9 @@ library ValidationUtils {
      * @dev Checks offerer, recipient, time bounds, amounts, and token addresses
      * @param order The order to validate
      */
-    function validateCommonOrderParams(Order calldata order) internal view {
+    function validateCommonOrderParams(
+        Order calldata order
+    ) internal view {
         if (order.offerer == address(0)) revert InvalidOfferer();
         if (order.recipient == address(0)) revert InvalidRecipient();
         if (order.startTime >= order.endTime) revert InvalidEndTime(order.startTime, order.endTime);
@@ -117,9 +119,8 @@ library ValidationUtils {
         OrderStatus status = orderStatus(orderId);
         if (status != OrderStatus.Unknown) revert OrderAlreadyProcessed(status);
         if (
-            !isAllowedSolver(sender) &&
-            !(sender == order.offerer && block.timestamp > order.endTime) &&
-            !(sender == order.recipient && block.timestamp > order.endTime)
+            !isAllowedSolver(sender) && !(sender == order.offerer && block.timestamp > order.endTime)
+                && !(sender == order.recipient && block.timestamp > order.endTime)
         ) {
             revert UnauthorizedCancel();
         }
@@ -165,7 +166,9 @@ library ValidationUtils {
      * @param order The order to check
      * @return True if the order is a single-chain swap
      */
-    function isSingleChainSwap(Order calldata order) internal pure returns (bool) {
+    function isSingleChainSwap(
+        Order calldata order
+    ) internal pure returns (bool) {
         return order.srcEid == order.dstEid;
     }
 }
@@ -186,7 +189,10 @@ library BalanceUtils {
      * @param balance The Balance struct reference
      * @param amount The amount to lock
      */
-    function lock(Balance storage balance, uint128 amount) internal {
+    function lock(
+        Balance storage balance,
+        uint128 amount
+    ) internal {
         balance.locked += amount;
     }
 
@@ -196,7 +202,10 @@ library BalanceUtils {
      * @param balance The Balance struct reference
      * @param amount The amount to unlock
      */
-    function unlock(Balance storage balance, uint128 amount) internal {
+    function unlock(
+        Balance storage balance,
+        uint128 amount
+    ) internal {
         (uint128 locked, uint128 unlocked) = loadBalance(balance);
         if (locked < amount) revert LockedBalanceDecreaseFailed(amount, locked);
         unchecked {
@@ -257,7 +266,9 @@ library BalanceUtils {
      * @param balance The Balance struct reference
      * @return amount The amount that was unlocked
      */
-    function unlockAll(Balance storage balance) internal returns (uint128 amount) {
+    function unlockAll(
+        Balance storage balance
+    ) internal returns (uint128 amount) {
         (uint128 locked, uint128 unlocked) = loadBalance(balance);
         amount = locked;
         unlocked += amount;
@@ -271,7 +282,9 @@ library BalanceUtils {
      * @param balance The Balance struct reference
      * @return The unlocked balance amount
      */
-    function getUnlocked(Balance storage balance) internal view returns (uint128) {
+    function getUnlocked(
+        Balance storage balance
+    ) internal view returns (uint128) {
         return balance.unlocked;
     }
 
@@ -280,7 +293,9 @@ library BalanceUtils {
      * @param balance The Balance struct reference
      * @return The locked balance amount
      */
-    function getLocked(Balance storage balance) internal view returns (uint128) {
+    function getLocked(
+        Balance storage balance
+    ) internal view returns (uint128) {
         return balance.locked;
     }
 
@@ -308,7 +323,11 @@ library BalanceUtils {
      * @param locked The locked balance to store
      * @param unlocked The unlocked balance to store
      */
-    function storeBalance(Balance storage balance, uint128 locked, uint128 unlocked) internal {
+    function storeBalance(
+        Balance storage balance,
+        uint128 locked,
+        uint128 unlocked
+    ) internal {
         assembly {
             sstore(balance.slot, or(shl(128, unlocked), locked))
         }
@@ -401,7 +420,7 @@ library ExecutionUtils {
         address observedToken
     ) internal returns (uint256) {
         uint256 balBefore = NativeTokenUtils.balanceOf(observedToken, address(this));
-        (bool success, ) = target.call(data);
+        (bool success,) = target.call(data);
         if (!success) revert HookCallFailed();
         uint256 balAfter = NativeTokenUtils.balanceOf(observedToken, address(this));
 
@@ -515,7 +534,7 @@ library PayloadPackUtils {
             // Store storage elements into memory and clear them
             for {
                 let i := arrLength
-            } gt(i, min_i) {} {
+            } gt(i, min_i) { } {
                 i := sub(i, 1)
                 let elementSlot := add(base, i)
 
@@ -537,7 +556,9 @@ library PayloadPackUtils {
      * @param orderHash The hash of the order to cancel
      * @return payload The packed cancellation payload
      */
-    function packCancellation(bytes32 orderHash) internal pure returns (bytes memory) {
+    function packCancellation(
+        bytes32 orderHash
+    ) internal pure returns (bytes memory) {
         uint8 msgType = uint8(PayloadType.Cancellation);
         return abi.encodePacked(msgType, orderHash);
     }
@@ -557,7 +578,9 @@ library PayloadUnpackUtils {
      * @dev Ensures the payload is exactly 33 bytes (1 byte type + 32 bytes order hash)
      * @param payload The payload to validate
      */
-    function validateCancellationLen(bytes calldata payload) internal pure {
+    function validateCancellationLen(
+        bytes calldata payload
+    ) internal pure {
         if (payload.length != 33) revert InvalidPayloadLength(33, payload.length);
     }
 
@@ -567,7 +590,9 @@ library PayloadUnpackUtils {
      * @param payload The cancellation payload to unpack
      * @return orderHash The extracted order hash
      */
-    function unpackCancellation(bytes calldata payload) internal pure returns (bytes32 orderHash) {
+    function unpackCancellation(
+        bytes calldata payload
+    ) internal pure returns (bytes32 orderHash) {
         assembly {
             orderHash := calldataload(add(payload.offset, 1))
         }
@@ -578,7 +603,9 @@ library PayloadUnpackUtils {
      * @dev Ensures the payload is at least 23 bytes (header size)
      * @param payload The payload to validate
      */
-    function validateSettlementLen(bytes calldata payload) internal pure {
+    function validateSettlementLen(
+        bytes calldata payload
+    ) internal pure {
         if (payload.length < 23) revert InvalidPayloadLength(23, payload.length);
     }
 
@@ -588,7 +615,10 @@ library PayloadUnpackUtils {
      * @param payload The payload to validate
      * @param fillCount The number of fills in the payload
      */
-    function validateSettlementLen(bytes calldata payload, uint16 fillCount) internal pure {
+    function validateSettlementLen(
+        bytes calldata payload,
+        uint16 fillCount
+    ) internal pure {
         uint256 expectedLen = 23 + uint256(fillCount) * 32;
         if (payload.length != expectedLen) revert InvalidPayloadLength(expectedLen, payload.length);
     }
@@ -599,7 +629,9 @@ library PayloadUnpackUtils {
      * @param payload The payload to check
      * @return The payload type (Settlement or Cancellation)
      */
-    function getType(bytes calldata payload) internal pure returns (PayloadType) {
+    function getType(
+        bytes calldata payload
+    ) internal pure returns (PayloadType) {
         return PayloadType(uint8(payload[0]));
     }
 
@@ -650,7 +682,9 @@ library PayloadUnpackUtils {
  * @param fillCount The number of fills in the settlement
  * @return The total payload size in bytes
  */
-function settlementPayloadSize(uint256 fillCount) pure returns (uint256) {
+function settlementPayloadSize(
+    uint256 fillCount
+) pure returns (uint256) {
     return 1 + 20 + 2 + (fillCount * 32);
 }
 
@@ -679,9 +713,7 @@ library PayloadSizeUtils {
             return CANCELLATION_PAYLOAD_SIZE; // 1 byte type + 32 bytes order hash
         } else if (msgType == uint8(PayloadType.Settlement)) {
             // Get the number of fills (capped by maxFillsPerSettle)
-            uint16 fillCount = uint16(
-                fillsLength < maxFillsPerSettle ? fillsLength : maxFillsPerSettle
-            );
+            uint16 fillCount = uint16(fillsLength < maxFillsPerSettle ? fillsLength : maxFillsPerSettle);
 
             // Calculate settlement payload size
             return settlementPayloadSize(fillCount);
@@ -704,13 +736,15 @@ address constant NATIVE_TOKEN = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
  */
 library NativeTokenUtils {
     using SafeERC20 for IERC20;
-    
+
     /**
      * @notice Checks if a token address represents native ETH
      * @param token The token address to check
      * @return True if the token is the native token address
      */
-    function isNativeToken(address token) internal pure returns (bool) {
+    function isNativeToken(
+        address token
+    ) internal pure returns (bool) {
         return token == NATIVE_TOKEN;
     }
 
@@ -720,9 +754,13 @@ library NativeTokenUtils {
      * @param to The recipient address
      * @param amount The amount to transfer
      */
-    function safeTransfer(address token, address to, uint256 amount) internal {
+    function safeTransfer(
+        address token,
+        address to,
+        uint256 amount
+    ) internal {
         if (isNativeToken(token)) {
-            (bool success, ) = payable(to).call{value: amount}("");
+            (bool success,) = payable(to).call{ value: amount }("");
             if (!success) revert NativeTransferFailed();
         } else {
             IERC20(token).safeTransfer(to, amount);
@@ -735,7 +773,10 @@ library NativeTokenUtils {
      * @param account The account to check balance for
      * @return The token balance
      */
-    function balanceOf(address token, address account) internal view returns (uint256) {
+    function balanceOf(
+        address token,
+        address account
+    ) internal view returns (uint256) {
         if (isNativeToken(token)) {
             return account.balance;
         } else {
@@ -748,7 +789,10 @@ library NativeTokenUtils {
      * @param token The token address (use NATIVE_TOKEN for ETH)
      * @param amount The amount to validate
      */
-    function validateSufficientBalance(address token, uint256 amount) internal view {
+    function validateSufficientBalance(
+        address token,
+        uint256 amount
+    ) internal view {
         if (isNativeToken(token)) {
             if (address(this).balance < amount) revert InsufficientContractBalance(NATIVE_TOKEN);
         } else {

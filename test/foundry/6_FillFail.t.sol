@@ -18,7 +18,7 @@ pragma solidity 0.8.33;
  * using a custom FailingHook that intentionally fails to transfer tokens to simulate errors.
  */
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
-import {IAori} from "../../contracts/interfaces/IAori.sol";
+import { IAori } from "../../contracts/interfaces/IAori.sol";
 import "../../contracts/types/AoriErrors.sol";
 import "./TestUtils.sol";
 
@@ -27,7 +27,10 @@ import "./TestUtils.sol";
  * This hook is used to simulate a fill in which the expected output tokens are not provided.
  */
 contract FailingHook {
-    function handleHook(address token, uint256 expectedAmount) external {
+    function handleHook(
+        address token,
+        uint256 expectedAmount
+    ) external {
         // Intentionally do nothing.
     }
 }
@@ -47,17 +50,12 @@ contract FillFailTest is TestUtils {
     }
 
     /// @notice Returns a default DstSolverData for a direct fill (no hook conversion).
-    function defaultDstSolverData(address _preferredToken, uint256 _expectedAmount)
-        internal
-        pure
-        returns (DstHook memory)
-    {
-        return DstHook({
-            hookAddress: address(0),
-            preferredToken: _preferredToken,
-            instructions: "",
-            preferedDstInputAmount: _expectedAmount
-        });
+    function defaultDstSolverData(
+        address _preferredToken,
+        uint256 _expectedAmount
+    ) internal pure returns (DstHook memory) {
+        return
+            DstHook({ hookAddress: address(0), preferredToken: _preferredToken, instructions: "", preferedDstInputAmount: _expectedAmount });
     }
 
     /// @notice Test that fill reverts when the order's startTime is after its endTime.
@@ -165,9 +163,7 @@ contract FillFailTest is TestUtils {
 
         // Verify order status
         bytes32 orderHash = remoteAori.hash(order);
-        assertEq(
-            uint8(remoteAori.orderStatus(orderHash)), uint8(OrderStatus.Filled), "Order should be in filled state"
-        );
+        assertEq(uint8(remoteAori.orderStatus(orderHash)), uint8(OrderStatus.Filled), "Order should be in filled state");
     }
 
     /**

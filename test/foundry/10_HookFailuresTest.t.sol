@@ -14,8 +14,8 @@ pragma solidity 0.8.33;
  * using custom hooks (FailingHook and PartialOutputHook) to simulate error conditions.
  */
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IAori} from "../../contracts/interfaces/IAori.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IAori } from "../../contracts/interfaces/IAori.sol";
 import "../../contracts/types/AoriErrors.sol";
 import "./TestUtils.sol";
 
@@ -157,7 +157,10 @@ contract FailingHook {
 
 // Mock contract that returns insufficient output tokens
 contract PartialOutputHook {
-    function partialTransfer(address token, uint256 amount) external {
+    function partialTransfer(
+        address token,
+        uint256 amount
+    ) external {
         // Transfer only the specified amount to the caller
         IERC20(token).transfer(msg.sender, amount);
     }

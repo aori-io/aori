@@ -9,31 +9,31 @@ pragma solidity 0.8.33;
  *   3. User receives ERC20 tokens directly from solver
  *   4. Source Chain: settle() - Settlement via LayerZero, solver gets native ETH unlocked
  * @dev Verifies balance accounting, token transfers, and cross-chain messaging
- * 
+ *
  * @dev To run with detailed accounting logs:
  *   forge test --match-test testCrossChainNativeToERC20NoHookSuccess -vv
  */
-import {Aori, IAori} from "../../contracts/Aori.sol";
-import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
-import {TestUtils} from "./TestUtils.sol";
-import {Order, OrderStatus, SrcHook, DstHook, Balance} from "../../contracts/types/AoriTypes.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {Test} from "forge-std/Test.sol";
-import {console} from "forge-std/console.sol";
+import { Aori, IAori } from "../../contracts/Aori.sol";
+import { Origin } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
+import { TestUtils } from "./TestUtils.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Test } from "forge-std/Test.sol";
+import { console } from "forge-std/console.sol";
 import "../../contracts/libraries/AoriUtils.sol";
 
 contract CC_NativeToERC20NoHook is TestUtils {
     using NativeTokenUtils for address;
 
     // Test amounts
-    uint128 public constant INPUT_AMOUNT = 1 ether;         // Native ETH input (user deposits)
-    uint128 public constant OUTPUT_AMOUNT = 2000e18;        // ERC20 output (user receives)
+    uint128 public constant INPUT_AMOUNT = 1 ether; // Native ETH input (user deposits)
+    uint128 public constant OUTPUT_AMOUNT = 2000e18; // ERC20 output (user receives)
 
     // Cross-chain addresses
-    address public userSource;     // User on source chain
-    address public userDest;       // User on destination chain  
-    address public solverSource;   // Solver on source chain
-    address public solverDest;     // Solver on destination chain
+    address public userSource; // User on source chain
+    address public userDest; // User on destination chain
+    address public solverSource; // Solver on source chain
+    address public solverDest; // Solver on destination chain
 
     // Private keys for signing
     uint256 public userSourcePrivKey = 0xABCD;
@@ -46,17 +46,19 @@ contract CC_NativeToERC20NoHook is TestUtils {
     /**
      * @notice Helper function to format wei amount to ETH string
      */
-    function formatETH(int256 weiAmount) internal pure returns (string memory) {
+    function formatETH(
+        int256 weiAmount
+    ) internal pure returns (string memory) {
         if (weiAmount == 0) return "0 ETH";
-        
+
         bool isNegative = weiAmount < 0;
         uint256 absAmount = uint256(isNegative ? -weiAmount : weiAmount);
-        
+
         uint256 ethPart = absAmount / 1e18;
         uint256 weiPart = absAmount % 1e18;
-        
+
         string memory sign = isNegative ? "-" : "+";
-        
+
         if (weiPart == 0) {
             return string(abi.encodePacked(sign, vm.toString(ethPart), " ETH"));
         } else {
@@ -69,17 +71,19 @@ contract CC_NativeToERC20NoHook is TestUtils {
     /**
      * @notice Helper function to format token amount to readable string
      */
-    function formatTokens(int256 tokenAmount) internal pure returns (string memory) {
+    function formatTokens(
+        int256 tokenAmount
+    ) internal pure returns (string memory) {
         if (tokenAmount == 0) return "0 tokens";
-        
+
         bool isNegative = tokenAmount < 0;
         uint256 absAmount = uint256(isNegative ? -tokenAmount : tokenAmount);
-        
+
         uint256 tokenPart = absAmount / 1e18; // 18 decimals for output token
         uint256 decimalPart = absAmount % 1e18;
-        
+
         string memory sign = isNegative ? "-" : "+";
-        
+
         if (decimalPart == 0) {
             return string(abi.encodePacked(sign, vm.toString(tokenPart), " tokens"));
         } else {
@@ -91,24 +95,24 @@ contract CC_NativeToERC20NoHook is TestUtils {
 
     function setUp() public override {
         super.setUp();
-        
+
         // Derive addresses from private keys
         userSource = vm.addr(userSourcePrivKey);
         solverSource = vm.addr(solverSourcePrivKey);
         solverDest = vm.addr(solverDestPrivKey);
-        userDest = makeAddr("userDest");  // Keep this one as makeAddr since we don't need to sign for it
-        
+        userDest = makeAddr("userDest"); // Keep this one as makeAddr since we don't need to sign for it
+
         // Setup native token balances for source chain addresses
-        vm.deal(userSource, 2 ether);    // User has ETH to deposit
-        vm.deal(solverSource, 1 ether);  // Solver has ETH for gas costs
-        
-        // Setup ERC20 token balances for destination chain addresses  
+        vm.deal(userSource, 2 ether); // User has ETH to deposit
+        vm.deal(solverSource, 1 ether); // Solver has ETH for gas costs
+
+        // Setup ERC20 token balances for destination chain addresses
         outputToken.mint(solverDest, OUTPUT_AMOUNT); // Solver has tokens to fill with
-        
+
         // Setup contract balances
-        vm.deal(address(localAori), 0 ether);    // For any native operations
-        vm.deal(address(remoteAori), 0 ether);   // For native output operations
-        
+        vm.deal(address(localAori), 0 ether); // For any native operations
+        vm.deal(address(remoteAori), 0 ether); // For native output operations
+
         // Add solvers to allowed list
         localAori.addAllowedSolver(solverSource);
         remoteAori.addAllowedSolver(solverDest);
@@ -119,27 +123,27 @@ contract CC_NativeToERC20NoHook is TestUtils {
      */
     function _createAndDepositNativeOrder() internal {
         vm.chainId(localEid);
-        
+
         // Create test order with native input and ERC20 output
         order = createCustomOrder(
-            userSource,                  // offerer
-            userDest,                    // recipient
-            NATIVE_TOKEN,                // inputToken (native ETH)
-            address(outputToken),        // outputToken (ERC20)
-            INPUT_AMOUNT,                // inputAmount
-            OUTPUT_AMOUNT,               // outputAmount
-            block.timestamp,             // startTime
-            block.timestamp + 1 hours,   // endTime
-            localEid,                    // srcEid
-            remoteEid                    // dstEid
+            userSource, // offerer
+            userDest, // recipient
+            NATIVE_TOKEN, // inputToken (native ETH)
+            address(outputToken), // outputToken (ERC20)
+            INPUT_AMOUNT, // inputAmount
+            OUTPUT_AMOUNT, // outputAmount
+            block.timestamp, // startTime
+            block.timestamp + 1 hours, // endTime
+            localEid, // srcEid
+            remoteEid // dstEid
         );
-        
+
         // Generate signature
         bytes memory signature = signOrder(order, userSourcePrivKey);
 
         // User deposits their own native tokens directly
         vm.prank(userSource);
-        localAori.depositNative{value: INPUT_AMOUNT}(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order);
     }
 
     /**
@@ -163,14 +167,14 @@ contract CC_NativeToERC20NoHook is TestUtils {
      */
     function _settleOrder() internal {
         bytes memory options = defaultOptions();
-        
+
         // For clean accounting, just send 1 ether as fee and reset balance after
         uint256 balanceBeforeSettle = solverDest.balance;
         vm.deal(solverDest, balanceBeforeSettle + 1 ether); // Give extra ETH for fees
-        
+
         vm.prank(solverDest);
-        remoteAori.settle{value: 1 ether}(localEid, solverDest, options);
-        
+        remoteAori.settle{ value: 1 ether }(localEid, solverDest, options);
+
         // Reset balance to eliminate fee effect
         vm.deal(solverDest, balanceBeforeSettle);
     }
@@ -190,11 +194,7 @@ contract CC_NativeToERC20NoHook is TestUtils {
 
         vm.prank(address(endpoints[localEid]));
         localAori.lzReceive(
-            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),
-            guid,
-            settlementPayload,
-            address(0),
-            bytes("")
+            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1), guid, settlementPayload, address(0), bytes("")
         );
     }
 
@@ -210,24 +210,14 @@ contract CC_NativeToERC20NoHook is TestUtils {
 
         // Verify locked balance increased
         assertEq(
-            localAori.getLockedBalances(userSource, NATIVE_TOKEN),
-            initialLocked + INPUT_AMOUNT,
-            "Locked balance not increased for user"
+            localAori.getLockedBalances(userSource, NATIVE_TOKEN), initialLocked + INPUT_AMOUNT, "Locked balance not increased for user"
         );
 
         // Verify contract received native tokens
-        assertEq(
-            address(localAori).balance,
-            initialContractBalance + INPUT_AMOUNT,
-            "Contract should receive native tokens"
-        );
+        assertEq(address(localAori).balance, initialContractBalance + INPUT_AMOUNT, "Contract should receive native tokens");
 
         // Verify user balance decreased
-        assertEq(
-            userSource.balance,
-            initialUserBalance - INPUT_AMOUNT,
-            "User balance should decrease"
-        );
+        assertEq(userSource.balance, initialUserBalance - INPUT_AMOUNT, "User balance should decrease");
 
         // Verify order status
         assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Active, "Order should be Active");
@@ -247,23 +237,13 @@ contract CC_NativeToERC20NoHook is TestUtils {
         _fillOrderWithERC20Output();
 
         // Verify token transfers (use destination chain addresses)
-        assertEq(
-            outputToken.balanceOf(userDest),
-            preFillUserTokens + OUTPUT_AMOUNT,
-            "User did not receive the expected ERC20 tokens"
-        );
-        
-        assertEq(
-            outputToken.balanceOf(solverDest),
-            preFillSolverTokens - OUTPUT_AMOUNT,
-            "Solver balance should decrease by output amount"
-        );
-        
+        assertEq(outputToken.balanceOf(userDest), preFillUserTokens + OUTPUT_AMOUNT, "User did not receive the expected ERC20 tokens");
+
+        assertEq(outputToken.balanceOf(solverDest), preFillSolverTokens - OUTPUT_AMOUNT, "Solver balance should decrease by output amount");
+
         // Contract should not hold any ERC20 tokens (direct transfer from solver to user)
         assertEq(
-            outputToken.balanceOf(address(remoteAori)),
-            preFillContractTokens,
-            "Contract should not hold ERC20 tokens after direct fill"
+            outputToken.balanceOf(address(remoteAori)), preFillContractTokens, "Contract should not hold ERC20 tokens after direct fill"
         );
 
         // Verify order status
@@ -300,11 +280,7 @@ contract CC_NativeToERC20NoHook is TestUtils {
         assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
 
         // Verify locked balance is cleared
-        assertEq(
-            localAori.getLockedBalances(userSource, NATIVE_TOKEN),
-            0,
-            "Offerer should have no locked balance after settlement"
-        );
+        assertEq(localAori.getLockedBalances(userSource, NATIVE_TOKEN), 0, "Offerer should have no locked balance after settlement");
     }
 
     /**
@@ -320,27 +296,15 @@ contract CC_NativeToERC20NoHook is TestUtils {
         vm.chainId(localEid);
         uint256 solverBalanceBeforeWithdraw = solverSource.balance;
         uint256 contractBalanceBeforeWithdraw = address(localAori).balance;
-        
+
         // Solver withdraws their earned tokens (use source chain solver)
         vm.prank(solverSource);
         localAori.withdraw(NATIVE_TOKEN, INPUT_AMOUNT);
-        
+
         // Verify withdrawal
-        assertEq(
-            solverSource.balance,
-            solverBalanceBeforeWithdraw + INPUT_AMOUNT,
-            "Solver should receive withdrawn native tokens"
-        );
-        assertEq(
-            address(localAori).balance,
-            contractBalanceBeforeWithdraw - INPUT_AMOUNT,
-            "Contract should send native tokens"
-        );
-        assertEq(
-            localAori.getUnlockedBalances(solverSource, NATIVE_TOKEN),
-            0,
-            "Solver should have no remaining balance"
-        );
+        assertEq(solverSource.balance, solverBalanceBeforeWithdraw + INPUT_AMOUNT, "Solver should receive withdrawn native tokens");
+        assertEq(address(localAori).balance, contractBalanceBeforeWithdraw - INPUT_AMOUNT, "Contract should send native tokens");
+        assertEq(localAori.getUnlockedBalances(solverSource, NATIVE_TOKEN), 0, "Solver should have no remaining balance");
     }
 
     /**
@@ -356,12 +320,12 @@ contract CC_NativeToERC20NoHook is TestUtils {
         uint256 initialUserSourceNative = userSource.balance;
         uint256 initialSolverSourceNative = solverSource.balance;
         uint256 initialContractSourceNative = address(localAori).balance;
-        
-        vm.chainId(remoteEid); // Destination chain  
+
+        vm.chainId(remoteEid); // Destination chain
         uint256 initialUserDestTokens = outputToken.balanceOf(userDest);
         uint256 initialSolverDestTokens = outputToken.balanceOf(solverDest);
         uint256 initialContractDestTokens = outputToken.balanceOf(address(remoteAori));
-        
+
         console.log("=== PHASE 0: INITIAL STATE ===");
         console.log("Source Chain:");
         console.log("  User native balance:", initialUserSourceNative / 1e18, "ETH");
@@ -381,7 +345,7 @@ contract CC_NativeToERC20NoHook is TestUtils {
         uint256 afterDepositUserSourceNative = userSource.balance;
         uint256 afterDepositContractSourceNative = address(localAori).balance;
         uint256 afterDepositUserSourceLocked = localAori.getLockedBalances(userSource, NATIVE_TOKEN);
-        
+
         console.log("Source Chain After Deposit:");
         console.log("  User native balance:", afterDepositUserSourceNative / 1e18, "ETH");
         int256 userDepositChange = int256(afterDepositUserSourceNative) - int256(initialUserSourceNative);
@@ -400,7 +364,7 @@ contract CC_NativeToERC20NoHook is TestUtils {
         uint256 afterFillUserDestTokens = outputToken.balanceOf(userDest);
         uint256 afterFillSolverDestTokens = outputToken.balanceOf(solverDest);
         uint256 afterFillContractDestTokens = outputToken.balanceOf(address(remoteAori));
-        
+
         console.log("Destination Chain After Fill:");
         console.log("  User ERC20 balance:", afterFillUserDestTokens / 1e18, "tokens");
         int256 userFillChange = int256(afterFillUserDestTokens) - int256(initialUserDestTokens);
@@ -411,7 +375,7 @@ contract CC_NativeToERC20NoHook is TestUtils {
         console.log("  Contract ERC20 balance:", afterFillContractDestTokens / 1e18, "tokens");
         int256 contractFillChange = int256(afterFillContractDestTokens) - int256(initialContractDestTokens);
         console.log("    Change:", formatTokens(contractFillChange));
-        
+
         // Also check source chain solver balances for comparison
         vm.chainId(localEid);
         uint256 afterFillSolverSourceNative = solverSource.balance;
@@ -421,29 +385,29 @@ contract CC_NativeToERC20NoHook is TestUtils {
 
         // === PHASE 3: SETTLEMENT ===
         console.log("=== PHASE 3: SETTLEMENT VIA LAYERZERO ===");
-        
+
         // Record balances before settlement
         vm.chainId(remoteEid);
         uint256 beforeSettlementSolverDestNative = solverDest.balance;
         console.log("Before Settlement - Solver dest native balance:", beforeSettlementSolverDestNative / 1e18, "ETH");
-        
+
         _settleOrder();
-        
+
         console.log("After settle() call - Solver dest native balance:", beforeSettlementSolverDestNative / 1e18, "ETH (fee-adjusted)");
         console.log("  Settlement fee paid: 0 ETH (mocked to 0 for clean accounting)");
-        
+
         _simulateLzMessageDelivery();
 
         vm.chainId(localEid);
         uint256 afterSettlementUserSourceLocked = localAori.getLockedBalances(userSource, NATIVE_TOKEN);
         uint256 afterSettlementSolverSourceUnlocked = localAori.getUnlockedBalances(solverSource, NATIVE_TOKEN);
-        
+
         console.log("Source Chain After Settlement:");
         console.log("  User locked balance:", afterSettlementUserSourceLocked / 1e18, "ETH");
         int256 lockedChange = int256(afterSettlementUserSourceLocked) - int256(afterDepositUserSourceLocked);
         console.log("    Change:", formatETH(lockedChange));
         console.log("  Solver unlocked balance:", afterSettlementSolverSourceUnlocked / 1e18, "ETH");
-        
+
         // Check destination chain balances after message delivery
         vm.chainId(remoteEid);
         uint256 afterMessageSolverDestNative = solverDest.balance;
@@ -456,14 +420,14 @@ contract CC_NativeToERC20NoHook is TestUtils {
         vm.chainId(localEid);
         uint256 beforeWithdrawSolverSourceNative = solverSource.balance;
         uint256 beforeWithdrawContractSourceNative = address(localAori).balance;
-        
+
         vm.prank(solverSource);
         localAori.withdraw(NATIVE_TOKEN, INPUT_AMOUNT);
-        
+
         uint256 afterWithdrawSolverSourceNative = solverSource.balance;
         uint256 afterWithdrawContractSourceNative = address(localAori).balance;
         uint256 afterWithdrawSolverSourceUnlocked = localAori.getUnlockedBalances(solverSource, NATIVE_TOKEN);
-        
+
         console.log("Source Chain After Withdrawal:");
         console.log("  Solver native balance:", afterWithdrawSolverSourceNative / 1e18, "ETH");
         int256 solverWithdrawChange = int256(afterWithdrawSolverSourceNative) - int256(beforeWithdrawSolverSourceNative);
@@ -476,11 +440,11 @@ contract CC_NativeToERC20NoHook is TestUtils {
 
         // === FINAL SUMMARY ===
         console.log("=== FINAL SUMMARY: NET BALANCE CHANGES ===");
-        
+
         vm.chainId(localEid); // Source chain
         uint256 finalUserSourceNative = userSource.balance;
         uint256 finalSolverSourceNative = solverSource.balance;
-        
+
         vm.chainId(remoteEid); // Destination chain
         uint256 finalUserDestTokens = outputToken.balanceOf(userDest);
         uint256 finalSolverDestTokens = outputToken.balanceOf(solverDest);
@@ -491,23 +455,23 @@ contract CC_NativeToERC20NoHook is TestUtils {
         console.log("  Source chain ETH:", formatETH(userSourceNetChange));
         console.log("  Destination chain ERC20:", formatTokens(userDestNetChange));
         console.log("  Trade: User paid 1 ETH and received 2000 ERC20 tokens");
-        
+
         console.log("Solver Net Changes:");
         int256 solverSourceNetChange = int256(finalSolverSourceNative) - int256(initialSolverSourceNative);
         int256 solverDestNetChange = int256(finalSolverDestTokens) - int256(initialSolverDestTokens);
         console.log("  Source chain ETH:", formatETH(solverSourceNetChange));
         console.log("  Destination chain ERC20:", formatTokens(solverDestNetChange));
         console.log("  Trade summary: Solver received 1 ETH, paid 2000 ERC20 tokens");
-        
+
         // === ASSERTIONS ===
         // User should have paid INPUT_AMOUNT ETH and received OUTPUT_AMOUNT ERC20
         assertEq(userSourceNetChange, -int256(uint256(INPUT_AMOUNT)), "User should have paid input amount");
         assertEq(userDestNetChange, int256(uint256(OUTPUT_AMOUNT)), "User should have received output amount");
-        
+
         // Solver should have gained INPUT_AMOUNT ETH and paid OUTPUT_AMOUNT ERC20
         assertEq(solverSourceNetChange, int256(uint256(INPUT_AMOUNT)), "Solver should have gained input ETH");
         assertEq(solverDestNetChange, -int256(uint256(OUTPUT_AMOUNT)), "Solver should have paid output tokens");
-        
+
         console.log("");
         console.log("All assertions passed! Cross-chain Native to ERC20 swap (no hooks) successful.");
     }

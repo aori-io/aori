@@ -12,11 +12,7 @@ interface IAori {
     event Deposit(bytes32 indexed orderId, Order order);
     event Cancel(bytes32 indexed orderId);
     event Settle(bytes32 indexed orderId);
-    event Withdraw(
-        address indexed holder,
-        address indexed token,
-        uint256 amount
-    );
+    event Withdraw(address indexed holder, address indexed token, uint256 amount);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    CHAIN MANAGEMENT EVENTS                  */
@@ -39,12 +35,7 @@ interface IAori {
      * @param nonce The nonce of the LayerZero message
      * @param fee The fee paid for the LayerZero message
      */
-    event CancelSent(
-        bytes32 indexed orderId,
-        bytes32 guid,
-        uint64 nonce,
-        uint256 fee
-    );
+    event CancelSent(bytes32 indexed orderId, bytes32 guid, uint64 nonce, uint256 fee);
 
     /**
      * @notice Emitted when orders are settled from the destination chain
@@ -56,20 +47,16 @@ interface IAori {
      * @param nonce The nonce of the LayerZero message
      * @param fee The fee paid for the LayerZero message
      */
-    event SettleSent(
-        uint32 indexed srcEid,
-        address indexed filler,
-        bytes payload,
-        bytes32 guid,
-        uint64 nonce,
-        uint256 fee
-    );
+    event SettleSent(uint32 indexed srcEid, address indexed filler, bytes payload, bytes32 guid, uint64 nonce, uint256 fee);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                        SRC FUNCTIONS                       */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    function deposit(Order calldata order, bytes calldata signature) external;
+    function deposit(
+        Order calldata order,
+        bytes calldata signature
+    ) external;
 
     function deposit(
         Order calldata order,
@@ -77,9 +64,14 @@ interface IAori {
         SrcHook calldata data
     ) external;
 
-    function depositNative(Order calldata order) external payable;
+    function depositNative(
+        Order calldata order
+    ) external payable;
 
-    function depositNative(Order calldata order, SrcHook calldata hook) external payable;
+    function depositNative(
+        Order calldata order,
+        SrcHook calldata hook
+    ) external payable;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    PERMIT2 FUNCTIONS                        */
@@ -118,24 +110,29 @@ interface IAori {
         bytes calldata signature
     ) external;
 
-    function withdraw(address token, uint256 amount) external;
+    function withdraw(
+        address token,
+        uint256 amount
+    ) external;
 
-    function cancel(bytes32 orderId) external;
+    function cancel(
+        bytes32 orderId
+    ) external;
 
-    event settlementFailed(
-        bytes32 indexed orderId,
-        uint32 expectedEid,
-        uint32 submittedEid,
-        string reason
-    );
+    event settlementFailed(bytes32 indexed orderId, uint32 expectedEid, uint32 submittedEid, string reason);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                        DST FUNCTIONS                       */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    function fill(Order calldata order) external payable;
+    function fill(
+        Order calldata order
+    ) external payable;
 
-    function fill(Order calldata order, DstHook calldata hook) external payable;
+    function fill(
+        Order calldata order,
+        DstHook calldata hook
+    ) external payable;
 
     function settle(
         uint32 srcEid,
@@ -153,7 +150,9 @@ interface IAori {
     /*                        UTILITY FUNCTIONS                   */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    function hash(Order calldata order) external pure returns (bytes32);
+    function hash(
+        Order calldata order
+    ) external pure returns (bytes32);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                       VIEW FUNCTIONS                       */
@@ -167,21 +166,7 @@ interface IAori {
 
     function orders(
         bytes32 orderId
-    )
-        external
-        view
-        returns (
-            uint128,
-            uint128,
-            address,
-            address,
-            uint32,
-            uint32,
-            uint32,
-            uint32,
-            address,
-            address
-        );
+    ) external view returns (uint128, uint128, address, address, uint32, uint32, uint32, uint32, address, address);
 
     function getLockedBalances(
         address offerer,
@@ -212,11 +197,7 @@ interface IAori {
      * @param preferredToken The token address that was received from the hook
      * @param amountReceived The amount of tokens received from hook execution
      */
-    event SrcHookExecuted(
-        bytes32 indexed orderId,
-        address indexed preferredToken,
-        uint256 amountReceived
-    );
+    event SrcHookExecuted(bytes32 indexed orderId, address indexed preferredToken, uint256 amountReceived);
 
     /**
      * @notice Emitted when a destination hook is executed during fill
@@ -224,9 +205,5 @@ interface IAori {
      * @param preferredToken The token address that was converted by the hook
      * @param amountReceived The amount of output tokens received from hook execution
      */
-    event DstHookExecuted(
-        bytes32 indexed orderId,
-        address indexed preferredToken,
-        uint256 amountReceived
-    );
+    event DstHookExecuted(bytes32 indexed orderId, address indexed preferredToken, uint256 amountReceived);
 }

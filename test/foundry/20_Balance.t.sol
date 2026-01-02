@@ -32,7 +32,7 @@ import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import "../../contracts/libraries/AoriUtils.sol";
 import "../../contracts/types/AoriErrors.sol";
-import {Balance} from "../../contracts/types/AoriTypes.sol";
+import { Balance } from "../../contracts/types/AoriTypes.sol";
 
 /**
  * @notice Tests for the Balance utility struct which manages locked and unlocked token balances

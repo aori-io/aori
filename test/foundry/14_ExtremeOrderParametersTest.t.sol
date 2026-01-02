@@ -16,7 +16,7 @@ pragma solidity 0.8.33;
  * These edge cases are important to test the robustness of the contract's validation logic.
  */
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
-import {IAori} from "../../contracts/interfaces/IAori.sol";
+import { IAori } from "../../contracts/interfaces/IAori.sol";
 import "./TestUtils.sol";
 import "../../contracts/types/AoriErrors.sol";
 
@@ -64,11 +64,7 @@ contract ExtremeOrderParametersTest is TestUtils {
         localAori.deposit(order, signature);
 
         // Verify that the locked balance increased correctly
-        assertEq(
-            localAori.getLockedBalances(userA, address(inputToken)),
-            order.inputAmount,
-            "Locked balance incorrect after deposit"
-        );
+        assertEq(localAori.getLockedBalances(userA, address(inputToken)), order.inputAmount, "Locked balance incorrect after deposit");
 
         // Test fill with max values
         vm.chainId(remoteEid);

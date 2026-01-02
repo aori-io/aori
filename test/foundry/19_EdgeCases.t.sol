@@ -19,9 +19,9 @@ pragma solidity 0.8.33;
  * - The test verifies different security edge cases that could potentially be exploited
  * - Custom mock contracts are used to test specific attack vectors and edge cases
  */
-import {TestUtils} from "./TestUtils.sol";
-import {Order, OrderStatus, SrcHook, DstHook, Balance} from "../../contracts/types/AoriTypes.sol";
-import {IAori} from "../../contracts/Aori.sol";
+import { TestUtils } from "./TestUtils.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
+import { IAori } from "../../contracts/Aori.sol";
 import "../Mock/MockRevertingToken.sol";
 import "../Mock/MockFeeOnTransferToken.sol";
 import "../Mock/MockAttacker.sol";
@@ -179,7 +179,9 @@ contract EdgeCasesTest is TestUtils {
     }
 
     // Helper function to generate EIP712 digest for signing
-    function _getOrderDigest(Order memory order) internal view returns (bytes32) {
+    function _getOrderDigest(
+        Order memory order
+    ) internal view returns (bytes32) {
         bytes32 ORDER_TYPEHASH = keccak256(
             "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient)"
         );
