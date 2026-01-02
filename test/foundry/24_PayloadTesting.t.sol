@@ -38,6 +38,7 @@ import "./TestUtils.sol";
 import "../../contracts/libraries/AoriUtils.sol";
 import {IAori} from "../../contracts/interfaces/IAori.sol";
 import "forge-std/console.sol";
+import "../../contracts/types/AoriErrors.sol";
 
 /**
  * @title PayloadTestWrapper
@@ -221,18 +222,18 @@ contract PayloadPackingUnpackingTest is Test {
         );
         
         // Act & Assert
-        vm.expectRevert("Invalid cancellation payload length");
+        vm.expectRevert(InvalidCancellationPayloadLength.selector);
         wrapper.validateCancellationLen(payload);
-        
+
         // Arrange - incorrect length (too long)
         payload = abi.encodePacked(
             uint8(PayloadType.Cancellation),
             TEST_ORDER_HASH,
             bytes1(0) // Extra byte
         );
-        
+
         // Act & Assert
-        vm.expectRevert("Invalid cancellation payload length");
+        vm.expectRevert(InvalidCancellationPayloadLength.selector);
         wrapper.validateCancellationLen(payload);
     }
     
@@ -261,7 +262,7 @@ contract PayloadPackingUnpackingTest is Test {
         );
         
         // Act & Assert
-        vm.expectRevert("Payload too short for settlement");
+        vm.expectRevert(PayloadTooShortForSettlement.selector);
         wrapper.validateSettlementLen(payload);
     }
     
@@ -296,7 +297,7 @@ contract PayloadPackingUnpackingTest is Test {
         );
         
         // Act & Assert
-        vm.expectRevert("Invalid payload length for settlement");
+        vm.expectRevert(InvalidPayloadLength.selector);
         wrapper.validateSettlementLen(payload, fillCount);
     }
     
@@ -349,7 +350,7 @@ contract PayloadPackingUnpackingTest is Test {
         );
         
         // Act & Assert
-        vm.expectRevert("Invalid payload length");
+        vm.expectRevert(InvalidPayloadLength.selector);
         wrapper.unpackSettlementHeader(payload);
     }
     
@@ -389,7 +390,7 @@ contract PayloadPackingUnpackingTest is Test {
         );
         
         // Act & Assert - try to access index 2 which doesn't exist
-        vm.expectRevert("Index out of bounds");
+        vm.expectRevert(PayloadIndexOutOfBounds.selector);
         wrapper.unpackSettlementBodyAt(payload, 2);
     }
     

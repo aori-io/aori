@@ -18,6 +18,7 @@ pragma solidity 0.8.28;
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import {IAori} from "../../contracts/interfaces/IAori.sol";
 import "./TestUtils.sol";
+import "../../contracts/types/AoriErrors.sol";
 
 /**
  * @title ExtremeOrderParametersTest
@@ -239,7 +240,7 @@ contract ExtremeOrderParametersTest is TestUtils {
 
         // Non-whitelisted solver should fail to deposit
         vm.prank(solver);
-        vm.expectRevert("Invalid solver");
+        vm.expectRevert(InvalidSolver.selector);
         localAori.deposit(order, signature);
 
         // Add solver back to whitelist
@@ -260,7 +261,7 @@ contract ExtremeOrderParametersTest is TestUtils {
         outputToken.approve(address(remoteAori), order.outputAmount);
 
         vm.prank(solver);
-        vm.expectRevert("Invalid solver");
+        vm.expectRevert(InvalidSolver.selector);
         remoteAori.fill(order);
 
         // Add solver back to whitelist

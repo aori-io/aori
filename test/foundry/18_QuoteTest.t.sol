@@ -25,6 +25,7 @@ import {TestUtils} from "./TestUtils.sol";
 import {Order, OrderStatus, SrcHook, DstHook, Balance} from "../../contracts/types/AoriTypes.sol";
 import {IAori} from "../../contracts/Aori.sol";
 import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
+import "../../contracts/types/AoriErrors.sol";
 
 /**
  * @notice Tests the LayerZero message fee quoting functionality in the Aori protocol
@@ -265,18 +266,18 @@ contract QuoteTest is TestUtils {
 
         // Try to get a quote with an invalid message type (2)
         // Valid message types are only 0 (settlement) and 1 (cancellation)
-        vm.expectRevert("Invalid message type");
+        vm.expectRevert(InvalidMessageType.selector);
         localAori.quote(
             remoteEid, // destination endpoint
             2, // Invalid message type (neither 0 for settlement nor 1 for cancellation)
-            options, 
+            options,
             false, // payInLzToken
             localEid, // srcEid
             solver // filler
         );
 
         // Test with another invalid message type (255)
-        vm.expectRevert("Invalid message type");
+        vm.expectRevert(InvalidMessageType.selector);
         localAori.quote(
             remoteEid, // destination endpoint
             255, // Another invalid message type

@@ -23,6 +23,7 @@ import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
 import {MockHook2} from "../Mock/MockHook2.sol";
 import "../../contracts/libraries/AoriUtils.sol";
+import "../../contracts/types/AoriErrors.sol";
 
 contract SC_NativeHookAtomicSwap_Test is TestUtils {
     using NativeTokenUtils for address;
@@ -253,7 +254,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
         });
 
         vm.prank(userSC);
-        vm.expectRevert("Insufficient output from hook");
+        vm.expectRevert(abi.encodeWithSelector(InsufficientSrcHookOutput.selector, OUTPUT_AMOUNT, OUTPUT_AMOUNT - 1));
         localAori.depositNative{value: INPUT_AMOUNT}(order, srcHook);
     }
 
@@ -326,7 +327,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
         // Try to deposit as solver instead of user
         vm.deal(solverSC, 5 ether);
         vm.prank(solverSC);
-        vm.expectRevert("Only offerer can deposit native tokens");
+        vm.expectRevert(OnlyOffererCanDepositNativeTokens.selector);
         localAori.depositNative{value: INPUT_AMOUNT}(order, srcHook);
     }
 
@@ -338,7 +339,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
         SrcHook memory srcHook = _createSrcHook();
 
         vm.prank(userSC);
-        vm.expectRevert("Incorrect native amount");
+        vm.expectRevert(IncorrectNativeAmount.selector);
         localAori.depositNative{value: INPUT_AMOUNT - 1}(order, srcHook);
     }
 
@@ -365,7 +366,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
         SrcHook memory srcHook = _createSrcHook();
 
         vm.prank(userSC);
-        vm.expectRevert("Order must specify native token");
+        vm.expectRevert(OrderMustSpecifyNativeToken.selector);
         localAori.depositNative{value: INPUT_AMOUNT}(order, srcHook);
     }
 
@@ -392,7 +393,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
         });
 
         vm.prank(userSC);
-        vm.expectRevert("Invalid solver in hook");
+        vm.expectRevert(InvalidSolverInHook.selector);
         localAori.depositNative{value: INPUT_AMOUNT}(order, srcHook);
     }
 

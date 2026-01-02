@@ -18,6 +18,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
 import "../../contracts/libraries/AoriUtils.sol";
+import "../../contracts/types/AoriErrors.sol";
 
 contract NativeTokenTests is TestUtils {
     using NativeTokenUtils for address;
@@ -162,7 +163,7 @@ contract NativeTokenTests is TestUtils {
 
         bytes memory signature = signOrder(order, userPrivKey);
 
-        vm.expectRevert("Order must specify native token");
+        vm.expectRevert(OrderMustSpecifyNativeToken.selector);
         vm.prank(user);
         localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
@@ -186,7 +187,7 @@ contract NativeTokenTests is TestUtils {
 
         bytes memory signature = signOrder(order, userPrivKey);
 
-        vm.expectRevert("Incorrect native amount");
+        vm.expectRevert(IncorrectNativeAmount.selector);
         vm.prank(user);
         localAori.depositNative{value: INPUT_AMOUNT - 1}(order); // Send less than required
     }
@@ -210,7 +211,7 @@ contract NativeTokenTests is TestUtils {
 
         bytes memory signature = signOrder(order, userPrivKey);
 
-        vm.expectRevert("Incorrect native amount");
+        vm.expectRevert(IncorrectNativeAmount.selector);
         vm.prank(user);
         localAori.depositNative{value: INPUT_AMOUNT + 1}(order); // Send more than required
     }
@@ -234,7 +235,7 @@ contract NativeTokenTests is TestUtils {
 
         bytes memory signature = signOrder(order, userPrivKey);
 
-        vm.expectRevert("Only offerer can deposit native tokens");
+        vm.expectRevert(OnlyOffererCanDepositNativeTokens.selector);
         vm.prank(wrongSigner); // Wrong caller
         localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
@@ -268,7 +269,7 @@ contract NativeTokenTests is TestUtils {
 
         // Second deposit should fail
         vm.deal(user, 2 ether); // Give user more ETH
-        vm.expectRevert("Order already exists");
+        vm.expectRevert(OrderAlreadyExists.selector);
         vm.prank(user);
         localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
@@ -294,7 +295,7 @@ contract NativeTokenTests is TestUtils {
 
         bytes memory signature = signOrder(order, userPrivKey);
 
-        vm.expectRevert("Destination chain not supported");
+        vm.expectRevert(DestinationChainNotSupported.selector);
         vm.prank(user);
         localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
@@ -344,7 +345,7 @@ contract NativeTokenTests is TestUtils {
 
         bytes memory signature = signOrder(order, userPrivKey);
 
-        vm.expectRevert("Chain mismatch");
+        vm.expectRevert(ChainMismatch.selector);
         vm.prank(user);
         localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
@@ -373,7 +374,7 @@ contract NativeTokenTests is TestUtils {
         bytes memory signature = signOrder(order, userPrivKey);
 
         // The "Only offerer can deposit native tokens" check happens before validateDeposit
-        vm.expectRevert("Only offerer can deposit native tokens");
+        vm.expectRevert(OnlyOffererCanDepositNativeTokens.selector);
         vm.prank(user);
         localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
@@ -397,7 +398,7 @@ contract NativeTokenTests is TestUtils {
 
         bytes memory signature = signOrder(order, userPrivKey);
 
-        vm.expectRevert("Invalid recipient");
+        vm.expectRevert(InvalidRecipient.selector);
         vm.prank(user);
         localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
@@ -424,7 +425,7 @@ contract NativeTokenTests is TestUtils {
 
         bytes memory signature = signOrder(order, userPrivKey);
 
-        vm.expectRevert("Invalid end time");
+        vm.expectRevert(InvalidEndTime.selector);
         vm.prank(user);
         localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
@@ -450,7 +451,7 @@ contract NativeTokenTests is TestUtils {
 
         bytes memory signature = signOrder(order, userPrivKey);
 
-        vm.expectRevert("Order not started");
+        vm.expectRevert(OrderNotStarted.selector);
         vm.prank(user);
         localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
@@ -481,7 +482,7 @@ contract NativeTokenTests is TestUtils {
 
         bytes memory signature = signOrder(order, userPrivKey);
 
-        vm.expectRevert("Order has expired");
+        vm.expectRevert(OrderExpired.selector);
         vm.prank(user);
         localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
@@ -505,7 +506,7 @@ contract NativeTokenTests is TestUtils {
 
         bytes memory signature = signOrder(order, userPrivKey);
 
-        vm.expectRevert("Invalid input amount");
+        vm.expectRevert(InvalidInputAmount.selector);
         vm.prank(user);
         localAori.depositNative{value: 0}(order);
     }
@@ -529,7 +530,7 @@ contract NativeTokenTests is TestUtils {
 
         bytes memory signature = signOrder(order, userPrivKey);
 
-        vm.expectRevert("Invalid output amount");
+        vm.expectRevert(InvalidOutputAmount.selector);
         vm.prank(user);
         localAori.depositNative{value: INPUT_AMOUNT}(order);
     }
@@ -553,7 +554,7 @@ contract NativeTokenTests is TestUtils {
 
         bytes memory signature = signOrder(order, userPrivKey);
 
-        vm.expectRevert("Invalid token");
+        vm.expectRevert(InvalidToken.selector);
         vm.prank(user);
         localAori.depositNative{value: INPUT_AMOUNT}(order);
     }

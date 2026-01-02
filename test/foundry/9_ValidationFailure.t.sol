@@ -19,6 +19,7 @@ pragma solidity 0.8.28;
  */
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import {IAori} from "../../contracts/interfaces/IAori.sol";
+import "../../contracts/types/AoriErrors.sol";
 import {FailingHook} from "../Mock/FailHook.sol";
 import "./TestUtils.sol";
 
@@ -55,7 +56,7 @@ contract ValidationFailuresTest is TestUtils {
         outputToken.approve(address(remoteAori), 2e18);
 
         vm.prank(solver);
-        vm.expectRevert(bytes("Invalid output amount"));
+        vm.expectRevert(InvalidOutputAmount.selector);
         remoteAori.fill(order);
     }
 
@@ -74,7 +75,7 @@ contract ValidationFailuresTest is TestUtils {
         outputToken.approve(address(remoteAori), 2e18);
 
         vm.prank(solver);
-        vm.expectRevert(bytes("Invalid input amount"));
+        vm.expectRevert(InvalidInputAmount.selector);
         remoteAori.fill(order);
     }
 
@@ -93,7 +94,7 @@ contract ValidationFailuresTest is TestUtils {
         outputToken.approve(address(remoteAori), 2e18);
 
         vm.prank(solver);
-        vm.expectRevert(bytes("Chain mismatch"));
+        vm.expectRevert(ChainMismatch.selector);
         remoteAori.fill(order);
     }
 
@@ -114,7 +115,7 @@ contract ValidationFailuresTest is TestUtils {
         outputToken.approve(address(remoteAori), 2e18);
 
         vm.prank(solver);
-        vm.expectRevert(bytes("Invalid solver"));
+        vm.expectRevert(InvalidSolver.selector);
         remoteAori.fill(order);
 
         // Restore solver to whitelist for other tests
@@ -136,7 +137,7 @@ contract ValidationFailuresTest is TestUtils {
         outputToken.approve(address(remoteAori), 2e18);
 
         vm.prank(solver);
-        vm.expectRevert(bytes("Order has expired"));
+        vm.expectRevert(OrderExpired.selector);
         remoteAori.fill(order);
     }
 
@@ -155,7 +156,7 @@ contract ValidationFailuresTest is TestUtils {
         outputToken.approve(address(remoteAori), 2e18);
 
         vm.prank(solver);
-        vm.expectRevert(bytes("Order not started"));
+        vm.expectRevert(OrderNotStarted.selector);
         remoteAori.fill(order);
     }
 
@@ -177,7 +178,7 @@ contract ValidationFailuresTest is TestUtils {
 
         // Attempt to fill the same order again
         vm.prank(solver);
-        vm.expectRevert(bytes("Order not active"));
+        vm.expectRevert(abi.encodeWithSelector(OrderAlreadyProcessed.selector, OrderStatus.Filled));
         remoteAori.fill(order);
 
         // Verify order status
@@ -207,7 +208,7 @@ contract ValidationFailuresTest is TestUtils {
         outputToken.approve(address(remoteAori), order.outputAmount);
 
         vm.prank(solver);
-        vm.expectRevert(bytes("Call failed"));
+        vm.expectRevert(HookCallFailed.selector);
         remoteAori.fill(order, dstData);
     }
 }

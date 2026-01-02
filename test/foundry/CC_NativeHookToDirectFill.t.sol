@@ -23,6 +23,7 @@ import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
 import {MockHook2} from "../Mock/MockHook2.sol";
 import "../../contracts/libraries/AoriUtils.sol";
+import "../../contracts/types/AoriErrors.sol";
 
 contract CC_NativeHookToDirectFill_Test is TestUtils {
     using NativeTokenUtils for address;
@@ -492,7 +493,7 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
         });
 
         vm.prank(userSource);
-        vm.expectRevert("Insufficient output from hook");
+        vm.expectRevert(abi.encodeWithSelector(InsufficientSrcHookOutput.selector, MIN_PREFERRED_OUT, MIN_PREFERRED_OUT - 1));
         localAori.depositNative{value: INPUT_AMOUNT}(order, badHook);
     }
 }

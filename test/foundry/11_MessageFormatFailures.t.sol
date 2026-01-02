@@ -17,6 +17,7 @@ pragma solidity 0.8.28;
  */
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import {IAori} from "../../contracts/interfaces/IAori.sol";
+import "../../contracts/types/AoriErrors.sol";
 import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import "./TestUtils.sol";
@@ -45,7 +46,7 @@ contract MessageFormatFailuresTest is TestUtils {
         bytes32 guid = keccak256("mock-guid");
 
         vm.prank(address(endpoints[localEid]));
-        vm.expectRevert(bytes("Payload too short for settlement"));
+        vm.expectRevert(PayloadTooShortForSettlement.selector);
         localAori.lzReceive(
             Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),
             guid,
@@ -72,7 +73,7 @@ contract MessageFormatFailuresTest is TestUtils {
         bytes32 guid = keccak256("mock-guid");
 
         vm.prank(address(endpoints[localEid]));
-        vm.expectRevert(bytes("Invalid payload length for settlement"));
+        vm.expectRevert(InvalidPayloadLength.selector);
         localAori.lzReceive(
             Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),
             guid,
@@ -95,7 +96,7 @@ contract MessageFormatFailuresTest is TestUtils {
         bytes32 guid = keccak256("mock-guid");
 
         vm.prank(address(endpoints[remoteEid]));
-        vm.expectRevert(bytes("Invalid cancellation payload length"));
+        vm.expectRevert(InvalidCancellationPayloadLength.selector);
         remoteAori.lzReceive(
             Origin(localEid, bytes32(uint256(uint160(address(localAori)))), 1),
             guid,

@@ -5,6 +5,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SignatureCheckerLib } from "solady/src/utils/SignatureCheckerLib.sol";
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../types/AoriTypes.sol";
+import "../types/AoriErrors.sol";
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                          VALIDATION                        */
@@ -21,14 +22,14 @@ library ValidationUtils {
      * @param order The order to validate
      */
     function validateCommonOrderParams(Order calldata order) internal view {
-        require(order.offerer != address(0), "Invalid offerer");
-        require(order.recipient != address(0), "Invalid recipient");
-        require(order.startTime < order.endTime, "Invalid end time");
-        require(order.startTime <= block.timestamp, "Order not started");
-        require(order.endTime > block.timestamp, "Order has expired");
-        require(order.inputAmount > 0, "Invalid input amount");
-        require(order.outputAmount > 0, "Invalid output amount");
-        require(order.inputToken != address(0) && order.outputToken != address(0), "Invalid token");
+        if (order.offerer == address(0)) revert InvalidOfferer();
+        if (order.recipient == address(0)) revert InvalidRecipient();
+        if (order.startTime >= order.endTime) revert InvalidEndTime();
+        if (order.startTime > block.timestamp) revert OrderNotStarted();
+        if (order.endTime <= block.timestamp) revert OrderExpired();
+        if (order.inputAmount == 0) revert InvalidInputAmount();
+        if (order.outputAmount == 0) revert InvalidOutputAmount();
+        if (order.inputToken == address(0) || order.outputToken == address(0)) revert InvalidToken();
     }
 
     /**
@@ -51,23 +52,17 @@ library ValidationUtils {
         function(uint32) external view returns (bool) isSupportedChain
     ) internal view returns (bytes32 orderId) {
         orderId = keccak256(abi.encode(order));
-        require(orderStatus(orderId) == OrderStatus.Unknown, "Order already exists");
-        require(isSupportedChain(order.dstEid), "Destination chain not supported");
-
+        if (orderStatus(orderId) != OrderStatus.Unknown) revert OrderAlreadyExists();
+        if (!isSupportedChain(order.dstEid)) revert DestinationChainNotSupported();
 
         // Signature validation - supports both EOAs and smart contract wallets (ERC-1271)
-        require(
-            SignatureCheckerLib.isValidSignatureNowCalldata(
-                order.offerer,
-                digest,
-                signature
-            ),
-            "InvalidSignature"
-        );
+        if (!SignatureCheckerLib.isValidSignatureNowCalldata(order.offerer, digest, signature)) {
+            revert InvalidSignature();
+        }
 
         // Order parameter validation
         validateCommonOrderParams(order);
-        require(order.srcEid == endpointId, "Chain mismatch");
+        if (order.srcEid != endpointId) revert ChainMismatch();
     }
 
     /**
@@ -85,17 +80,18 @@ library ValidationUtils {
     ) internal view returns (bytes32 orderId) {
         // Order parameter validation
         validateCommonOrderParams(order);
-        require(order.dstEid == endpointId, "Chain mismatch");
+        if (order.dstEid != endpointId) revert ChainMismatch();
 
         orderId = keccak256(abi.encode(order));
 
         // Different validation based on whether it's a single-chain or cross-chain swap
+        OrderStatus status = orderStatus(orderId);
         if (order.srcEid == order.dstEid) {
             // For single-chain swaps, the order should already be Active
-            require(orderStatus(orderId) == OrderStatus.Active, "Order not active");
+            if (status != OrderStatus.Active) revert OrderNotInActiveState(status);
         } else {
             // For cross-chain swaps, the order should be Unknown on the destination chain
-            require(orderStatus(orderId) == OrderStatus.Unknown, "Order not active");
+            if (status != OrderStatus.Unknown) revert OrderAlreadyProcessed(status);
         }
     }
 
@@ -117,14 +113,16 @@ library ValidationUtils {
         address sender,
         function(address) external view returns (bool) isAllowedSolver
     ) internal view {
-        require(order.dstEid == endpointId, "Not on destination chain");
-        require(orderStatus(orderId) == OrderStatus.Unknown, "Order not active");
-        require(
-            (isAllowedSolver(sender)) ||
-                (sender == order.offerer && block.timestamp > order.endTime) ||
-                (sender == order.recipient && block.timestamp > order.endTime),
-            "Only whitelisted solver, offerer, or recipient (after expiry) can cancel"
-        );
+        if (order.dstEid != endpointId) revert NotOnDestinationChain();
+        OrderStatus status = orderStatus(orderId);
+        if (status != OrderStatus.Unknown) revert OrderAlreadyProcessed(status);
+        if (
+            !isAllowedSolver(sender) &&
+            !(sender == order.offerer && block.timestamp > order.endTime) &&
+            !(sender == order.recipient && block.timestamp > order.endTime)
+        ) {
+            revert UnauthorizedCancel();
+        }
     }
 
     /**
@@ -146,21 +144,20 @@ library ValidationUtils {
         function(address) external view returns (bool) isAllowedSolver
     ) internal view {
         // Verify we're on the source chain
-        require(order.srcEid == endpointId, "Not on source chain");
-        
+        if (order.srcEid != endpointId) revert NotOnSourceChain();
+
         // Verify order exists and is active
-        require(orderStatus(orderId) == OrderStatus.Active, "Order not active");
-        
+        OrderStatus status = orderStatus(orderId);
+        if (status != OrderStatus.Active) revert OrderNotInActiveState(status);
+
         // Cross-chain orders cannot be cancelled from the source chain to prevent race conditions
         // with settlement messages. Use emergencyCancel for emergency situations.
-        require(order.srcEid == order.dstEid, "Cross-chain orders must be cancelled from destination chain");
-        
+        if (order.srcEid != order.dstEid) revert CrossChainOrdersMustBeCancelledFromDestinationChain();
+
         // For single-chain orders: solver can always cancel, offerer can cancel after expiry
-        require(
-            isAllowedSolver(sender) || 
-            (sender == order.offerer && block.timestamp > order.endTime),
-            "Only solver or offerer (after expiry) can cancel"
-        );
+        if (!isAllowedSolver(sender) && !(sender == order.offerer && block.timestamp > order.endTime)) {
+            revert UnauthorizedCancel();
+        }
     }
 
     /**
@@ -201,7 +198,7 @@ library BalanceUtils {
      */
     function unlock(Balance storage balance, uint128 amount) internal {
         (uint128 locked, uint128 unlocked) = loadBalance(balance);
-        require(locked >= amount, "Insufficient locked balance");
+        if (locked < amount) revert InsufficientLockedBalance();
         unchecked {
             locked -= amount;
         }
@@ -368,16 +365,16 @@ library BalanceUtils {
         uint128 transferAmount
     ) internal pure {
         // Verify offerer's locked balance decreased by exactly the transfer amount
-        require(
-            initialOffererLocked == finalOffererLocked + transferAmount,
-            "Inconsistent offerer balance"
-        );
+        uint128 expectedOffererLocked = finalOffererLocked + transferAmount;
+        if (initialOffererLocked != expectedOffererLocked) {
+            revert BalanceInconsistency(initialOffererLocked, expectedOffererLocked);
+        }
 
         // Verify solver's unlocked balance increased by exactly the transfer amount
-        require(
-            finalSolverUnlocked == initialSolverUnlocked + transferAmount,
-            "Inconsistent solver balance"
-        );
+        uint128 expectedSolverUnlocked = initialSolverUnlocked + transferAmount;
+        if (finalSolverUnlocked != expectedSolverUnlocked) {
+            revert BalanceInconsistency(expectedSolverUnlocked, finalSolverUnlocked);
+        }
     }
 }
 
@@ -405,12 +402,12 @@ library ExecutionUtils {
     ) internal returns (uint256) {
         uint256 balBefore = NativeTokenUtils.balanceOf(observedToken, address(this));
         (bool success, ) = target.call(data);
-        require(success, "Call failed");
+        if (!success) revert HookCallFailed();
         uint256 balAfter = NativeTokenUtils.balanceOf(observedToken, address(this));
-        
+
         // Prevent underflow and provide clear error message
-        require(balAfter >= balBefore, "Hook decreased contract balance");
-        
+        if (balAfter < balBefore) revert HookDecreasedContractBalance();
+
         return balAfter - balBefore;
     }
 }
@@ -435,10 +432,10 @@ library HookUtils {
         function(address) external view returns (bool) isAllowedHook,
         function(address) external view returns (bool) isAllowedSolver
     ) internal view {
-        require(hook.hookAddress != address(0), "Missing hook");
-        require(isAllowedHook(hook.hookAddress), "Invalid hook address");
-        require(hook.solver != address(0), "Solver required in hook");
-        require(isAllowedSolver(hook.solver), "Invalid solver in hook");
+        if (hook.hookAddress == address(0)) revert MissingHook();
+        if (!isAllowedHook(hook.hookAddress)) revert InvalidHookAddress();
+        if (hook.solver == address(0)) revert SolverRequiredInHook();
+        if (!isAllowedSolver(hook.solver)) revert InvalidSolverInHook();
     }
 
     /**
@@ -450,8 +447,8 @@ library HookUtils {
         DstHook calldata hook,
         function(address) external view returns (bool) isAllowedHook
     ) internal view {
-        require(hook.hookAddress != address(0), "Missing hook");
-        require(isAllowedHook(hook.hookAddress), "Invalid hook address");
+        if (hook.hookAddress == address(0)) revert MissingHook();
+        if (!isAllowedHook(hook.hookAddress)) revert InvalidHookAddress();
     }
 }
 
@@ -561,7 +558,7 @@ library PayloadUnpackUtils {
      * @param payload The payload to validate
      */
     function validateCancellationLen(bytes calldata payload) internal pure {
-        require(payload.length == 33, "Invalid cancellation payload length");
+        if (payload.length != 33) revert InvalidCancellationPayloadLength();
     }
 
     /**
@@ -582,7 +579,7 @@ library PayloadUnpackUtils {
      * @param payload The payload to validate
      */
     function validateSettlementLen(bytes calldata payload) internal pure {
-        require(payload.length >= 23, "Payload too short for settlement");
+        if (payload.length < 23) revert PayloadTooShortForSettlement();
     }
 
     /**
@@ -592,10 +589,7 @@ library PayloadUnpackUtils {
      * @param fillCount The number of fills in the payload
      */
     function validateSettlementLen(bytes calldata payload, uint16 fillCount) internal pure {
-        require(
-            payload.length == 23 + uint256(fillCount) * 32,
-            "Invalid payload length for settlement"
-        );
+        if (payload.length != 23 + uint256(fillCount) * 32) revert InvalidPayloadLength();
     }
 
     /**
@@ -618,7 +612,7 @@ library PayloadUnpackUtils {
     function unpackSettlementHeader(
         bytes calldata payload
     ) internal pure returns (address filler, uint16 fillCount) {
-        require(payload.length >= 23, "Invalid payload length");
+        if (payload.length < 23) revert InvalidPayloadLength();
         assembly {
             let word := calldataload(add(payload.offset, 1))
             filler := shr(96, word)
@@ -637,8 +631,8 @@ library PayloadUnpackUtils {
         bytes calldata payload,
         uint256 index
     ) internal pure returns (bytes32 orderHash) {
-        require(payload.length >= 23, "Invalid payload length");
-        require(index < (payload.length - 23) / 32, "Index out of bounds");
+        if (payload.length < 23) revert InvalidPayloadLength();
+        if (index >= (payload.length - 23) / 32) revert PayloadIndexOutOfBounds();
         assembly {
             orderHash := calldataload(add(add(payload.offset, 23), mul(index, 32)))
         }
@@ -691,7 +685,7 @@ library PayloadSizeUtils {
             // Calculate settlement payload size
             return settlementPayloadSize(fillCount);
         } else {
-            revert("Invalid message type");
+            revert InvalidMessageType();
         }
     }
 }
@@ -728,7 +722,7 @@ library NativeTokenUtils {
     function safeTransfer(address token, address to, uint256 amount) internal {
         if (isNativeToken(token)) {
             (bool success, ) = payable(to).call{value: amount}("");
-            require(success, "Native transfer failed");
+            if (!success) revert NativeTransferFailed();
         } else {
             IERC20(token).safeTransfer(to, amount);
         }
@@ -755,9 +749,9 @@ library NativeTokenUtils {
      */
     function validateSufficientBalance(address token, uint256 amount) internal view {
         if (isNativeToken(token)) {
-            require(address(this).balance >= amount, "Insufficient contract native balance");
+            if (address(this).balance < amount) revert InsufficientContractNativeBalance();
         } else {
-            require(IERC20(token).balanceOf(address(this)) >= amount, "Insufficient contract balance");
+            if (IERC20(token).balanceOf(address(this)) < amount) revert InsufficientContractBalance();
         }
     }
 }

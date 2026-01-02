@@ -31,6 +31,7 @@ pragma solidity 0.8.28;
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import "../../contracts/libraries/AoriUtils.sol";
+import "../../contracts/types/AoriErrors.sol";
 import {Balance} from "../../contracts/types/AoriTypes.sol";
 
 /**
@@ -98,7 +99,7 @@ contract BalanceUtilsTest is Test {
 
         balance.lock(amountToLock);
 
-        vm.expectRevert(bytes("Insufficient locked balance"));
+        vm.expectRevert(InsufficientLockedBalance.selector);
         balance.unlock(amountToUnlock);
     }
 

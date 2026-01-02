@@ -20,6 +20,7 @@ import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/t
 import "./TestUtils.sol";
 import "../../contracts/libraries/AoriUtils.sol";
 import { Aori, IAori } from "../../contracts/Aori.sol";
+import "../../contracts/types/AoriErrors.sol";
 
 /**
  * @title TestAori
@@ -150,7 +151,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
 
         // Non-whitelisted solver should fail to deposit
         vm.prank(solver);
-        vm.expectRevert("Invalid solver");
+        vm.expectRevert(InvalidSolver.selector);
         localAori.deposit(order, signature);
 
         // Add solver back to whitelist
@@ -171,7 +172,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         outputToken.approve(address(remoteAori), order.outputAmount);
 
         vm.prank(solver);
-        vm.expectRevert("Invalid solver");
+        vm.expectRevert(InvalidSolver.selector);
         remoteAori.fill(order);
 
         // Add solver back to whitelist
@@ -286,7 +287,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
 
         // Whitelisted solver should fail to deposit with invalid parameters
         vm.prank(solver);
-        vm.expectRevert("Invalid input amount");
+        vm.expectRevert(InvalidInputAmount.selector);
         localAori.deposit(order, signature);
 
         // Test zero output amount
@@ -296,7 +297,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         signature = signOrder(order); // Re-sign with updated parameters
 
         vm.prank(solver);
-        vm.expectRevert("Invalid output amount");
+        vm.expectRevert(InvalidOutputAmount.selector);
         localAori.deposit(order, signature);
 
         // Test end time before start time
@@ -307,7 +308,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         signature = signOrder(order); // Re-sign with updated parameters
 
         vm.prank(solver);
-        vm.expectRevert("Invalid end time");
+        vm.expectRevert(InvalidEndTime.selector);
         localAori.deposit(order, signature);
 
         // Test invalid tokens (zero address)
@@ -318,7 +319,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         signature = signOrder(order); // Re-sign with updated parameters
 
         vm.prank(solver);
-        vm.expectRevert("Invalid token");
+        vm.expectRevert(InvalidToken.selector);
         localAori.deposit(order, signature);
 
         // Test chain mismatch
@@ -328,7 +329,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         signature = signOrder(order); // Re-sign with updated parameters
 
         vm.prank(solver);
-        vm.expectRevert("Chain mismatch");
+        vm.expectRevert(ChainMismatch.selector);
         localAori.deposit(order, signature);
     }
 
@@ -368,7 +369,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         });
 
         vm.prank(solver);
-        vm.expectRevert("Invalid hook address");
+        vm.expectRevert(InvalidHookAddress.selector);
         localAori.deposit(order, signature, srcData);
 
         // Test zero preferred token
@@ -389,7 +390,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         ); // Will return much less than required
 
         vm.prank(solver);
-        vm.expectRevert("Insufficient output from hook");
+        vm.expectRevert(abi.encodeWithSelector(InsufficientSrcHookOutput.selector, 2000e18, 100));
         localAori.deposit(order, signature, srcData);
 
         // Test destination hook validation
@@ -416,7 +417,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         outputToken.approve(address(remoteAori), order.outputAmount);
 
         vm.prank(solver);
-        vm.expectRevert("Invalid hook address");
+        vm.expectRevert(InvalidHookAddress.selector);
         remoteAori.fill(order, dstData);
 
         // Test insufficient output from destination hook
@@ -428,7 +429,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         ); // Will return much less than required
 
         vm.prank(solver);
-        vm.expectRevert("Hook must provide at least the expected output amount");
+        vm.expectRevert(abi.encodeWithSelector(InsufficientDstHookOutput.selector, order.outputAmount, 1));
         remoteAori.fill(order, dstData);
     }
 

@@ -12,6 +12,7 @@ import { EIP712 } from "solady/src/utils/EIP712.sol";
 import { ECDSA } from "solady/src/utils/ECDSA.sol";
 import { IAori } from "./interfaces/IAori.sol";
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "./types/AoriTypes.sol";
+import "./types/AoriErrors.sol";
 import "./libraries/AoriUtils.sol";
 import { AoriStorage, AoriStorageData } from "./storage/AoriStorage.sol";
 import { ISignatureTransfer } from "@permit2/src/interfaces/ISignatureTransfer.sol";
@@ -90,7 +91,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         address[] calldata _initialHooks,
         uint32[] calldata _supportedChains
     ) external initializer {
-        require(_owner != address(0), "Set owner");
+        if (_owner == address(0)) revert InvalidOwner();
         __Ownable_init(_owner);
         __OApp_init(_owner);
         __ReentrancyGuard_init();
@@ -265,7 +266,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      * @dev Only callable by the contract owner
      */
     function setMaxFillsPerSettle(uint16 _maxFillsPerSettle) external onlyOwner {
-        require(_maxFillsPerSettle > 0, "Max fills must be > 0");
+        if (_maxFillsPerSettle == 0) revert InvalidMaxFillsPerSettle();
         _getAoriStorage().maxFillsPerSettle = _maxFillsPerSettle;
     }
 
@@ -282,17 +283,18 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     */
     function emergencyCancel(bytes32 orderId, address recipient) external onlyOwner {
         AoriStorageData storage $ = _getAoriStorage();
-        require($.orderStatus[orderId] == OrderStatus.Active, "Can only cancel active orders");
-        require(recipient != address(0), "Invalid recipient address");
+        if ($.orderStatus[orderId] != OrderStatus.Active) revert CanOnlyCancelActiveOrders();
+        if (recipient == address(0)) revert InvalidRecipientAddress();
         Order memory order = $.orders[orderId];
-        require(order.srcEid == ENDPOINT_ID, "Emergency cancel only allowed on source chain");
+        if (order.srcEid != ENDPOINT_ID) revert EmergencyCancelOnlyAllowedOnSourceChain();
         address tokenAddress = order.inputToken;
         uint128 amountToReturn = order.inputAmount;
         // Validate sufficient balance
         tokenAddress.validateSufficientBalance(amountToReturn);
         $.orderStatus[orderId] = OrderStatus.Cancelled;
+        uint128 currentLocked = $.balances[order.offerer][tokenAddress].locked;
         bool success = $.balances[order.offerer][tokenAddress].decreaseLockedNoRevert(amountToReturn);
-        require(success, "Failed to decrease locked balance");
+        if (!success) revert LockedBalanceDecreaseFailed(amountToReturn, currentLocked);
 
         // Transfer tokens to recipient
         tokenAddress.safeTransfer(recipient, amountToReturn);
@@ -311,7 +313,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         uint256 etherBalance = address(this).balance;
         if (etherBalance > 0) {
             (bool success, ) = payable(owner()).call{ value: etherBalance }("");
-            require(success, "Ether withdrawal failed");
+            if (!success) revert EtherWithdrawalFailed();
         }
         if (amount > 0) {
             token.safeTransfer(owner(), amount);
@@ -334,17 +336,18 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         bool isLocked,
         address recipient
     ) external onlyOwner {
-        require(amount > 0, "Amount must be greater than zero");
-        require(user != address(0), "Invalid user address");
-        require(recipient != address(0), "Invalid recipient address");
+        if (amount == 0) revert AmountMustBeGreaterThanZero();
+        if (user == address(0)) revert InvalidUserAddress();
+        if (recipient == address(0)) revert InvalidRecipientAddress();
 
         AoriStorageData storage $ = _getAoriStorage();
         if (isLocked) {
+            uint128 currentLocked = $.balances[user][token].locked;
             bool success = $.balances[user][token].decreaseLockedNoRevert(uint128(amount));
-            require(success, "Failed to decrease locked balance");
+            if (!success) revert LockedBalanceDecreaseFailed(uint128(amount), currentLocked);
         } else {
             uint256 unlockedBalance = $.balances[user][token].unlocked;
-            require(unlockedBalance >= amount, "Insufficient unlocked balance");
+            if (unlockedBalance < amount) revert InsufficientUnlockedBalance();
             $.balances[user][token].unlocked = uint128(unlockedBalance - amount);
         }
 
@@ -364,7 +367,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      * @dev Only allows whitelisted solvers to proceed
      */
     modifier onlySolver() {
-        require(_getAoriStorage().isAllowedSolver[msg.sender], "Invalid solver");
+        if (!_getAoriStorage().isAllowedSolver[msg.sender]) revert InvalidSolver();
         _;
     }
 
@@ -382,7 +385,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         Order calldata order,
         bytes calldata signature
     ) external nonReentrant whenNotPaused onlySolver {
-        require(!order.inputToken.isNativeToken(), "Use depositNative for native tokens");
+        if (order.inputToken.isNativeToken()) revert UseDepositNativeForNativeTokens();
         
         bytes32 orderId = order.validateDeposit(
             signature,
@@ -410,7 +413,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         bytes calldata signature,
         SrcHook calldata hook
     ) external nonReentrant whenNotPaused onlySolver {
-        require(!order.inputToken.isNativeToken(), "Use depositNative for native tokens");
+        if (order.inputToken.isNativeToken()) revert UseDepositNativeForNativeTokens();
         bytes32 orderId = order.validateDeposit(
             signature,
             _hashOrder712(order),
@@ -464,7 +467,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         if (order.inputToken.isNativeToken()) {
             // Native tokens already received via msg.value, send to hook
             (bool success, ) = payable(hook.hookAddress).call{value: order.inputAmount}("");
-            require(success, "Native transfer to hook failed");
+            if (!success) revert NativeTransferToHookFailed();
         } else {
             // Pull ERC20 tokens from offerer to hook
             IERC20(order.inputToken).safeTransferFrom(
@@ -482,7 +485,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
                 order.outputToken
             );
             
-            require(amountReceived >= order.outputAmount, "Insufficient output from hook");
+            if (amountReceived < order.outputAmount) revert InsufficientSrcHookOutput(order.outputAmount, amountReceived);
             tokenReceived = order.outputToken;
             
             // Distribute tokens: exact amount to recipient, surplus to solver
@@ -500,7 +503,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
                 hook.preferredToken
             );
             
-            require(amountReceived >= hook.minPreferedTokenAmountOut, "Insufficient output from hook");
+            if (amountReceived < hook.minPreferedTokenAmountOut) revert InsufficientSrcHookOutput(hook.minPreferedTokenAmountOut, amountReceived);
             tokenReceived = hook.preferredToken;
         }
     }
@@ -536,16 +539,16 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     function depositNative(
         Order calldata order
     ) external payable nonReentrant whenNotPaused {
-        require(order.inputToken.isNativeToken(), "Order must specify native token");
-        require(msg.value == order.inputAmount, "Incorrect native amount");
-        require(msg.sender == order.offerer, "Only offerer can deposit native tokens");
+        if (!order.inputToken.isNativeToken()) revert OrderMustSpecifyNativeToken();
+        if (msg.value != order.inputAmount) revert IncorrectNativeAmount();
+        if (msg.sender != order.offerer) revert OnlyOffererCanDepositNativeTokens();
 
         // Calculate order ID and validate uniqueness
         bytes32 orderId = hash(order);
         AoriStorageData storage $ = _getAoriStorage();
-        require($.orderStatus[orderId] == OrderStatus.Unknown, "Order already exists");
-        require($.isSupportedChain[order.dstEid], "Destination chain not supported");
-        require(order.srcEid == ENDPOINT_ID, "Chain mismatch");
+        if ($.orderStatus[orderId] != OrderStatus.Unknown) revert OrderAlreadyExists();
+        if (!$.isSupportedChain[order.dstEid]) revert DestinationChainNotSupported();
+        if (order.srcEid != ENDPOINT_ID) revert ChainMismatch();
 
         // Use validation utility for common order parameter checks
         ValidationUtils.validateCommonOrderParams(order);
@@ -566,16 +569,16 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         Order calldata order,
         SrcHook calldata hook
     ) external payable nonReentrant whenNotPaused {
-        require(order.inputToken.isNativeToken(), "Order must specify native token");
-        require(msg.value == order.inputAmount, "Incorrect native amount");
-        require(msg.sender == order.offerer, "Only offerer can deposit native tokens");
+        if (!order.inputToken.isNativeToken()) revert OrderMustSpecifyNativeToken();
+        if (msg.value != order.inputAmount) revert IncorrectNativeAmount();
+        if (msg.sender != order.offerer) revert OnlyOffererCanDepositNativeTokens();
 
         // Calculate order ID and validate uniqueness
         bytes32 orderId = hash(order);
         AoriStorageData storage $ = _getAoriStorage();
-        require($.orderStatus[orderId] == OrderStatus.Unknown, "Order already exists");
-        require($.isSupportedChain[order.dstEid], "Destination chain not supported");
-        require(order.srcEid == ENDPOINT_ID, "Chain mismatch");
+        if ($.orderStatus[orderId] != OrderStatus.Unknown) revert OrderAlreadyExists();
+        if (!$.isSupportedChain[order.dstEid]) revert DestinationChainNotSupported();
+        if (order.srcEid != ENDPOINT_ID) revert ChainMismatch();
 
         // Use validation utility for common order parameter checks
         ValidationUtils.validateCommonOrderParams(order);
@@ -615,14 +618,14 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         uint256 deadline,
         bytes calldata signature
     ) external nonReentrant whenNotPaused onlySolver {
-        require(!order.inputToken.isNativeToken(), "Use depositNative for native tokens");
-        require(block.timestamp <= deadline, "Permit2 signature expired");
+        if (order.inputToken.isNativeToken()) revert UseDepositNativeForNativeTokens();
+        if (block.timestamp > deadline) revert Permit2SignatureExpired();
 
         bytes32 orderId = hash(order);
         AoriStorageData storage $ = _getAoriStorage();
-        require($.orderStatus[orderId] == OrderStatus.Unknown, "Order already exists");
-        require($.isSupportedChain[order.dstEid], "Destination chain not supported");
-        require(order.srcEid == ENDPOINT_ID, "Chain mismatch");
+        if ($.orderStatus[orderId] != OrderStatus.Unknown) revert OrderAlreadyExists();
+        if (!$.isSupportedChain[order.dstEid]) revert DestinationChainNotSupported();
+        if (order.srcEid != ENDPOINT_ID) revert ChainMismatch();
 
         ValidationUtils.validateCommonOrderParams(order);
 
@@ -667,14 +670,14 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         uint256 deadline,
         bytes calldata signature
     ) external nonReentrant whenNotPaused onlySolver {
-        require(!order.inputToken.isNativeToken(), "Use depositNative for native tokens");
-        require(block.timestamp <= deadline, "Permit2 signature expired");
+        if (order.inputToken.isNativeToken()) revert UseDepositNativeForNativeTokens();
+        if (block.timestamp > deadline) revert Permit2SignatureExpired();
 
         bytes32 orderId = hash(order);
         AoriStorageData storage $ = _getAoriStorage();
-        require($.orderStatus[orderId] == OrderStatus.Unknown, "Order already exists");
-        require($.isSupportedChain[order.dstEid], "Destination chain not supported");
-        require(order.srcEid == ENDPOINT_ID, "Chain mismatch");
+        if ($.orderStatus[orderId] != OrderStatus.Unknown) revert OrderAlreadyExists();
+        if (!$.isSupportedChain[order.dstEid]) revert DestinationChainNotSupported();
+        if (order.srcEid != ENDPOINT_ID) revert ChainMismatch();
 
         ValidationUtils.validateCommonOrderParams(order);
 
@@ -708,7 +711,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
                 order.outputToken
             );
 
-            require(amountReceived >= order.outputAmount, "Insufficient output from hook");
+            if (amountReceived < order.outputAmount) revert InsufficientSrcHookOutput(order.outputAmount, amountReceived);
 
             // Distribute tokens: exact amount to recipient, surplus to solver
             order.outputToken.safeTransfer(order.recipient, order.outputAmount);
@@ -732,7 +735,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
                 hook.preferredToken
             );
 
-            require(amountReceived >= hook.minPreferedTokenAmountOut, "Insufficient output from hook");
+            if (amountReceived < hook.minPreferedTokenAmountOut) revert InsufficientSrcHookOutput(hook.minPreferedTokenAmountOut, amountReceived);
 
             emit SrcHookExecuted(orderId, hook.preferredToken, amountReceived);
 
@@ -759,9 +762,9 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         
         // Validate payment method matches output token type
         if (order.outputToken.isNativeToken()) {
-            require(msg.value == order.outputAmount, "Incorrect native amount sent");
+            if (msg.value != order.outputAmount) revert IncorrectNativeAmount();
         } else {
-            require(msg.value == 0, "No native tokens should be sent for ERC20 fills");
+            if (msg.value != 0) revert NoNativeTokensForERC20Fills();
         }
 
         // Update contract state
@@ -831,12 +834,12 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
 
         if (hook.preferedDstInputAmount > 0) {
             if (hook.preferredToken.isNativeToken()) {
-                require(msg.value == hook.preferedDstInputAmount, "Incorrect native amount for preferred token");
+                if (msg.value != hook.preferedDstInputAmount) revert IncorrectNativeAmount();
                 (bool success, ) = payable(hook.hookAddress).call{value: hook.preferedDstInputAmount}("");
-                require(success, "Native transfer to hook failed");
+                if (!success) revert NativeTransferToHookFailed();
             } else {
                 // ERC20 token input - no native tokens should be sent
-                require(msg.value == 0, "No native tokens should be sent for ERC20 preferred token");
+                if (msg.value != 0) revert NoNativeTokensForERC20PreferredToken();
                 IERC20(hook.preferredToken).safeTransferFrom(
                     msg.sender,
                     hook.hookAddress,
@@ -845,7 +848,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             }
         } else {
             // Hook expects no input tokens - ensure no ETH was mistakenly sent
-            require(msg.value == 0, "No native tokens expected");
+            if (msg.value != 0) revert NoNativeTokensExpected();
         }
 
         balChg = ExecutionUtils.observeBalChg(
@@ -853,7 +856,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             hook.instructions,
             order.outputToken
         );
-        require(balChg >= order.outputAmount, "Hook must provide at least the expected output amount");
+        if (balChg < order.outputAmount) revert InsufficientDstHookOutput(order.outputAmount, balChg);
     }
 
     /**
@@ -887,7 +890,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         AoriStorageData storage $ = _getAoriStorage();
         bytes32[] storage arr = $.srcEidToFillerFills[srcEid][filler];
         uint256 arrLength = arr.length;
-        require(arrLength > 0, "No orders provided");
+        if (arrLength == 0) revert NoOrdersProvided();
 
         uint16 fillCount = uint16(
             arrLength < $.maxFillsPerSettle ? arrLength : $.maxFillsPerSettle
@@ -996,7 +999,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
                 order.inputAmount
             );
 
-            require(successLock && successUnlock, "Balance operation failed");
+            if (!successLock || !successUnlock) revert LockedBalanceDecreaseFailed(order.inputAmount, $.balances[order.offerer][order.inputToken].locked);
         }
 
         // Verify the transfer was executed correctly
@@ -1057,7 +1060,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         Order calldata orderToCancel,
         bytes calldata extraOptions
     ) external payable nonReentrant whenNotPaused {
-        require(hash(orderToCancel) == orderId, "Submitted order data doesn't match orderId");
+        if (hash(orderToCancel) != orderId) revert OrderDataMismatch();
 
         orderToCancel.validateCancel(
             orderId,
@@ -1081,7 +1084,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      */
     function _cancel(bytes32 orderId) internal {
         AoriStorageData storage $ = _getAoriStorage();
-        require($.orderStatus[orderId] == OrderStatus.Active, "Can only cancel active orders");
+        if ($.orderStatus[orderId] != OrderStatus.Active) revert CanOnlyCancelActiveOrders();
 
         Order memory order = $.orders[orderId];
         uint128 amountToReturn = order.inputAmount;
@@ -1093,8 +1096,9 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
 
         // Update state first
         $.orderStatus[orderId] = OrderStatus.Cancelled;
+        uint128 currentLocked = $.balances[recipient][tokenAddress].locked;
         bool success = $.balances[recipient][tokenAddress].decreaseLockedNoRevert(amountToReturn);
-        require(success, "Failed to decrease locked balance");
+        if (!success) revert LockedBalanceDecreaseFailed(amountToReturn, currentLocked);
 
         // Transfer tokens back to offerer
         tokenAddress.safeTransfer(recipient, amountToReturn);
@@ -1125,13 +1129,13 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         address holder = msg.sender;
         AoriStorageData storage $ = _getAoriStorage();
         uint256 unlockedBalance = $.balances[holder][token].unlocked;
-        require(unlockedBalance > 0, "Non-zero balance required");
+        if (unlockedBalance == 0) revert NonZeroBalanceRequired();
 
         // Default to full balance if amount is 0
         if (amount == 0) {
             amount = unlockedBalance;
         } else {
-            require(unlockedBalance >= amount, "Insufficient unlocked balance");
+            if (unlockedBalance < amount) revert InsufficientUnlockedBalance();
         }
 
         token.validateSufficientBalance(amount);
@@ -1176,7 +1180,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         address,
         bytes calldata
     ) internal override whenNotPaused {
-        require(payload.length > 0, "Empty payload");
+        if (payload.length == 0) revert EmptyPayload();
         
         // Pass the sender chain's endpoint ID
         _recvPayload(payload, origin.srcEid);
@@ -1193,7 +1197,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         } else if (msgType == PayloadType.Settlement) {
             _handleSettlement(payload, srcEid);
         } else {
-            revert("Unsupported payload type");
+            revert UnsupportedPayloadType();
         }
     }
 

@@ -42,6 +42,7 @@ pragma solidity 0.8.28;
  */
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import {IAori} from "../../contracts/interfaces/IAori.sol";
+import "../../contracts/types/AoriErrors.sol";
 import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import "./TestUtils.sol";
@@ -107,7 +108,7 @@ contract CancellationTests is TestUtils {
         bytes32 orderId = localAori.hash(order);
         
         vm.prank(solver);
-        vm.expectRevert("Not on source chain");
+        vm.expectRevert(NotOnSourceChain.selector);
         localAori.cancel(orderId);
     }
 
@@ -133,9 +134,9 @@ contract CancellationTests is TestUtils {
         vm.prank(solver);
         localAori.cancel(orderId);
         
-        // Now try to cancel again (should fail with "Order not active")
+        // Now try to cancel again (should fail with OrderNotInActiveState)
         vm.prank(solver);
-        vm.expectRevert("Order not active");
+        vm.expectRevert(abi.encodeWithSelector(OrderNotInActiveState.selector, OrderStatus.Cancelled));
         localAori.cancel(orderId);
     }
 
@@ -157,7 +158,7 @@ contract CancellationTests is TestUtils {
         bytes32 orderId = localAori.hash(order);
         
         vm.prank(solver);
-        vm.expectRevert("Cross-chain orders must be cancelled from destination chain");
+        vm.expectRevert(CrossChainOrdersMustBeCancelledFromDestinationChain.selector);
         localAori.cancel(orderId);
     }
 
@@ -181,7 +182,7 @@ contract CancellationTests is TestUtils {
         // Random user tries to cancel before expiry
         address randomUser = makeAddr("random");
         vm.prank(randomUser);
-        vm.expectRevert("Only solver or offerer (after expiry) can cancel");
+        vm.expectRevert(UnauthorizedCancel.selector);
         localAori.cancel(orderId);
     }
 
@@ -269,7 +270,7 @@ contract CancellationTests is TestUtils {
         inputToken.transfer(makeAddr("drain"), contractBalance);
         
         vm.prank(solver);
-        vm.expectRevert("Insufficient contract balance");
+        vm.expectRevert(InsufficientContractBalance.selector);
         localAori.cancel(orderId);
     }
 
@@ -293,7 +294,7 @@ contract CancellationTests is TestUtils {
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
         
         vm.prank(solver);
-        vm.expectRevert("Submitted order data doesn't match orderId");
+        vm.expectRevert(OrderDataMismatch.selector);
         remoteAori.cancel(orderId, order, options);
     }
 
@@ -332,10 +333,10 @@ contract CancellationTests is TestUtils {
         vm.prank(solver);
         remoteAori.cancel{value: cancelFee}(orderId, order, options);
         
-        // Now try to cancel again (should fail with "Order not active")
+        // Now try to cancel again (should fail with "Order already processed")
         vm.deal(solver, cancelFee);
         vm.prank(solver);
-        vm.expectRevert("Order not active");
+        vm.expectRevert(abi.encodeWithSelector(OrderAlreadyProcessed.selector, OrderStatus.Cancelled));
         remoteAori.cancel{value: cancelFee}(orderId, order, options);
     }
 
@@ -351,7 +352,7 @@ contract CancellationTests is TestUtils {
         
         address randomUser = makeAddr("random");
         vm.prank(randomUser);
-        vm.expectRevert("Only whitelisted solver, offerer, or recipient (after expiry) can cancel");
+        vm.expectRevert(UnauthorizedCancel.selector);
         remoteAori.cancel(orderId, order, options);
     }
 
@@ -448,7 +449,7 @@ contract CancellationTests is TestUtils {
         bytes memory invalidPayload = abi.encodePacked(uint8(1)); // Too short
         
         vm.prank(address(endpoints[localEid]));
-        vm.expectRevert("Invalid cancellation payload length");
+        vm.expectRevert(InvalidCancellationPayloadLength.selector);
         localAori.lzReceive(
             Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),
             keccak256("mock-guid"),
@@ -467,7 +468,7 @@ contract CancellationTests is TestUtils {
         bytes memory emptyPayload = "";
         
         vm.prank(address(endpoints[localEid]));
-        vm.expectRevert("Empty payload");
+        vm.expectRevert(EmptyPayload.selector);
         localAori.lzReceive(
             Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),
             keccak256("mock-guid"),
@@ -594,9 +595,9 @@ contract CancellationTests is TestUtils {
         
         // Test exactly at expiry time (should fail)
         vm.warp(order.endTime);
-        
+
         vm.prank(userA);
-        vm.expectRevert("Only solver or offerer (after expiry) can cancel");
+        vm.expectRevert(UnauthorizedCancel.selector);
         localAori.cancel(orderId);
     }
 

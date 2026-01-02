@@ -55,6 +55,7 @@ import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/t
 import {IAori} from "../../contracts/interfaces/IAori.sol";
 import {Aori} from "../../contracts/Aori.sol";
 import "./TestUtils.sol";
+import "../../contracts/types/AoriErrors.sol";
 
 contract EmergencyTests is TestUtils {
     
@@ -197,7 +198,7 @@ contract EmergencyTests is TestUtils {
         bytes32 orderId = localAori.hash(order);
 
         // Invalid recipient (address(0))
-        vm.expectRevert("Invalid recipient address");
+        vm.expectRevert(InvalidRecipientAddress.selector);
         localAori.emergencyCancel(orderId, address(0));
     }
 
@@ -221,7 +222,7 @@ contract EmergencyTests is TestUtils {
         localAori.emergencyWithdraw(address(inputToken), contractBalance);
 
         // Should fail due to insufficient contract balance
-        vm.expectRevert("Insufficient contract balance");
+        vm.expectRevert(InsufficientContractBalance.selector);
         localAori.emergencyCancel(orderId, userA);
     }
 
@@ -231,7 +232,7 @@ contract EmergencyTests is TestUtils {
     function testEmergencyCancelInactiveOrder() public {
         // Test with non-existent order
         bytes32 fakeOrderId = keccak256("fake");
-        vm.expectRevert("Can only cancel active orders");
+        vm.expectRevert(CanOnlyCancelActiveOrders.selector);
         localAori.emergencyCancel(fakeOrderId, userA);
 
         // Test with already cancelled order
@@ -249,7 +250,7 @@ contract EmergencyTests is TestUtils {
         localAori.emergencyCancel(orderId, userA);
         
         // Try to cancel again
-        vm.expectRevert("Can only cancel active orders");
+        vm.expectRevert(CanOnlyCancelActiveOrders.selector);
         localAori.emergencyCancel(orderId, userA);
     }
 
@@ -416,7 +417,7 @@ contract EmergencyTests is TestUtils {
         );
 
         // Should revert with insufficient balance for unlocked
-        vm.expectRevert("Insufficient unlocked balance");
+        vm.expectRevert(InsufficientUnlockedBalance.selector);
         localAori.emergencyWithdraw(
             address(inputToken),
             1000e18,
@@ -484,15 +485,15 @@ contract EmergencyTests is TestUtils {
      */
     function testEmergencyWithdrawAccountingInvalidParameters() public {
         // Zero amount
-        vm.expectRevert("Amount must be greater than zero");
+        vm.expectRevert(AmountMustBeGreaterThanZero.selector);
         localAori.emergencyWithdraw(address(inputToken), 0, userA, true, customRecipient);
 
         // Invalid user
-        vm.expectRevert("Invalid user address");
+        vm.expectRevert(InvalidUserAddress.selector);
         localAori.emergencyWithdraw(address(inputToken), 100, address(0), true, customRecipient);
 
         // Invalid recipient
-        vm.expectRevert("Invalid recipient address");
+        vm.expectRevert(InvalidRecipientAddress.selector);
         localAori.emergencyWithdraw(address(inputToken), 100, userA, true, address(0));
     }
 
@@ -501,7 +502,8 @@ contract EmergencyTests is TestUtils {
      */
     function testEmergencyWithdrawAccountingInsufficientBalance() public {
         // Should revert with insufficient balance for locked
-        vm.expectRevert("Failed to decrease locked balance");
+        // User has 0 locked balance, trying to withdraw 1000e18
+        vm.expectRevert(abi.encodeWithSelector(LockedBalanceDecreaseFailed.selector, 1000e18, 0));
         localAori.emergencyWithdraw(
             address(inputToken),
             1000e18,
@@ -572,7 +574,8 @@ contract EmergencyTests is TestUtils {
         );
 
         // Step 2: Try emergency cancel (should fail due to insufficient contract balance)
-        vm.expectRevert("Failed to decrease locked balance");
+        // After emergencyWithdraw, the locked balance is 0, but the order still references inputAmount
+        vm.expectRevert(abi.encodeWithSelector(LockedBalanceDecreaseFailed.selector, order.inputAmount, 0));
         localAori.emergencyCancel(orderId, userA);
 
         // Verify order is still active but balance is gone

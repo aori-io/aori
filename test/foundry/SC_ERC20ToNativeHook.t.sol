@@ -21,6 +21,7 @@ import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
 import {MockHook2} from "../Mock/MockHook2.sol";
 import "../../contracts/libraries/AoriUtils.sol";
+import "../../contracts/types/AoriErrors.sol";
 
 contract SC_ERC20ToNativeHook_Test is TestUtils {
     using NativeTokenUtils for address;
@@ -405,7 +406,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         vm.prank(userSC);
         inputToken.approve(address(localAori), INPUT_AMOUNT);
 
-        vm.expectRevert("Insufficient output from hook");
+        vm.expectRevert(abi.encodeWithSelector(InsufficientSrcHookOutput.selector, OUTPUT_AMOUNT, OUTPUT_AMOUNT - 1));
         vm.prank(solverSC);
         localAori.deposit(order, signature, srcHook);
     }

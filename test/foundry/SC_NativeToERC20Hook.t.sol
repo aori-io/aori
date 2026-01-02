@@ -21,6 +21,7 @@ import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
 import {MockHook2} from "../Mock/MockHook2.sol";
 import "../../contracts/libraries/AoriUtils.sol";
+import "../../contracts/types/AoriErrors.sol";
 
 contract SC_NativeToERC20Hook_Test is TestUtils {
     using NativeTokenUtils for address;

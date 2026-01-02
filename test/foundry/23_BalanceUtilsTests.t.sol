@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import "forge-std/Test.sol";
 import "./TestUtils.sol";
 import "../../contracts/libraries/AoriUtils.sol";
+import "../../contracts/types/AoriErrors.sol";
 
 // Test contract to expose internal functions from BalanceUtils library
 contract BalanceWrapper {
@@ -222,7 +223,7 @@ contract BalanceUtilsTest is Test {
         uint128 unlockAmount = 101;
         
         // Act & Assert
-        vm.expectRevert("Insufficient locked balance");
+        vm.expectRevert(InsufficientLockedBalance.selector);
         wrapper.unlock(unlockAmount);
     }
     
@@ -523,7 +524,11 @@ contract BalanceUtilsTest is Test {
         uint128 transferAmount = 30;
         
         // Act & Assert - should revert with expected message
-        vm.expectRevert("Inconsistent offerer balance");
+        // Expected offerer locked = finalOffererLocked + transferAmount = 60 + 30 = 90
+        // But actual initialOffererLocked = 100
+        // Error: BalanceInconsistency(initialOffererLocked, expectedOffererLocked) = (100, 90)
+        uint128 expectedOffererLocked = finalOffererLocked + transferAmount;
+        vm.expectRevert(abi.encodeWithSelector(BalanceInconsistency.selector, initialOffererLocked, expectedOffererLocked));
         wrapper.validateBalanceTransferOrRevert(
             initialOffererLocked,
             finalOffererLocked,
@@ -532,7 +537,7 @@ contract BalanceUtilsTest is Test {
             transferAmount
         );
     }
-    
+
     /// @dev Tests validateBalanceTransferOrRevert with incorrect solver unlocked change
     function test_validateBalanceTransferOrRevert_invalidSolverChange() public {
         // Arrange
@@ -541,9 +546,13 @@ contract BalanceUtilsTest is Test {
         uint128 initialSolverUnlocked = 50;
         uint128 finalSolverUnlocked = 85; // Should be 80 for a 30 token transfer
         uint128 transferAmount = 30;
-        
+
         // Act & Assert - should revert with expected message
-        vm.expectRevert("Inconsistent solver balance");
+        // Expected solver unlocked = initialSolverUnlocked + transferAmount = 50 + 30 = 80
+        // But actual finalSolverUnlocked = 85
+        // Error: BalanceInconsistency(expectedSolverUnlocked, finalSolverUnlocked) = (80, 85)
+        uint128 expectedSolverUnlocked = initialSolverUnlocked + transferAmount;
+        vm.expectRevert(abi.encodeWithSelector(BalanceInconsistency.selector, expectedSolverUnlocked, finalSolverUnlocked));
         wrapper.validateBalanceTransferOrRevert(
             initialOffererLocked,
             finalOffererLocked,

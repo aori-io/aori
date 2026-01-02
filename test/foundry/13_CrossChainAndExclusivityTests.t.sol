@@ -23,6 +23,7 @@ import {IAori} from "../../contracts/Aori.sol";
 import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import "./TestUtils.sol";
+import "../../contracts/types/AoriErrors.sol";
 
 /**
  * @title CrossChainAndWhitelistTests
@@ -60,7 +61,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
 
         // Non-whitelisted solver should fail to deposit
         vm.startPrank(nonWhitelistedSolver);
-        vm.expectRevert("Invalid solver");
+        vm.expectRevert(InvalidSolver.selector);
         localAori.deposit(order, signature);
         vm.stopPrank();
 
@@ -231,7 +232,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         
         // Place expectRevert directly before the call that should revert
         vm.prank(nonWhitelistedSolver);
-        vm.expectRevert("Only solver or offerer (after expiry) can cancel");
+        vm.expectRevert(UnauthorizedCancel.selector);
         localAori.cancel(orderHash);
     }
 
@@ -293,7 +294,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         assertEq(
             uint8(remoteAori.orderStatus(orderHash)), uint8(OrderStatus.Filled), "Order should be in filled state"
         );
-        vm.expectRevert("Order not active");
+        vm.expectRevert(abi.encodeWithSelector(OrderAlreadyProcessed.selector, OrderStatus.Filled));
         remoteAori.cancel(orderHash, order, defaultOptions());
     }
 
@@ -360,7 +361,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         // Try to fill the cancelled order - should revert
         vm.startPrank(solver);
         outputToken.approve(address(remoteAori), order.outputAmount);
-        vm.expectRevert("Order not active");
+        vm.expectRevert(abi.encodeWithSelector(OrderAlreadyProcessed.selector, OrderStatus.Cancelled));
         remoteAori.fill(order);
         vm.stopPrank();
     }

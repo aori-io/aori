@@ -26,6 +26,7 @@ import "../Mock/MockRevertingToken.sol";
 import "../Mock/MockFeeOnTransferToken.sol";
 import "../Mock/MockAttacker.sol";
 import "../Mock/MockHook.sol";
+import "../../contracts/types/AoriErrors.sol";
 
 /**
  * @notice Tests various edge cases and security scenarios in the Aori protocol
@@ -108,7 +109,7 @@ contract EdgeCasesTest is TestUtils {
         bytes32 modifiedS = bytes32(uint256(s) ^ 1);
         bytes memory manipulatedSignature = abi.encodePacked(r, modifiedS, v);
 
-        vm.expectRevert("InvalidSignature");
+        vm.expectRevert(InvalidSignature.selector);
         vm.prank(solver);
         localAori.deposit(order, manipulatedSignature);
     }

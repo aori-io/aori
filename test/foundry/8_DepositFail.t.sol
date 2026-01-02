@@ -16,6 +16,7 @@ pragma solidity 0.8.28;
  */
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import {IAori} from "../../contracts/interfaces/IAori.sol";
+import "../../contracts/types/AoriErrors.sol";
 import "./TestUtils.sol";
 
 /**
@@ -47,7 +48,7 @@ contract DepositFailTest is TestUtils {
         // Approve token transfer.
         inputToken.approve(address(localAori), order.inputAmount);
         vm.prank(solver);
-        vm.expectRevert(bytes("InvalidSignature"));
+        vm.expectRevert(InvalidSignature.selector);
         localAori.deposit(order, "");
     }
 
@@ -59,7 +60,7 @@ contract DepositFailTest is TestUtils {
         // Create an invalid signature by signing with a different private key.
         bytes memory invalidSignature = signOrder(order, 0xABCD);
         vm.prank(solver);
-        vm.expectRevert(bytes("InvalidSignature"));
+        vm.expectRevert(InvalidSignature.selector);
         localAori.deposit(order, invalidSignature);
     }
 
@@ -76,7 +77,7 @@ contract DepositFailTest is TestUtils {
         localAori.deposit(order, signature);
         // A second deposit with the same order should revert.
         vm.prank(solver);
-        vm.expectRevert(bytes("Order already exists"));
+        vm.expectRevert(OrderAlreadyExists.selector);
         localAori.deposit(order, signature);
     }
 
@@ -89,7 +90,7 @@ contract DepositFailTest is TestUtils {
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
         vm.prank(solver);
-        vm.expectRevert(bytes("Invalid end time"));
+        vm.expectRevert(InvalidEndTime.selector);
         localAori.deposit(order, signature);
     }
 

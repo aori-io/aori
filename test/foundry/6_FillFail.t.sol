@@ -19,6 +19,7 @@ pragma solidity 0.8.28;
  */
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import {IAori} from "../../contracts/interfaces/IAori.sol";
+import "../../contracts/types/AoriErrors.sol";
 import "./TestUtils.sol";
 
 /**
@@ -70,7 +71,7 @@ contract FillFailTest is TestUtils {
         vm.warp(order.startTime);
 
         vm.prank(solver);
-        vm.expectRevert(bytes("Invalid end time"));
+        vm.expectRevert(InvalidEndTime.selector);
         remoteAori.fill(order, defaultDstSolverData(order.outputToken, order.outputAmount));
     }
 
@@ -80,7 +81,7 @@ contract FillFailTest is TestUtils {
         order.inputAmount = 0;
         vm.warp(order.startTime);
         vm.prank(solver);
-        vm.expectRevert(bytes("Invalid input amount"));
+        vm.expectRevert(InvalidInputAmount.selector);
         remoteAori.fill(order, defaultDstSolverData(order.outputToken, order.outputAmount));
     }
 
@@ -90,7 +91,7 @@ contract FillFailTest is TestUtils {
         order.outputAmount = 0;
         vm.warp(order.startTime);
         vm.prank(solver);
-        vm.expectRevert(bytes("Invalid output amount"));
+        vm.expectRevert(InvalidOutputAmount.selector);
         remoteAori.fill(order, defaultDstSolverData(order.outputToken, order.outputAmount));
     }
 
@@ -109,7 +110,7 @@ contract FillFailTest is TestUtils {
         vm.warp(order.startTime + 1);
 
         vm.prank(solver);
-        vm.expectRevert(bytes("Insufficient balance"));
+        vm.expectRevert("Insufficient balance");
         remoteAori.fill(order);
     }
 
@@ -123,7 +124,7 @@ contract FillFailTest is TestUtils {
         outputToken.approve(address(remoteAori), order.outputAmount);
 
         vm.prank(solver);
-        vm.expectRevert(bytes("Order not started"));
+        vm.expectRevert(OrderNotStarted.selector);
         remoteAori.fill(order, defaultDstSolverData(order.outputToken, order.outputAmount));
     }
 
@@ -138,7 +139,7 @@ contract FillFailTest is TestUtils {
         outputToken.approve(address(remoteAori), order.outputAmount);
 
         vm.prank(solver);
-        vm.expectRevert(bytes("Order has expired"));
+        vm.expectRevert(OrderExpired.selector);
         remoteAori.fill(order, defaultDstSolverData(order.outputToken, order.outputAmount));
     }
 
@@ -152,9 +153,9 @@ contract FillFailTest is TestUtils {
         vm.prank(solver);
         remoteAori.fill(order);
 
-        // A second attempt to fill the same order should revert with "Order not active".
+        // A second attempt to fill the same order should revert with OrderAlreadyProcessed.
         vm.prank(solver);
-        vm.expectRevert(bytes("Order not active"));
+        vm.expectRevert(abi.encodeWithSelector(OrderAlreadyProcessed.selector, OrderStatus.Filled));
         remoteAori.fill(order);
 
         // Verify order status
@@ -201,7 +202,7 @@ contract FillFailTest is TestUtils {
         vm.prank(solver);
         outputToken.approve(address(remoteAori), order.outputAmount);
 
-        vm.expectRevert("Hook must provide at least the expected output amount");
+        vm.expectRevert(abi.encodeWithSelector(InsufficientDstHookOutput.selector, order.outputAmount, 0));
         vm.prank(solver);
         remoteAori.fill(order, dstData);
     }

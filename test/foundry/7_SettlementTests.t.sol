@@ -20,6 +20,7 @@ pragma solidity 0.8.28;
  */
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import { Aori, IAori } from "../../contracts/Aori.sol";
+import "../../contracts/types/AoriErrors.sol";
 import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import "./TestUtils.sol";
 
@@ -128,7 +129,7 @@ contract SettlementTests is TestUtils {
         vm.deal(solver, fee);
 
         vm.prank(solver);
-        vm.expectRevert("No orders provided");
+        vm.expectRevert(NoOrdersProvided.selector);
         remoteAori.settle{ value: fee }(localEid, solver, options);
     }
 
@@ -154,7 +155,7 @@ contract SettlementTests is TestUtils {
         vm.deal(solver, fee);
 
         vm.prank(solver);
-        vm.expectRevert("No orders provided");
+        vm.expectRevert(NoOrdersProvided.selector);
         remoteAori.settle{ value: fee }(localEid, solver, options);
     }
 

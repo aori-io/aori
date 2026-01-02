@@ -40,6 +40,7 @@ pragma solidity 0.8.28;
 
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import {Aori, IAori} from "../../contracts/Aori.sol";
+import "../../contracts/types/AoriErrors.sol";
 import {TestUtils} from "../foundry/TestUtils.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {MockERC20} from "../Mock/MockERC20.sol";
@@ -265,7 +266,7 @@ contract WithdrawTests is TestUtils {
         
         // Act & Assert
         vm.prank(userA);
-        vm.expectRevert("Non-zero balance required");
+        vm.expectRevert(NonZeroBalanceRequired.selector);
         localAori.withdraw(address(outputToken), 0);
     }
 
@@ -280,7 +281,7 @@ contract WithdrawTests is TestUtils {
         
         // Act & Assert
         vm.prank(solver);
-        vm.expectRevert("Insufficient unlocked balance");
+        vm.expectRevert(InsufficientUnlockedBalance.selector);
         localAori.withdraw(address(outputToken), excessiveAmount);
     }
 
@@ -293,11 +294,11 @@ contract WithdrawTests is TestUtils {
         
         // Act & Assert - test both sentinel value and specific amount
         vm.prank(userA);
-        vm.expectRevert("Non-zero balance required");
+        vm.expectRevert(NonZeroBalanceRequired.selector);
         localAori.withdraw(address(outputToken), 0);
         
         vm.prank(userA);
-        vm.expectRevert("Non-zero balance required");
+        vm.expectRevert(NonZeroBalanceRequired.selector);
         localAori.withdraw(address(outputToken), 100e18);
     }
 
@@ -554,7 +555,7 @@ contract WithdrawTests is TestUtils {
         
         // Attempt invalid withdrawal
         vm.prank(solver);
-        vm.expectRevert("Insufficient unlocked balance");
+        vm.expectRevert(InsufficientUnlockedBalance.selector);
         localAori.withdraw(address(outputToken), initialBalance + 1e18);
         
         // Verify state is unchanged after failed withdrawal

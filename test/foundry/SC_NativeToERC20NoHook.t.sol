@@ -21,6 +21,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
 import "../../contracts/libraries/AoriUtils.sol";
+import "../../contracts/types/AoriErrors.sol";
 
 contract SC_NativeToERC20NoHook_Test is TestUtils {
     using NativeTokenUtils for address;
@@ -411,7 +412,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
         bytes memory signature = signOrder(order, userSCPrivKey);
 
         // Try to deposit less than required
-        vm.expectRevert("Incorrect native amount");
+        vm.expectRevert(IncorrectNativeAmount.selector);
         vm.prank(userSC);
         localAori.depositNative{value: INPUT_AMOUNT - 1}(order);
     }

@@ -25,6 +25,7 @@ import "../Mock/MockERC20.sol";
 import "../Mock/ExecutionMockHook.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "forge-std/console.sol";  // Add console logging
+import "../../contracts/types/AoriErrors.sol";
 
 /**
  * @title ExecutionTestWrapper
@@ -220,7 +221,7 @@ contract ExecutionUtilsTest is Test {
         );
         
         // Act & Assert
-        vm.expectRevert("Call failed");
+        vm.expectRevert(HookCallFailed.selector);
         wrapper.observeBalanceChange(
             address(mockHook),
             callData,

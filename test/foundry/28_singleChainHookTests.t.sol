@@ -24,6 +24,7 @@ import {MockERC20} from "../Mock/MockERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Test, console} from "forge-std/Test.sol";
+import "../../contracts/types/AoriErrors.sol";
 
 contract SingleChainHookTest is TestUtils {
     using SafeERC20 for MockERC20;
@@ -403,7 +404,7 @@ contract SingleChainHookTest is TestUtils {
         
         // Should revert with "Invalid hook address"
         vm.prank(solver);
-        vm.expectRevert("Invalid hook address");
+        vm.expectRevert(InvalidHookAddress.selector);
         localAori.deposit(order, signature, hook);
     }
     
@@ -451,7 +452,7 @@ contract SingleChainHookTest is TestUtils {
         
         // Should revert with "Insufficient output from hook"
         vm.prank(solver);
-        vm.expectRevert("Insufficient output from hook");
+        vm.expectRevert(abi.encodeWithSelector(InsufficientSrcHookOutput.selector, uint256(outputAmount), uint256(insufficientAmount)));
         localAori.deposit(order, signature, hook);
     }
     

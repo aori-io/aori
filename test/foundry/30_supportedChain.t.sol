@@ -8,6 +8,7 @@ import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/t
 import { MockERC20 } from "../Mock/MockERC20.sol";
 import { Aori, IAori } from "../../contracts/Aori.sol";
 import { OApp } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
+import "../../contracts/types/AoriErrors.sol";
 
 /**
  * @title SupportedChainTest
@@ -97,7 +98,7 @@ contract SupportedChainTest is TestUtils {
         
         // Attempt deposit should revert with unsupported destination
         vm.startPrank(solver);
-        vm.expectRevert("Destination chain not supported");
+        vm.expectRevert(DestinationChainNotSupported.selector);
         localAori.deposit(order, signature);
         vm.stopPrank();
     }

@@ -24,6 +24,7 @@ pragma solidity 0.8.28;
  */
 import {TestUtils} from "./TestUtils.sol";
 import {Order, OrderStatus, SrcHook, DstHook, Balance} from "../../contracts/types/AoriTypes.sol";
+import "../../contracts/types/AoriErrors.sol";
 import {MockHook} from "../Mock/MockHook.sol";
 import {IAori} from "../../contracts/Aori.sol";
 import "forge-std/console.sol";
@@ -73,7 +74,7 @@ contract HookWhitelistTest is TestUtils {
 
         // The deposit should revert with "Invalid hook address"
         vm.prank(solver);
-        vm.expectRevert(bytes("Invalid hook address"));
+        vm.expectRevert(InvalidHookAddress.selector);
         localAori.deposit(order, signature, srcData);
     }
 
@@ -153,7 +154,7 @@ contract HookWhitelistTest is TestUtils {
 
         // Fill should revert with "Invalid hook address"
         vm.prank(solver);
-        vm.expectRevert(bytes("Invalid hook address"));
+        vm.expectRevert(InvalidHookAddress.selector);
         remoteAori.fill(order, dstData);
     }
 
@@ -262,7 +263,7 @@ contract HookWhitelistTest is TestUtils {
 
         // Using the same hook should now fail again
         vm.prank(solver);
-        vm.expectRevert(bytes("Invalid hook address"));
+        vm.expectRevert(InvalidHookAddress.selector);
         localAori.deposit(order2, signature2, srcData);
     }
 

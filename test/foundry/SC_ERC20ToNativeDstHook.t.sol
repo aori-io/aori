@@ -22,6 +22,7 @@ import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
 import {MockHook2} from "../Mock/MockHook2.sol";
 import "../../contracts/libraries/AoriUtils.sol";
+import "../../contracts/types/AoriErrors.sol";
 
 contract SC_ERC20ToNativeDstHook_Test is TestUtils {
     using NativeTokenUtils for address;
@@ -594,7 +595,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
             )
         });
 
-        vm.expectRevert("Hook must provide at least the expected output amount");
+        vm.expectRevert(abi.encodeWithSelector(InsufficientDstHookOutput.selector, OUTPUT_AMOUNT, OUTPUT_AMOUNT - 1));
         vm.prank(solverSC);
         localAori.fill{value: OUTPUT_AMOUNT}(order, dstHook);
     }

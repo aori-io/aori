@@ -2,6 +2,7 @@
 pragma solidity 0.8.28;
 
 import {IAori} from "../interfaces/IAori.sol";
+import "../types/AoriErrors.sol";
 
 /**
  * @title AoriPeriphery
@@ -13,7 +14,7 @@ contract AoriPeriphery {
     IAori public immutable aori;
 
     constructor(address _aori) {
-        require(_aori != address(0), "Invalid Aori address");
+        if (_aori == address(0)) revert InvalidAoriAddress();
         aori = IAori(_aori);
     }
 

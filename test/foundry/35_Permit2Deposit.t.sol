@@ -6,6 +6,7 @@ import "./TestUtils.sol";
 import { ISignatureTransfer } from "@permit2/src/interfaces/ISignatureTransfer.sol";
 import { Permit2Lib } from "../../contracts/libraries/Permit2Lib.sol";
 import { DeployPermit2 } from "@permit2/test/utils/DeployPermit2.sol";
+import "../../contracts/types/AoriErrors.sol";
 
 /**
  * @title Permit2DepositTest
@@ -157,7 +158,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
         bytes memory signature = signPermit2Order(order, userAPrivKey, nonce, deadline);
 
         vm.prank(solver);
-        vm.expectRevert("Permit2 signature expired");
+        vm.expectRevert(Permit2SignatureExpired.selector);
         localAori.depositWithPermit2(order, nonce, deadline, signature);
     }
 
@@ -222,7 +223,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
 
         // Try to call from non-solver
         vm.prank(userA);
-        vm.expectRevert("Invalid solver");
+        vm.expectRevert(InvalidSolver.selector);
         localAori.depositWithPermit2(order, nonce, deadline, signature);
     }
 
@@ -239,7 +240,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
         // Try same order again (different nonce)
         bytes memory sig2 = signPermit2Order(order, userAPrivKey, 1, deadline);
         vm.prank(solver);
-        vm.expectRevert("Order already exists");
+        vm.expectRevert(OrderAlreadyExists.selector);
         localAori.depositWithPermit2(order, 1, deadline, sig2);
     }
 
@@ -253,7 +254,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
         bytes memory signature = signPermit2Order(order, userAPrivKey, nonce, deadline);
 
         vm.prank(solver);
-        vm.expectRevert("Use depositNative for native tokens");
+        vm.expectRevert(UseDepositNativeForNativeTokens.selector);
         localAori.depositWithPermit2(order, nonce, deadline, signature);
     }
 
@@ -267,7 +268,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
         bytes memory signature = signPermit2Order(order, userAPrivKey, nonce, deadline);
 
         vm.prank(solver);
-        vm.expectRevert("Destination chain not supported");
+        vm.expectRevert(DestinationChainNotSupported.selector);
         localAori.depositWithPermit2(order, nonce, deadline, signature);
     }
 
@@ -311,7 +312,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
         bytes memory signature = signPermit2Order(order, userAPrivKey, nonce, deadline);
 
         vm.prank(solver);
-        vm.expectRevert("Invalid hook address");
+        vm.expectRevert(InvalidHookAddress.selector);
         localAori.depositWithPermit2(order, hook, nonce, deadline, signature);
     }
 }

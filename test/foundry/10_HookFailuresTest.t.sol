@@ -16,6 +16,7 @@ pragma solidity 0.8.28;
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IAori} from "../../contracts/interfaces/IAori.sol";
+import "../../contracts/types/AoriErrors.sol";
 import "./TestUtils.sol";
 
 /**
@@ -61,7 +62,7 @@ contract HookFailuresTest is TestUtils {
         outputToken.approve(address(remoteAori), order.outputAmount);
 
         vm.prank(solver);
-        vm.expectRevert(bytes("Call failed"));
+        vm.expectRevert(HookCallFailed.selector);
         remoteAori.fill(order, dstData);
     }
 
@@ -85,7 +86,7 @@ contract HookFailuresTest is TestUtils {
         outputToken.approve(address(remoteAori), order.outputAmount);
 
         vm.prank(solver);
-        vm.expectRevert(bytes("Hook must provide at least the expected output amount"));
+        vm.expectRevert(abi.encodeWithSelector(InsufficientDstHookOutput.selector, order.outputAmount, 1e18));
         remoteAori.fill(order, dstData);
     }
 
@@ -137,7 +138,7 @@ contract HookFailuresTest is TestUtils {
 
         // Call directly from userA (not a solver)
         vm.prank(userA);
-        vm.expectRevert("Invalid solver");
+        vm.expectRevert(InvalidSolver.selector);
         localAori.deposit(order, signature, srcData);
     }
 }
