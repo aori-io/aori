@@ -5,6 +5,15 @@ import '@nomiclabs/hardhat-ethers'
 import '@layerzerolabs/toolbox-hardhat'
 import '@tenderly/hardhat-tenderly'
 import { HardhatUserConfig, HttpNetworkAccountsUserConfig } from 'hardhat/types'
+import { EndpointId } from '@layerzerolabs/lz-definitions'
+// import './tasks/approve-token'
+
+
+//uncomment this for deployment
+import 'hardhat-deploy'
+
+// uncomment this for verification
+// import '@nomicfoundation/hardhat-verify'
 
 // Set your preferred authentication method
 //
@@ -33,8 +42,10 @@ const requiredEnvVars = [
     'BASE_RPC_URL',
     'ARBITRUM_RPC_URL',
     'OPTIMISM_RPC_URL',
+    'MONAD_RPC_URL',
     'TENDERLY_PROJECT',
-    'TENDERLY_USERNAME'
+    'TENDERLY_USERNAME',
+    'TENDERLY_ACCESS_TOKEN'
 ]
 
 requiredEnvVars.forEach(envVar => {
@@ -43,7 +54,7 @@ requiredEnvVars.forEach(envVar => {
     }
 })
 
-const config: HardhatUserConfig = {
+const config: HardhatUserConfig & { etherscan?: any } = {
     paths: {
         cache: 'cache/hardhat',
         sources: "./contracts",
@@ -55,7 +66,7 @@ const config: HardhatUserConfig = {
                 settings: {
                     optimizer: {
                         enabled: true,
-                        runs: 1000,
+                        runs: 100,
                     },
                     viaIR: true,
                 },
@@ -65,6 +76,7 @@ const config: HardhatUserConfig = {
     tenderly: {
         project: process.env.TENDERLY_PROJECT || '',
         username: process.env.TENDERLY_USERNAME || '',
+        accessKey: process.env.TENDERLY_ACCESS_TOKEN || '',
         privateVerification: true,
     },
     networks: {
@@ -92,14 +104,50 @@ const config: HardhatUserConfig = {
             url: process.env.OPTIMISM_RPC_URL || '',
             accounts,
         },
+        bsc: {
+            eid: 30102,
+            chainId: 56, // BSC mainnet chainId
+            url: process.env.BSC_RPC_URL || '',
+            accounts,
+            // gasPrice: 5000000000, // 3 gwei - BSC minimum
+        },
+        plasma: {
+            eid: EndpointId.PLASMA_V2_MAINNET,
+            chainId: 9745,
+            url: process.env.PLASMA_RPC_URL || '',
+            accounts,
+        },
+        stable: {
+            eid: EndpointId.STABLE_V2_MAINNET,
+            chainId: 988,
+            url: process.env.STABLE_RPC_URL || '',
+            accounts,
+            gasPrice: 10000000000, // 10 gwei
+            maxPriorityFeePerGas: 0,
+        },
+        monad: {
+            eid: 30390,
+            chainId: 143,
+            url: process.env.MONAD_RPC_URL || '',
+            accounts,
+            gasPrice: 102500000000,
+        },
         hardhat: {
             // Needed in testing because TestHelperOz5.sol was exceeding the compiled contract size limit.
             allowUnlimitedContractSize: true,
         },
     },
+    etherscan: {
+        apiKey: process.env.ETHERSCAN_API_KEY || '',
+        enabled: true,
+    },
+    // comment for deployment / uncomment this for verification
+    // sourcify: {
+    //     enabled: false,
+    // },
     namedAccounts: {
         deployer: {
-            default: 0, 
+            default: 0,
         },
     },
 }
