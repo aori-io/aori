@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
 /**
  * @title BalanceUtilsTest
@@ -30,12 +30,15 @@ pragma solidity 0.8.28;
  */
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
-import "../../contracts/AoriUtils.sol";
+import "../../contracts/libraries/AoriUtils.sol";
+import "../../contracts/types/AoriErrors.sol";
+import { Balance } from "../../contracts/types/AoriTypes.sol";
 
 /**
  * @notice Tests for the Balance utility struct which manages locked and unlocked token balances
  */
 contract BalanceUtilsTest is Test {
+    using BalanceUtils for Balance;
     Balance private balance;
 
     function setUp() public {
@@ -96,7 +99,7 @@ contract BalanceUtilsTest is Test {
 
         balance.lock(amountToLock);
 
-        vm.expectRevert(bytes("Insufficient locked balance"));
+        vm.expectRevert(abi.encodeWithSelector(LockedBalanceDecreaseFailed.selector, amountToUnlock, amountToLock));
         balance.unlock(amountToUnlock);
     }
 

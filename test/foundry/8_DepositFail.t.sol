@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
 /**
  * DepositFailTest - Tests failure conditions for the deposit functionality in the Aori contract
@@ -14,7 +14,9 @@ pragma solidity 0.8.28;
  * This test file focuses on edge cases and failure conditions for the deposit operation,
  * using a custom FailingDepositHook that intentionally reverts to simulate errors.
  */
-import {IAori} from "../../contracts/IAori.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
+import { IAori } from "../../contracts/interfaces/IAori.sol";
+import "../../contracts/types/AoriErrors.sol";
 import "./TestUtils.sol";
 
 /**
@@ -41,54 +43,56 @@ contract DepositFailTest is TestUtils {
 
     /// @notice Test that deposit reverts when an empty signature is provided.
     function testRevertDepositEmptySignature() public {
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         vm.prank(userA);
         // Approve token transfer.
         inputToken.approve(address(localAori), order.inputAmount);
         vm.prank(solver);
-        vm.expectRevert(bytes("InvalidSignature"));
+        vm.expectRevert(InvalidSignature.selector);
         localAori.deposit(order, "");
     }
 
     /// @notice Test that deposit reverts when an invalid signature is provided.
     function testRevertDepositInvalidSignature() public {
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
         // Create an invalid signature by signing with a different private key.
         bytes memory invalidSignature = signOrder(order, 0xABCD);
         vm.prank(solver);
-        vm.expectRevert(bytes("InvalidSignature"));
+        vm.expectRevert(InvalidSignature.selector);
         localAori.deposit(order, invalidSignature);
     }
 
     /// @notice Test that a deposit reverts when the same order is deposited twice.
     function testRevertDepositOrderAlreadyExists() public {
-        IAori.Order memory order = createValidOrder();
-        uint256 minPreferedTokenAmountOut = 1000;
+        Order memory order = createValidOrder();
+        uint256 minPreferredTokenAmountOut = 1000;
         bytes memory signature = signOrder(order);
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
-        inputToken.mint(address(localAori), minPreferedTokenAmountOut);
+        inputToken.mint(address(localAori), minPreferredTokenAmountOut);
         // First deposit should succeed.
         vm.prank(solver);
         localAori.deposit(order, signature);
         // A second deposit with the same order should revert.
         vm.prank(solver);
-        vm.expectRevert(bytes("Order already exists"));
+        vm.expectRevert(OrderAlreadyExists.selector);
         localAori.deposit(order, signature);
     }
 
     /// @notice Test that deposit reverts when the order parameters are invalid (e.g. an invalid endTime).
     function testRevertDepositInvalidParameters() public {
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         // Set an invalid endTime (endTime must be greater than uint32(block.timestamp)).
-        order.endTime = uint32(block.timestamp);
+        uint32 startTime = order.startTime;
+        uint32 endTime = uint32(block.timestamp);
+        order.endTime = endTime;
         bytes memory signature = signOrder(order);
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
         vm.prank(solver);
-        vm.expectRevert(bytes("Invalid end time"));
+        vm.expectRevert(abi.encodeWithSelector(InvalidEndTime.selector, startTime, endTime));
         localAori.deposit(order, signature);
     }
 
@@ -96,14 +100,14 @@ contract DepositFailTest is TestUtils {
     // /// To trigger the hook branch we set a nonzero hookAddress and non‐empty instructions, and we use
     // /// a preferred token different from the order's inputToken.
     // function testRevertDepositHookFailure() public {
-    //     IAori.Order memory order = createValidOrder();
+    //     Order memory order = createValidOrder();
     //     // Prepare SrcSolverData to trigger the hook branch.
     //     // (order.inputToken != preferredToken so that the hook branch is taken)
-    //     uint minPreferedTokenAmountOut = 1000;
-    //     IAori.SrcHook memory srcData = IAori.SrcHook({
+    //     uint minPreferredTokenAmountOut = 1000;
+    //     SrcHook memory srcData = SrcHook({
     //         hookAddress: address(failingHook),
     //         preferredToken: address(outputToken), // different from order.inputToken
-    //         minPreferedTokenAmountOut: minPreferedTokenAmountOut, // Arbitrary minimum amount since no conversion
+    //         minPreferredTokenAmountOut: minPreferredTokenAmountOut, // Arbitrary minimum amount since no conversion
     //         instructions: abi.encodeWithSelector(FailingDepositHook.failHook.selector, address(outputToken), order.inputAmount),
     //         solver: solver
     //     });
@@ -122,7 +126,9 @@ contract DepositFailTest is TestUtils {
 // A simple hook contract that always reverts when called.
 // It is used to simulate a deposit where the hook call fails.
 contract FailingDepositHook {
-    function failHook(bytes memory) external payable {
+    function failHook(
+        bytes memory
+    ) external payable {
         revert("Failing deposit hook");
     }
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
 /**
  * OrderIdConsistencyTest - Tests that the orderId emitted in events matches the hash calculated in _validateDeposit
@@ -8,12 +8,13 @@ pragma solidity 0.8.28;
  * - The orderId emitted in events is consistent with the original hash of the order
  * - Any modifications to the stored order object do not affect the orderId throughout the order lifecycle
  */
-import {IAori} from "../../contracts/Aori.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
+import { IAori } from "../../contracts/Aori.sol";
 import "./TestUtils.sol";
 
 contract OrderIdConsistencyTest is TestUtils {
-    IAori.Order internal order;
-    
+    Order internal order;
+
     function setUp() public override {
         super.setUp();
     }
@@ -22,29 +23,25 @@ contract OrderIdConsistencyTest is TestUtils {
     function testOrderIdConsistency() public {
         // Create a valid order
         order = createValidOrder();
-        
+
         // Calculate the expected orderId using the hash function
         bytes32 expectedOrderId = localAori.hash(order);
-        
+
         // Generate signature and approve tokens
         bytes memory signature = signOrder(order);
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
-        
+
         // Deposit with hook conversion that will modify the stored order
         vm.prank(solver);
         localAori.deposit(order, signature, defaultSrcSolverData(order.inputAmount));
-        
+
         // Verify the order status is active with the expected orderId
-        assertEq(
-            uint8(localAori.orderStatus(expectedOrderId)),
-            uint8(IAori.OrderStatus.Active),
-            "Order should be marked Active"
-        );
-        
+        assertEq(uint8(localAori.orderStatus(expectedOrderId)), uint8(OrderStatus.Active), "Order should be marked Active");
+
         // Verify the stored order has the converted token
-        (,, address storedInputToken,,,,,,, ) = localAori.orders(expectedOrderId);
+        (,, address storedInputToken,,,,,,,) = localAori.orders(expectedOrderId);
         assertEq(storedInputToken, address(convertedToken), "Input token should be converted token");
         assertNotEq(storedInputToken, order.inputToken, "Input token should be different from original");
     }
-} 
+}

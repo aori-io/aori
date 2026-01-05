@@ -1,5 +1,5 @@
 [profile.default]
-solc-version = '0.8.28'
+solc-version = '0.8.33'
 src = 'contracts'
 out = 'out'
 test = 'test/foundry'
@@ -32,3 +32,16 @@ remappings = [
 runs = 1000
 
 gas_reports = ["contracts/Aori.sol"]
+
+[fmt]
+line_length = 140
+tab_width = 4
+bracket_spacing = true
+int_types = "long"
+multiline_func_header = "params_first"
+quote_style = "double"
+number_underscore = "preserve"
+single_line_statement_blocks = "preserve"
+override_spacing = false
+wrap_comments = false
+ignore = []

@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
-import { IAori } from "./IAori.sol";
-import { Balance } from "./AoriUtils.sol";
+import { Order, OrderStatus, Balance } from "../types/AoriTypes.sol";
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                    ERC-7201 STORAGE                        */
@@ -12,11 +11,11 @@ import { Balance } from "./AoriUtils.sol";
 struct AoriStorageData {
     // SRC STATE
     mapping(address => mapping(address => Balance)) balances;
-    mapping(bytes32 => IAori.Order) orders;
+    mapping(bytes32 => Order) orders;
     mapping(uint32 => bool) isSupportedChain;
     // DST STATE
     uint16 maxFillsPerSettle;
-    mapping(bytes32 => IAori.OrderStatus) orderStatus;
+    mapping(bytes32 => OrderStatus) orderStatus;
     mapping(address => bool) isAllowedHook;
     mapping(address => bool) isAllowedSolver;
     mapping(uint32 => mapping(address => bytes32[])) srcEidToFillerFills;
@@ -30,8 +29,7 @@ struct AoriStorageData {
  */
 abstract contract AoriStorage {
     // keccak256(abi.encode(uint256(keccak256("aori.storage.v1")) - 1)) & ~bytes32(uint256(0xff))
-    bytes32 private constant AORI_STORAGE_LOCATION =
-        0x476c06ce9bda338755e203b7f327971f808163bb891bef1bf37f35e88d0aae00;
+    bytes32 private constant AORI_STORAGE_LOCATION = 0x476c06ce9bda338755e203b7f327971f808163bb891bef1bf37f35e88d0aae00;
 
     function _getAoriStorage() internal pure returns (AoriStorageData storage $) {
         assembly {

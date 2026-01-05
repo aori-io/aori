@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
 /**
  * @title End-to-End Test: Cross-Chain Native → Native with DstHook (1:1 Case)
@@ -9,34 +9,35 @@ pragma solidity 0.8.28;
  *   3. User receives 1 ETH, solver gets 0.1 ETH surplus
  *   4. Source Chain: settle() - Settlement via LayerZero, solver gets 1 ETH unlocked
  * @dev Verifies balance accounting, token transfers, and cross-chain messaging
- * 
+ *
  * @dev To run with detailed accounting logs:
  *   forge test --match-test testCrossChainNativeToNativeSuccess -vv
  */
-import {Aori, IAori} from "../../contracts/Aori.sol";
-import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
-import {TestUtils} from "./TestUtils.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {Test} from "forge-std/Test.sol";
-import {console} from "forge-std/console.sol";
-import {MockHook2} from "../Mock/MockHook2.sol";
-import "../../contracts/AoriUtils.sol";
+import { Aori, IAori } from "../../contracts/Aori.sol";
+import { Origin } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
+import { TestUtils } from "./TestUtils.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Test } from "forge-std/Test.sol";
+import { console } from "forge-std/console.sol";
+import { MockHook2 } from "../Mock/MockHook2.sol";
+import "../../contracts/libraries/AoriUtils.sol";
 
 contract CC_NativeToNativeHook is TestUtils {
     using NativeTokenUtils for address;
 
     // Test amounts - Simple 1:1 case
-    uint128 public constant INPUT_AMOUNT = 1 ether;        // Native ETH input (user deposits)
-    uint128 public constant OUTPUT_AMOUNT = 1 ether;       // Native ETH output (user receives) 
-    uint128 public constant PREFERRED_AMOUNT = 10000e6;    // Solver's preferred token amount (10,000 tokens with 6 decimals)
-    uint128 public constant HOOK_OUTPUT = 1.1 ether;       // Hook converts to this much native ETH
-    uint128 public constant EXPECTED_SURPLUS = 0.1 ether;  // Surplus returned to solver (1.1 - 1.0 = 0.1)
+    uint128 public constant INPUT_AMOUNT = 1 ether; // Native ETH input (user deposits)
+    uint128 public constant OUTPUT_AMOUNT = 1 ether; // Native ETH output (user receives)
+    uint128 public constant PREFERRED_AMOUNT = 10000e6; // Solver's preferred token amount (10,000 tokens with 6 decimals)
+    uint128 public constant HOOK_OUTPUT = 1.1 ether; // Hook converts to this much native ETH
+    uint128 public constant EXPECTED_SURPLUS = 0.1 ether; // Surplus returned to solver (1.1 - 1.0 = 0.1)
 
     // Cross-chain addresses
-    address public userSource;     // User on source chain
-    address public userDest;         // User on destination chain  
+    address public userSource; // User on source chain
+    address public userDest; // User on destination chain
     address public solverSource; // Solver on source chain
-    address public solverDest;     // Solver on destination chain
+    address public solverDest; // Solver on destination chain
 
     // Private keys for signing
     uint256 public userSourcePrivKey = 0xABCD;
@@ -44,23 +45,25 @@ contract CC_NativeToNativeHook is TestUtils {
     uint256 public solverDestPrivKey = 0xBEEF;
 
     // Order details
-    IAori.Order private order;
+    Order private order;
     MockHook2 private mockHook2;
 
     /**
      * @notice Helper function to format wei amount to ETH string
      */
-    function formatETH(int256 weiAmount) internal pure returns (string memory) {
+    function formatETH(
+        int256 weiAmount
+    ) internal pure returns (string memory) {
         if (weiAmount == 0) return "0 ETH";
-        
+
         bool isNegative = weiAmount < 0;
         uint256 absAmount = uint256(isNegative ? -weiAmount : weiAmount);
-        
+
         uint256 ethPart = absAmount / 1e18;
         uint256 weiPart = absAmount % 1e18;
-        
+
         string memory sign = isNegative ? "-" : "+";
-        
+
         if (weiPart == 0) {
             return string(abi.encodePacked(sign, vm.toString(ethPart), " ETH"));
         } else {
@@ -73,17 +76,19 @@ contract CC_NativeToNativeHook is TestUtils {
     /**
      * @notice Helper function to format token amount to readable string
      */
-    function formatTokens(int256 tokenAmount) internal pure returns (string memory) {
+    function formatTokens(
+        int256 tokenAmount
+    ) internal pure returns (string memory) {
         if (tokenAmount == 0) return "0 tokens";
-        
+
         bool isNegative = tokenAmount < 0;
         uint256 absAmount = uint256(isNegative ? -tokenAmount : tokenAmount);
-        
+
         uint256 tokenPart = absAmount / 1e6; // 6 decimals
         uint256 decimalPart = absAmount % 1e6;
-        
+
         string memory sign = isNegative ? "-" : "+";
-        
+
         if (decimalPart == 0) {
             return string(abi.encodePacked(sign, vm.toString(tokenPart), " tokens"));
         } else {
@@ -95,36 +100,36 @@ contract CC_NativeToNativeHook is TestUtils {
 
     function setUp() public override {
         super.setUp();
-        
+
         // Derive addresses from private keys
         userSource = vm.addr(userSourcePrivKey);
         solverSource = vm.addr(solverSourcePrivKey);
         solverDest = vm.addr(solverDestPrivKey);
-        userDest = makeAddr("userDest");  // Keep this one as makeAddr since we don't need to sign for it
-        
+        userDest = makeAddr("userDest"); // Keep this one as makeAddr since we don't need to sign for it
+
         // Deploy MockHook2
         mockHook2 = new MockHook2();
-        
+
         // Setup native token balances for source chain addresses
         vm.deal(userSource, 1 ether);
         vm.deal(solverSource, 1 ether);
-        
-        // Setup native token balances for destination chain addresses  
-        vm.deal(userDest, 0 ether);      // User starts with 0 on destination
-        vm.deal(solverDest, 1 ether);  // Solver has ETH for gas costs (more realistic amount)
-        
+
+        // Setup native token balances for destination chain addresses
+        vm.deal(userDest, 0 ether); // User starts with 0 on destination
+        vm.deal(solverDest, 1 ether); // Solver has ETH for gas costs (more realistic amount)
+
         // Setup contract balances
-        vm.deal(address(localAori), 0 ether);    // For any native operations
-        vm.deal(address(remoteAori), 0 ether);   // For native output operations
-        vm.deal(address(mockHook2), 2 ether);    // Hook needs 1.1 ether to output
-        
+        vm.deal(address(localAori), 0 ether); // For any native operations
+        vm.deal(address(remoteAori), 0 ether); // For native output operations
+        vm.deal(address(mockHook2), 2 ether); // Hook needs 1.1 ether to output
+
         // Give destination solver preferred tokens for the hook
         dstPreferredToken.mint(solverDest, 10000e6); // Large amount for testing
-        
+
         // Add MockHook2 to allowed hooks
         localAori.addAllowedHook(address(mockHook2));
         remoteAori.addAllowedHook(address(mockHook2));
-        
+
         // Add solvers to allowed list
         localAori.addAllowedSolver(solverSource);
         remoteAori.addAllowedSolver(solverDest);
@@ -135,27 +140,27 @@ contract CC_NativeToNativeHook is TestUtils {
      */
     function _createAndDepositNativeOrder() internal {
         vm.chainId(localEid);
-        
+
         // Create test order with native tokens
         order = createCustomOrder(
-            userSource,                  // offerer
-            userDest,                  // recipient
-            NATIVE_TOKEN,          // inputToken (native ETH)
-            NATIVE_TOKEN,          // outputToken (native ETH)
-            INPUT_AMOUNT,          // inputAmount
-            OUTPUT_AMOUNT,         // outputAmount
-            block.timestamp,       // startTime
+            userSource, // offerer
+            userDest, // recipient
+            NATIVE_TOKEN, // inputToken (native ETH)
+            NATIVE_TOKEN, // outputToken (native ETH)
+            INPUT_AMOUNT, // inputAmount
+            OUTPUT_AMOUNT, // outputAmount
+            block.timestamp, // startTime
             block.timestamp + 1 hours, // endTime
-            localEid,              // srcEid
-            remoteEid              // dstEid
+            localEid, // srcEid
+            remoteEid // dstEid
         );
-        
+
         // Generate signature
         bytes memory signature = signOrder(order, userSourcePrivKey);
 
         // User deposits their own native tokens directly
         vm.prank(userSource);
-        localAori.depositNative{value: INPUT_AMOUNT}(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order);
     }
 
     /**
@@ -166,21 +171,21 @@ contract CC_NativeToNativeHook is TestUtils {
         vm.warp(order.startTime + 1); // Advance time so order has started
 
         // Setup hook data for ERC20 → Native conversion
-        IAori.DstHook memory dstHook = IAori.DstHook({
+        DstHook memory dstHook = DstHook({
             hookAddress: address(mockHook2),
-            preferredToken: address(dstPreferredToken),  // Solver's preferred ERC20 token (input)
+            preferredToken: address(dstPreferredToken), // Solver's preferred ERC20 token (input)
             instructions: abi.encodeWithSelector(
-                MockHook2.handleHook.selector, 
-                NATIVE_TOKEN,      // Output native tokens
-                HOOK_OUTPUT        // Amount of native tokens to output
+                MockHook2.handleHook.selector,
+                NATIVE_TOKEN, // Output native tokens
+                HOOK_OUTPUT // Amount of native tokens to output
             ),
-            preferedDstInputAmount: PREFERRED_AMOUNT
+            preferredDstInputAmount: PREFERRED_AMOUNT
         });
-        
+
         // Approve solver's preferred tokens to be spent (use destination solver)
         vm.prank(solverDest);
         dstPreferredToken.approve(address(remoteAori), PREFERRED_AMOUNT);
-        
+
         // Execute fill with hook (use destination solver)
         vm.prank(solverDest);
         remoteAori.fill(order, dstHook);
@@ -194,7 +199,7 @@ contract CC_NativeToNativeHook is TestUtils {
         uint256 fee = remoteAori.quote(localEid, 0, options, false, localEid, solverDest).nativeFee;
         vm.deal(solverDest, fee);
         vm.prank(solverDest);
-        remoteAori.settle{value: fee}(localEid, solverDest, options);
+        remoteAori.settle{ value: fee }(localEid, solverDest, options);
     }
 
     /**
@@ -212,11 +217,7 @@ contract CC_NativeToNativeHook is TestUtils {
 
         vm.prank(address(endpoints[localEid]));
         localAori.lzReceive(
-            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),
-            guid,
-            settlementPayload,
-            address(0),
-            bytes("")
+            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1), guid, settlementPayload, address(0), bytes("")
         );
     }
 
@@ -231,20 +232,14 @@ contract CC_NativeToNativeHook is TestUtils {
 
         // Verify locked balance increased
         assertEq(
-            localAori.getLockedBalances(userSource, NATIVE_TOKEN),
-            initialLocked + INPUT_AMOUNT,
-            "Locked balance not increased for user"
+            localAori.getLockedBalances(userSource, NATIVE_TOKEN), initialLocked + INPUT_AMOUNT, "Locked balance not increased for user"
         );
 
         // Verify contract received native tokens
-        assertEq(
-            address(localAori).balance,
-            initialContractBalance + INPUT_AMOUNT,
-            "Contract should receive native tokens"
-        );
+        assertEq(address(localAori).balance, initialContractBalance + INPUT_AMOUNT, "Contract should receive native tokens");
 
         // Verify order status
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Active, "Order should be Active");
+        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Active, "Order should be Active");
     }
 
     /**
@@ -267,17 +262,9 @@ contract CC_NativeToNativeHook is TestUtils {
             preFillSolverPreferred - PREFERRED_AMOUNT,
             "Solver preferred token balance not reduced by fill"
         );
-        assertEq(
-            userDest.balance,
-            preFillUserNative + OUTPUT_AMOUNT,
-            "User did not receive the expected native tokens"
-        );
-        assertEq(
-            solverDest.balance,
-            preFillSolverNative + EXPECTED_SURPLUS,
-            "Solver did not receive the expected surplus"
-        );
-        
+        assertEq(userDest.balance, preFillUserNative + OUTPUT_AMOUNT, "User did not receive the expected native tokens");
+        assertEq(solverDest.balance, preFillSolverNative + EXPECTED_SURPLUS, "Solver did not receive the expected surplus");
+
         // The hook sends HOOK_OUTPUT to the contract, then the contract sends OUTPUT_AMOUNT to user and EXPECTED_SURPLUS to solver
         // Net effect: contract balance should remain the same (receives HOOK_OUTPUT, sends HOOK_OUTPUT)
         assertEq(
@@ -287,7 +274,7 @@ contract CC_NativeToNativeHook is TestUtils {
         );
 
         // Verify order status
-        assertTrue(remoteAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Filled, "Order should be Filled");
+        assertTrue(remoteAori.orderStatus(localAori.hash(order)) == OrderStatus.Filled, "Order should be Filled");
     }
 
     /**
@@ -317,14 +304,10 @@ contract CC_NativeToNativeHook is TestUtils {
         );
 
         // Verify order status
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
 
         // Verify locked balance is cleared
-        assertEq(
-            localAori.getLockedBalances(userSource, NATIVE_TOKEN),
-            0,
-            "Offerer should have no locked balance after settlement"
-        );
+        assertEq(localAori.getLockedBalances(userSource, NATIVE_TOKEN), 0, "Offerer should have no locked balance after settlement");
     }
 
     /**
@@ -340,27 +323,15 @@ contract CC_NativeToNativeHook is TestUtils {
         vm.chainId(localEid);
         uint256 solverBalanceBeforeWithdraw = solverSource.balance;
         uint256 contractBalanceBeforeWithdraw = address(localAori).balance;
-        
+
         // Solver withdraws their earned tokens (use source chain solver)
         vm.prank(solverSource);
         localAori.withdraw(NATIVE_TOKEN, INPUT_AMOUNT);
-        
+
         // Verify withdrawal
-        assertEq(
-            solverSource.balance,
-            solverBalanceBeforeWithdraw + INPUT_AMOUNT,
-            "Solver should receive withdrawn native tokens"
-        );
-        assertEq(
-            address(localAori).balance,
-            contractBalanceBeforeWithdraw - INPUT_AMOUNT,
-            "Contract should send native tokens"
-        );
-        assertEq(
-            localAori.getUnlockedBalances(solverSource, NATIVE_TOKEN),
-            0,
-            "Solver should have no remaining balance"
-        );
+        assertEq(solverSource.balance, solverBalanceBeforeWithdraw + INPUT_AMOUNT, "Solver should receive withdrawn native tokens");
+        assertEq(address(localAori).balance, contractBalanceBeforeWithdraw - INPUT_AMOUNT, "Contract should send native tokens");
+        assertEq(localAori.getUnlockedBalances(solverSource, NATIVE_TOKEN), 0, "Solver should have no remaining balance");
     }
 
     /**
@@ -376,13 +347,13 @@ contract CC_NativeToNativeHook is TestUtils {
         uint256 initialUserSourceNative = userSource.balance;
         uint256 initialSolverSourceNative = solverSource.balance;
         uint256 initialContractSourceNative = address(localAori).balance;
-        
-        vm.chainId(remoteEid); // Destination chain  
+
+        vm.chainId(remoteEid); // Destination chain
         uint256 initialUserDestNative = userDest.balance;
         uint256 initialSolverDestNative = solverDest.balance;
         uint256 initialSolverDestTokens = dstPreferredToken.balanceOf(solverDest);
         uint256 initialContractDestNative = address(remoteAori).balance;
-        
+
         console.log("=== PHASE 0: INITIAL STATE ===");
         console.log("Source Chain:");
         console.log("  User native balance:", initialUserSourceNative / 1e18, "ETH");
@@ -403,7 +374,7 @@ contract CC_NativeToNativeHook is TestUtils {
         uint256 afterDepositUserSourceNative = userSource.balance;
         uint256 afterDepositContractSourceNative = address(localAori).balance;
         uint256 afterDepositUserSourceLocked = localAori.getLockedBalances(userSource, NATIVE_TOKEN);
-        
+
         console.log("Source Chain After Deposit:");
         console.log("  User native balance:", afterDepositUserSourceNative / 1e18, "ETH");
         int256 userDepositChange = int256(afterDepositUserSourceNative) - int256(initialUserSourceNative);
@@ -423,7 +394,7 @@ contract CC_NativeToNativeHook is TestUtils {
         uint256 afterFillSolverDestNative = solverDest.balance;
         uint256 afterFillSolverDestTokens = dstPreferredToken.balanceOf(solverDest);
         uint256 afterFillContractDestNative = address(remoteAori).balance;
-        
+
         console.log("Destination Chain After Fill:");
         console.log("  User native balance:", afterFillUserDestNative / 1e18, "ETH");
         int256 userFillChange = int256(afterFillUserDestNative) - int256(initialUserDestNative);
@@ -447,7 +418,7 @@ contract CC_NativeToNativeHook is TestUtils {
         vm.chainId(localEid);
         uint256 afterSettlementUserSourceLocked = localAori.getLockedBalances(userSource, NATIVE_TOKEN);
         uint256 afterSettlementSolverSourceUnlocked = localAori.getUnlockedBalances(solverSource, NATIVE_TOKEN);
-        
+
         console.log("Source Chain After Settlement:");
         console.log("  User locked balance:", afterSettlementUserSourceLocked / 1e18, "ETH");
         int256 lockedChange = int256(afterSettlementUserSourceLocked) - int256(afterDepositUserSourceLocked);
@@ -460,14 +431,14 @@ contract CC_NativeToNativeHook is TestUtils {
         vm.chainId(localEid);
         uint256 beforeWithdrawSolverSourceNative = solverSource.balance;
         uint256 beforeWithdrawContractSourceNative = address(localAori).balance;
-        
+
         vm.prank(solverSource);
         localAori.withdraw(NATIVE_TOKEN, INPUT_AMOUNT);
-        
+
         uint256 afterWithdrawSolverSourceNative = solverSource.balance;
         uint256 afterWithdrawContractSourceNative = address(localAori).balance;
         uint256 afterWithdrawSolverSourceUnlocked = localAori.getUnlockedBalances(solverSource, NATIVE_TOKEN);
-        
+
         console.log("Source Chain After Withdrawal:");
         console.log("  Solver native balance:", afterWithdrawSolverSourceNative / 1e18, "ETH");
         int256 solverWithdrawChange = int256(afterWithdrawSolverSourceNative) - int256(beforeWithdrawSolverSourceNative);
@@ -480,11 +451,11 @@ contract CC_NativeToNativeHook is TestUtils {
 
         // === FINAL SUMMARY ===
         console.log("=== FINAL SUMMARY: NET BALANCE CHANGES ===");
-        
+
         vm.chainId(localEid); // Source chain
         uint256 finalUserSourceNative = userSource.balance;
         uint256 finalSolverSourceNative = solverSource.balance;
-        
+
         vm.chainId(remoteEid); // Destination chain
         uint256 finalUserDestNative = userDest.balance;
         uint256 finalSolverDestNative = solverDest.balance;
@@ -497,7 +468,7 @@ contract CC_NativeToNativeHook is TestUtils {
         console.log("  Destination chain:", formatETH(userDestNetChange));
         int256 userTotalChange = userSourceNetChange + userDestNetChange;
         console.log("  Total user change:", formatETH(userTotalChange));
-        
+
         console.log("Solver Net Changes:");
         int256 solverSourceNetChange = int256(finalSolverSourceNative) - int256(initialSolverSourceNative);
         int256 solverDestNetChange = int256(finalSolverDestNative) - int256(initialSolverDestNative);
@@ -510,16 +481,8 @@ contract CC_NativeToNativeHook is TestUtils {
         console.log("");
 
         // Verify final balances
-        assertEq(
-            localAori.getUnlockedBalances(solverSource, NATIVE_TOKEN),
-            0,
-            "Solver should have withdrawn all tokens"
-        );
-        assertEq(
-            localAori.getLockedBalances(userSource, NATIVE_TOKEN),
-            0,
-            "No tokens should remain locked"
-        );
+        assertEq(localAori.getUnlockedBalances(solverSource, NATIVE_TOKEN), 0, "Solver should have withdrawn all tokens");
+        assertEq(localAori.getLockedBalances(userSource, NATIVE_TOKEN), 0, "No tokens should remain locked");
     }
 
     /**
@@ -539,11 +502,11 @@ contract CC_NativeToNativeHook is TestUtils {
         _fillOrderWithNativeOutput();
         _settleOrder();
         _simulateLzMessageDelivery();
-        
+
         // After settlement
         assertEq(localAori.getLockedBalances(userSource, NATIVE_TOKEN), 0);
         assertEq(localAori.getUnlockedBalances(solverSource, NATIVE_TOKEN), INPUT_AMOUNT);
-        
+
         // Total balance conservation
         uint256 totalLocked = localAori.getLockedBalances(userSource, NATIVE_TOKEN);
         uint256 totalUnlocked = localAori.getUnlockedBalances(solverSource, NATIVE_TOKEN);
@@ -557,15 +520,15 @@ contract CC_NativeToNativeHook is TestUtils {
         // Test native token utilities work correctly
         assertTrue(NATIVE_TOKEN.isNativeToken(), "Should identify native token correctly");
         assertFalse(address(dstPreferredToken).isNativeToken(), "Should identify ERC20 as non-native");
-        
+
         // Test balance checking
         uint256 contractBalance = NATIVE_TOKEN.balanceOf(address(localAori));
         assertEq(contractBalance, address(localAori).balance, "Native balance should match contract balance");
-        
+
         // Test sufficient balance validation - should not revert
         vm.deal(address(localAori), 1 ether);
         NATIVE_TOKEN.validateSufficientBalance(0.5 ether); // Should not revert
-        
+
         // Note: Testing insufficient balance revert is tricky with vm.expectRevert
         // The main functionality is verified by the successful end-to-end tests
     }
@@ -576,11 +539,11 @@ contract CC_NativeToNativeHook is TestUtils {
     function testMockHook2Functionality() public {
         // Test native token handling
         assertTrue(mockHook2.NATIVE() == NATIVE_TOKEN, "MockHook2 should use correct native token address");
-        
+
         // Test balance checking
         uint256 hookBalance = mockHook2.balanceOfThis(NATIVE_TOKEN);
         assertEq(hookBalance, address(mockHook2).balance, "Hook should report correct native balance");
-        
+
         // Test that hook can receive native tokens
         vm.deal(address(mockHook2), 5 ether);
         assertEq(address(mockHook2).balance, 5 ether, "Hook should receive native tokens");

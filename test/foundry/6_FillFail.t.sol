@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
 /**
  * FillFailTest - Tests various failure conditions for the fill functionality in the Aori contract
@@ -17,7 +17,9 @@ pragma solidity 0.8.28;
  * This test file focuses on edge cases and failure conditions for the fill operation,
  * using a custom FailingHook that intentionally fails to transfer tokens to simulate errors.
  */
-import {IAori} from "../../contracts/IAori.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
+import { IAori } from "../../contracts/interfaces/IAori.sol";
+import "../../contracts/types/AoriErrors.sol";
 import "./TestUtils.sol";
 
 /**
@@ -25,7 +27,10 @@ import "./TestUtils.sol";
  * This hook is used to simulate a fill in which the expected output tokens are not provided.
  */
 contract FailingHook {
-    function handleHook(address token, uint256 expectedAmount) external {
+    function handleHook(
+        address token,
+        uint256 expectedAmount
+    ) external {
         // Intentionally do nothing.
     }
 }
@@ -45,57 +50,54 @@ contract FillFailTest is TestUtils {
     }
 
     /// @notice Returns a default DstSolverData for a direct fill (no hook conversion).
-    function defaultDstSolverData(address _preferredToken, uint256 _expectedAmount)
-        internal
-        pure
-        returns (IAori.DstHook memory)
-    {
-        return IAori.DstHook({
-            hookAddress: address(0),
-            preferredToken: _preferredToken,
-            instructions: "",
-            preferedDstInputAmount: _expectedAmount
-        });
+    function defaultDstSolverData(
+        address _preferredToken,
+        uint256 _expectedAmount
+    ) internal pure returns (DstHook memory) {
+        return
+            DstHook({ hookAddress: address(0), preferredToken: _preferredToken, instructions: "", preferredDstInputAmount: _expectedAmount });
     }
 
     /// @notice Test that fill reverts when the order's startTime is after its endTime.
     function testRevertFillInvalidTimeRange() public {
         vm.warp(1000); // Initial warp (for underflow safety)
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         // Set an invalid time range: startTime > endTime.
-        order.startTime = 1000 + 1 days;
-        order.endTime = 1000;
+        uint32 startTime = 1000 + 1 days;
+        uint32 endTime = 1000;
+        order.startTime = startTime;
+        order.endTime = endTime;
         // Warp time to be after the (invalid) startTime.
         vm.warp(order.startTime);
 
         vm.prank(solver);
-        vm.expectRevert(bytes("Invalid end time"));
+        vm.expectRevert(abi.encodeWithSelector(InvalidEndTime.selector, startTime, endTime));
         remoteAori.fill(order, defaultDstSolverData(order.outputToken, order.outputAmount));
     }
 
     /// @notice Test that fill reverts when the order's input amount is zero.
     function testRevertFillZeroInputAmount() public {
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         order.inputAmount = 0;
         vm.warp(order.startTime);
         vm.prank(solver);
-        vm.expectRevert(bytes("Invalid input amount"));
+        vm.expectRevert(InvalidInputAmount.selector);
         remoteAori.fill(order, defaultDstSolverData(order.outputToken, order.outputAmount));
     }
 
     /// @notice Test that fill reverts when the order's output amount is zero.
     function testRevertFillZeroOutputAmount() public {
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         order.outputAmount = 0;
         vm.warp(order.startTime);
         vm.prank(solver);
-        vm.expectRevert(bytes("Invalid output amount"));
+        vm.expectRevert(InvalidOutputAmount.selector);
         remoteAori.fill(order, defaultDstSolverData(order.outputToken, order.outputAmount));
     }
 
     /// @notice Test that fill reverts when the filler (solver) has insufficient balance of the output token.
     function testRevertFillInsufficientBalance() public {
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         // Reduce solver's balance by transferring nearly all tokens.
         vm.prank(solver);
         outputToken.transfer(address(0xdead), 999e18); // Leaves solver with ~1e18.
@@ -108,21 +110,23 @@ contract FillFailTest is TestUtils {
         vm.warp(order.startTime + 1);
 
         vm.prank(solver);
-        vm.expectRevert(bytes("Insufficient balance"));
+        vm.expectRevert("Insufficient balance");
         remoteAori.fill(order);
     }
 
     /// @notice Test that fill reverts when the order has not yet started (filled too early).
     function testRevertFillOrderExpiredBeforeStart() public {
-        vm.warp(100);
-        IAori.Order memory order = createValidOrder();
-        order.startTime = 200; // e.g. current time 100, start at 200
+        uint256 currentTime = 100;
+        vm.warp(currentTime);
+        Order memory order = createValidOrder();
+        uint32 startTime = 200; // e.g. current time 100, start at 200
+        order.startTime = startTime;
         order.endTime = 100 + 1 days;
         vm.prank(solver);
         outputToken.approve(address(remoteAori), order.outputAmount);
 
         vm.prank(solver);
-        vm.expectRevert(bytes("Order not started"));
+        vm.expectRevert(abi.encodeWithSelector(OrderNotStarted.selector, startTime, currentTime));
         remoteAori.fill(order, defaultDstSolverData(order.outputToken, order.outputAmount));
     }
 
@@ -130,20 +134,21 @@ contract FillFailTest is TestUtils {
     function testRevertFillOrderExpiredAfterEnd() public {
         uint256 warpTime = 100000;
         vm.warp(warpTime);
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         order.startTime = uint32(warpTime - 1 days);
-        order.endTime = uint32(warpTime - 10);
+        uint32 endTime = uint32(warpTime - 10);
+        order.endTime = endTime;
         vm.prank(solver);
         outputToken.approve(address(remoteAori), order.outputAmount);
 
         vm.prank(solver);
-        vm.expectRevert(bytes("Order has expired"));
+        vm.expectRevert(abi.encodeWithSelector(OrderExpired.selector, endTime, warpTime));
         remoteAori.fill(order, defaultDstSolverData(order.outputToken, order.outputAmount));
     }
 
     /// @notice Test that fill reverts when attempting to fill an order that has already been filled.
     function testRevertFillAlreadyFilled() public {
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         vm.warp(order.startTime + 1);
         // Approve and perform the first (successful) fill.
         vm.prank(solver);
@@ -151,16 +156,14 @@ contract FillFailTest is TestUtils {
         vm.prank(solver);
         remoteAori.fill(order);
 
-        // A second attempt to fill the same order should revert with "Order not active".
+        // A second attempt to fill the same order should revert with OrderAlreadyProcessed.
         vm.prank(solver);
-        vm.expectRevert(bytes("Order not active"));
+        vm.expectRevert(abi.encodeWithSelector(OrderAlreadyProcessed.selector, OrderStatus.Filled));
         remoteAori.fill(order);
 
         // Verify order status
         bytes32 orderHash = remoteAori.hash(order);
-        assertEq(
-            uint8(remoteAori.orderStatus(orderHash)), uint8(IAori.OrderStatus.Filled), "Order should be in filled state"
-        );
+        assertEq(uint8(remoteAori.orderStatus(orderHash)), uint8(OrderStatus.Filled), "Order should be in filled state");
     }
 
     /**
@@ -171,7 +174,7 @@ contract FillFailTest is TestUtils {
     function testFillFailDueToInsufficientOutput() public {
         // PHASE 1: Deposit on the Source Chain.
         vm.chainId(localEid);
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
         // Approve inputToken for deposit.
@@ -189,18 +192,18 @@ contract FillFailTest is TestUtils {
         // Prepare DstSolverData with the failing hook.
         // The instructions encode a call to FailingHook.handleHook but, as this hook does nothing,
         // the expected output tokens are not provided.
-        IAori.DstHook memory dstData = IAori.DstHook({
+        DstHook memory dstData = DstHook({
             hookAddress: address(failingHook),
             preferredToken: address(outputToken),
             instructions: abi.encodeWithSelector(FailingHook.handleHook.selector, address(outputToken), 0),
-            preferedDstInputAmount: order.outputAmount
+            preferredDstInputAmount: order.outputAmount
         });
 
         // Approve remoteAori so the fill function can pull tokens.
         vm.prank(solver);
         outputToken.approve(address(remoteAori), order.outputAmount);
 
-        vm.expectRevert("Hook must provide at least the expected output amount");
+        vm.expectRevert(abi.encodeWithSelector(InsufficientDstHookOutput.selector, order.outputAmount, 0));
         vm.prank(solver);
         remoteAori.fill(order, dstData);
     }

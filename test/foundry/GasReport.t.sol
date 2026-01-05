@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
 import "forge-std/Test.sol";
-import {Aori, IAori} from "../../contracts/Aori.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {OAppUpgradeable, Origin, MessagingFee} from "@layerzerolabs/oapp-evm-upgradeable/contracts/oapp/OAppUpgradeable.sol";
-import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
-import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
-import {MockERC20} from "../Mock/MockERC20.sol";
-import {TestUtils} from "./TestUtils.sol";
-import "../../contracts/AoriUtils.sol";
+import { Aori, IAori } from "../../contracts/Aori.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { OAppUpgradeable, Origin, MessagingFee } from "@layerzerolabs/oapp-evm-upgradeable/contracts/oapp/OAppUpgradeable.sol";
+import { TestHelperOz5 } from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
+import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
+import { MockERC20 } from "../Mock/MockERC20.sol";
+import { TestUtils } from "./TestUtils.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
+import "../../contracts/libraries/AoriUtils.sol";
 
 /**
  * @title GasReportTest
@@ -20,17 +21,17 @@ contract GasReportTest is TestUtils {
     using OptionsBuilder for bytes;
 
     // Common order that will be used across tests
-    IAori.Order public commonOrder;
+    Order public commonOrder;
     bytes public commonSignature;
-    IAori.SrcHook public commonSrcData;
-    IAori.DstHook public commonDstData;
+    SrcHook public commonSrcData;
+    DstHook public commonDstData;
 
     function setUp() public override {
         // Use parent setUp for common infrastructure
         super.setUp();
 
         // Setup common order data
-        commonOrder = IAori.Order({
+        commonOrder = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -44,20 +45,16 @@ contract GasReportTest is TestUtils {
         });
 
         commonSignature = signOrder(commonOrder);
-        commonSrcData = IAori.SrcHook({
+        commonSrcData = SrcHook({
             hookAddress: address(0),
             preferredToken: address(inputToken),
-            minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount since no conversion
+            minPreferredTokenAmountOut: 1000, // Arbitrary minimum amount since no conversion
             instructions: "",
             solver: solver
         });
 
-        commonDstData = IAori.DstHook({
-            hookAddress: address(0),
-            preferredToken: address(outputToken),
-            instructions: "",
-            preferedDstInputAmount: 2e18
-        });
+        commonDstData =
+            DstHook({ hookAddress: address(0), preferredToken: address(outputToken), instructions: "", preferredDstInputAmount: 2e18 });
 
         // Pre-approve tokens
         vm.prank(userA);
@@ -112,7 +109,6 @@ contract GasReportTest is TestUtils {
 
         // Only measure gas for the settle operation
         vm.prank(solver);
-        remoteAori.settle{value: fee}(localEid, solver, options);
+        remoteAori.settle{ value: fee }(localEid, solver, options);
     }
-
 }
