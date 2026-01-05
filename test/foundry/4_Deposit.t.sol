@@ -2,7 +2,7 @@
 pragma solidity 0.8.33;
 
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
-import {IAori} from "../../contracts/Aori.sol";
+import { IAori } from "../../contracts/Aori.sol";
 import "../../contracts/types/AoriErrors.sol";
 import "./TestUtils.sol";
 
@@ -13,7 +13,6 @@ import "./TestUtils.sol";
  * covering all validation branches and execution paths
  */
 contract DepositTests is TestUtils {
-    
     // Test addresses
     address public recipient;
     address public testHook;
@@ -24,7 +23,7 @@ contract DepositTests is TestUtils {
         recipient = address(0x300);
         testHook = address(0x400);
         nonSolver = address(0x500);
-        
+
         // Add test hook to whitelist
         localAori.addAllowedHook(testHook);
     }
@@ -45,14 +44,14 @@ contract DepositTests is TestUtils {
 
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
-        
+
         vm.prank(solver);
         localAori.deposit(order, signature);
-        
+
         // Verify state changes
         assertEq(localAori.getLockedBalances(userA, address(inputToken)), initialLocked + order.inputAmount);
         assertEq(inputToken.balanceOf(userA), initialBalance - order.inputAmount);
-        
+
         bytes32 orderHash = localAori.hash(order);
         assertEq(uint8(localAori.orderStatus(orderHash)), uint8(OrderStatus.Active));
     }
@@ -64,18 +63,18 @@ contract DepositTests is TestUtils {
         Order memory order = createValidTestOrder();
         order.dstEid = localEid; // Make it single-chain
         bytes memory signature = signOrder(order);
-        
+
         uint256 initialLocked = localAori.getLockedBalances(userA, address(inputToken));
-        
+
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
-        
+
         vm.prank(solver);
         localAori.deposit(order, signature);
-        
+
         // Verify locked balance increased
         assertEq(localAori.getLockedBalances(userA, address(inputToken)), initialLocked + order.inputAmount);
-        
+
         bytes32 orderHash = localAori.hash(order);
         assertEq(uint8(localAori.orderStatus(orderHash)), uint8(OrderStatus.Active));
     }
@@ -90,14 +89,14 @@ contract DepositTests is TestUtils {
     function testDeposit_OrderAlreadyExists() public {
         Order memory order = createValidTestOrder();
         bytes memory signature = signOrder(order);
-        
+
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount * 2);
-        
+
         // First deposit succeeds
         vm.prank(solver);
         localAori.deposit(order, signature);
-        
+
         // Second deposit with same order fails
         vm.prank(solver);
         vm.expectRevert(OrderAlreadyExists.selector);
@@ -111,10 +110,10 @@ contract DepositTests is TestUtils {
         Order memory order = createValidTestOrder();
         order.dstEid = 99999; // Unsupported chain
         bytes memory signature = signOrder(order);
-        
+
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
-        
+
         vm.prank(solver);
         vm.expectRevert(abi.encodeWithSelector(DestinationChainNotSupported.selector, 99999));
         localAori.deposit(order, signature);
@@ -126,13 +125,13 @@ contract DepositTests is TestUtils {
     function testDeposit_InvalidSignature() public {
         Order memory order = createValidTestOrder();
         bytes memory signature = signOrder(order);
-        
+
         // Modify order after signing to make signature invalid
         order.inputAmount = order.inputAmount + 1;
-        
+
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
-        
+
         vm.prank(solver);
         vm.expectRevert(InvalidSignature.selector);
         localAori.deposit(order, signature);
@@ -177,7 +176,7 @@ contract DepositTests is TestUtils {
         Order memory order = createValidTestOrder();
         order.recipient = address(0);
         bytes memory signature = signOrder(order);
-        
+
         vm.prank(solver);
         vm.expectRevert(InvalidRecipient.selector);
         localAori.deposit(order, signature);
@@ -236,7 +235,7 @@ contract DepositTests is TestUtils {
         Order memory order = createValidTestOrder();
         order.inputAmount = 0;
         bytes memory signature = signOrder(order);
-        
+
         vm.prank(solver);
         vm.expectRevert(InvalidInputAmount.selector);
         localAori.deposit(order, signature);
@@ -249,7 +248,7 @@ contract DepositTests is TestUtils {
         Order memory order = createValidTestOrder();
         order.outputAmount = 0;
         bytes memory signature = signOrder(order);
-        
+
         vm.prank(solver);
         vm.expectRevert(InvalidOutputAmount.selector);
         localAori.deposit(order, signature);
@@ -262,7 +261,7 @@ contract DepositTests is TestUtils {
         Order memory order = createValidTestOrder();
         order.inputToken = address(0);
         bytes memory signature = signOrder(order);
-        
+
         vm.prank(solver);
         vm.expectRevert(InvalidToken.selector);
         localAori.deposit(order, signature);
@@ -304,10 +303,10 @@ contract DepositTests is TestUtils {
     function testDeposit_OnlySolver() public {
         Order memory order = createValidTestOrder();
         bytes memory signature = signOrder(order);
-        
+
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
-        
+
         vm.prank(nonSolver);
         vm.expectRevert(InvalidSolver.selector);
         localAori.deposit(order, signature);
@@ -319,13 +318,13 @@ contract DepositTests is TestUtils {
     function testDeposit_WhenPaused() public {
         Order memory order = createValidTestOrder();
         bytes memory signature = signOrder(order);
-        
+
         // Pause the contract
         localAori.pause();
-        
+
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
-        
+
         vm.prank(solver);
         vm.expectRevert();
         localAori.deposit(order, signature);
@@ -341,7 +340,7 @@ contract DepositTests is TestUtils {
     function testDepositWithHook_MissingHook() public {
         Order memory order = createValidTestOrder();
         bytes memory signature = signOrder(order);
-        
+
         SrcHook memory hook = SrcHook({
             hookAddress: address(0), // Missing hook
             preferredToken: address(inputToken),
@@ -349,7 +348,7 @@ contract DepositTests is TestUtils {
             instructions: "",
             solver: solver
         });
-        
+
         vm.prank(solver);
         vm.expectRevert(MissingHook.selector);
         localAori.deposit(order, signature, hook);
@@ -361,9 +360,9 @@ contract DepositTests is TestUtils {
     function testDepositWithHook_InvalidHookAddress() public {
         Order memory order = createValidTestOrder();
         bytes memory signature = signOrder(order);
-        
+
         address nonWhitelistedHook = address(0x999);
-        
+
         SrcHook memory hook = SrcHook({
             hookAddress: nonWhitelistedHook,
             preferredToken: address(inputToken),
@@ -371,10 +370,10 @@ contract DepositTests is TestUtils {
             instructions: "",
             solver: solver
         });
-        
+
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
-        
+
         vm.prank(solver);
         vm.expectRevert(InvalidHookAddress.selector);
         localAori.deposit(order, signature, hook);
@@ -391,10 +390,10 @@ contract DepositTests is TestUtils {
         Order memory order = createValidTestOrder();
         order.inputAmount = uint128(inputToken.balanceOf(userA) + 1); // More than balance
         bytes memory signature = signOrder(order);
-        
+
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
-        
+
         vm.prank(solver);
         vm.expectRevert("Insufficient balance");
         localAori.deposit(order, signature);
@@ -425,10 +424,10 @@ contract DepositTests is TestUtils {
         Order memory order = createValidTestOrder();
         bytes memory signature = signOrder(order);
         bytes32 orderId = localAori.hash(order);
-        
+
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
-        
+
         vm.prank(solver);
         vm.expectEmit(true, false, false, true);
         emit Deposit(orderId, order);
@@ -482,10 +481,10 @@ contract DepositTests is TestUtils {
         Order memory order = createValidTestOrder();
         order.inputAmount = type(uint128).max;
         order.outputAmount = type(uint128).max;
-        
+
         // Mint enough tokens for the test
         inputToken.mint(userA, type(uint128).max);
-        
+
         bytes memory signature = signOrder(order);
 
         vm.prank(userA);
@@ -527,4 +526,4 @@ contract DepositTests is TestUtils {
     event Deposit(bytes32 indexed orderId, Order order);
     event SrcHookExecuted(bytes32 indexed orderId, address indexed preferredToken, uint256 amountReceived);
     event Settle(bytes32 indexed orderId);
-} 
+}

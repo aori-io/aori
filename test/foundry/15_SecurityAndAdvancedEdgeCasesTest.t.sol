@@ -30,15 +30,22 @@ contract TestAori is Aori {
     constructor(
         address _endpoint,
         uint32 _eid
-    ) Aori(_endpoint, _eid) {}
+    ) Aori(_endpoint, _eid) { }
 
     // Helper function to get the fills array length for a specific srcEid and filler
-    function getFillsLength(uint32 srcEid, address filler) external view returns (uint256) {
+    function getFillsLength(
+        uint32 srcEid,
+        address filler
+    ) external view returns (uint256) {
         return _getAoriStorage().srcEidToFillerFills[srcEid][filler].length;
     }
 
     // Helper function to manually add orders to the fills array (for testing batch limits)
-    function addToFills(uint32 srcEid, address filler, bytes32 orderId) external {
+    function addToFills(
+        uint32 srcEid,
+        address filler,
+        bytes32 orderId
+    ) external {
         _getAoriStorage().srcEidToFillerFills[srcEid][filler].push(orderId);
     }
 }
@@ -86,28 +93,12 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         // Mock the quote calls
         vm.mockCall(
             address(testLocalAori),
-            abi.encodeWithSelector(
-                testLocalAori.quote.selector,
-                remoteEid,
-                0,
-                bytes(""),
-                false,
-                0,
-                address(0)
-            ),
+            abi.encodeWithSelector(testLocalAori.quote.selector, remoteEid, 0, bytes(""), false, 0, address(0)),
             abi.encode(1 ether)
         );
         vm.mockCall(
             address(testRemoteAori),
-            abi.encodeWithSelector(
-                testRemoteAori.quote.selector,
-                localEid,
-                0,
-                bytes(""),
-                false,
-                0,
-                address(0)
-            ),
+            abi.encodeWithSelector(testRemoteAori.quote.selector, localEid, 0, bytes(""), false, 0, address(0)),
             abi.encode(1 ether)
         );
 
@@ -119,7 +110,9 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
     /**
      * @dev Helper to hash an order
      */
-    function hash(Order memory order) internal pure returns (bytes32) {
+    function hash(
+        Order memory order
+    ) internal pure returns (bytes32) {
         return keccak256(abi.encode(order));
     }
 
@@ -182,11 +175,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         vm.prank(solver);
         remoteAori.fill(order);
 
-        assertEq(
-            outputToken.balanceOf(userA),
-            order.outputAmount,
-            "User did not receive correct output amount"
-        );
+        assertEq(outputToken.balanceOf(userA), order.outputAmount, "User did not receive correct output amount");
     }
 
     /**
@@ -221,24 +210,13 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
 
         // Check that we have the expected number of fills
         uint256 beforeFillsCount = testRemoteAori.getFillsLength(localEid, solver);
-        assertEq(
-            beforeFillsCount,
-            MAX_FILLS_PER_SETTLE + 5,
-            "Should have MAX_FILLS_PER_SETTLE + 5 fills before settlement"
-        );
+        assertEq(beforeFillsCount, MAX_FILLS_PER_SETTLE + 5, "Should have MAX_FILLS_PER_SETTLE + 5 fills before settlement");
 
         // Create options for the LayerZero message
         bytes memory options = defaultOptions();
 
         // Get quote for settlement and add buffer
-        uint256 msgFee = testRemoteAori.quote(
-            localEid,
-            uint8(PayloadType.Settlement),
-            options,
-            false,
-            localEid,
-            solver
-        ).nativeFee;
+        uint256 msgFee = testRemoteAori.quote(localEid, uint8(PayloadType.Settlement), options, false, localEid, solver).nativeFee;
 
         uint256 feeWithBuffer = (msgFee * 15) / 10; // 50% buffer for safety
 
@@ -252,11 +230,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         // Verify the number of orders that remain
         uint256 afterFillsCount = testRemoteAori.getFillsLength(localEid, solver);
         assertEq(afterFillsCount, 5, "Should have 5 fills remaining after settlement");
-        assertEq(
-            beforeFillsCount - afterFillsCount,
-            MAX_FILLS_PER_SETTLE,
-            "Should have processed exactly MAX_FILLS_PER_SETTLE fills"
-        );
+        assertEq(beforeFillsCount - afterFillsCount, MAX_FILLS_PER_SETTLE, "Should have processed exactly MAX_FILLS_PER_SETTLE fills");
     }
 
     /**
@@ -385,11 +359,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         // Test insufficient output from hook
         srcData.preferredToken = address(convertedToken);
         srcData.minPreferedTokenAmountOut = 2000e18; // Set to an impossibly high amount
-        srcData.instructions = abi.encodeWithSelector(
-            MockHook.handleHook.selector,
-            address(convertedToken),
-            100
-        ); // Will return much less than required
+        srcData.instructions = abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), 100); // Will return much less than required
 
         vm.prank(solver);
         vm.expectRevert(abi.encodeWithSelector(InsufficientSrcHookOutput.selector, 2000e18, 100));
@@ -424,11 +394,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
 
         // Test insufficient output from destination hook
         dstData.hookAddress = address(mockHook);
-        dstData.instructions = abi.encodeWithSelector(
-            MockHook.handleHook.selector,
-            address(outputToken),
-            1
-        ); // Will return much less than required
+        dstData.instructions = abi.encodeWithSelector(MockHook.handleHook.selector, address(outputToken), 1); // Will return much less than required
 
         vm.prank(solver);
         vm.expectRevert(abi.encodeWithSelector(InsufficientDstHookOutput.selector, order.outputAmount, 1));
@@ -493,11 +459,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         });
 
         // Sign with the remote contract as the verifying address
-        bytes memory remoteSignature = signOrderWithContract(
-            remoteOrder,
-            userAPrivKey,
-            address(testRemoteAori)
-        );
+        bytes memory remoteSignature = signOrderWithContract(remoteOrder, userAPrivKey, address(testRemoteAori));
 
         // Test pause affecting fills on destination chain
         vm.chainId(remoteEid);
@@ -522,11 +484,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         testRemoteAori.fill(remoteOrder);
 
         // Verify fill was successful
-        assertEq(
-            outputToken.balanceOf(userA),
-            remoteOrder.outputAmount,
-            "User did not receive correct output amount"
-        );
+        assertEq(outputToken.balanceOf(userA), remoteOrder.outputAmount, "User did not receive correct output amount");
 
         // Test pause affecting settlement
         vm.chainId(remoteEid);
@@ -535,14 +493,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         bytes memory options = defaultOptions();
 
         // Get quote for settlement and add buffer
-        uint256 msgFee = testRemoteAori.quote(
-            localEid,
-            uint8(PayloadType.Settlement),
-            options,
-            false,
-            localEid,
-            solver
-        ).nativeFee;
+        uint256 msgFee = testRemoteAori.quote(localEid, uint8(PayloadType.Settlement), options, false, localEid, solver).nativeFee;
         uint256 feeWithBuffer = (msgFee * 15) / 10; // 50% buffer for safety
 
         // Give solver ETH

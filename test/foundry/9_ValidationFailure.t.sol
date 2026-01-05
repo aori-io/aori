@@ -18,9 +18,9 @@ pragma solidity 0.8.33;
  * testing various edge cases and invalid input conditions.
  */
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
-import {IAori} from "../../contracts/interfaces/IAori.sol";
+import { IAori } from "../../contracts/interfaces/IAori.sol";
 import "../../contracts/types/AoriErrors.sol";
-import {FailingHook} from "../Mock/FailHook.sol";
+import { FailingHook } from "../Mock/FailHook.sol";
 import "./TestUtils.sol";
 
 /**
@@ -187,9 +187,7 @@ contract ValidationFailuresTest is TestUtils {
 
         // Verify order status
         bytes32 orderHash = remoteAori.hash(order);
-        assertEq(
-            uint8(remoteAori.orderStatus(orderHash)), uint8(OrderStatus.Filled), "Order should be in filled state"
-        );
+        assertEq(uint8(remoteAori.orderStatus(orderHash)), uint8(OrderStatus.Filled), "Order should be in filled state");
     }
 
     /**

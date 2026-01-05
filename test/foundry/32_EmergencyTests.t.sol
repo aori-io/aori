@@ -8,7 +8,7 @@ pragma solidity 0.8.33;
  * forge test --match-contract EmergencyTests -vv
  *
  * Test cases:
- * 
+ *
  * Emergency Cancel Tests:
  * 1. testEmergencyCancelBasic - Tests basic emergency cancel functionality (owner cancels active order)
  * 2. testEmergencyCancelToCustomRecipient - Tests sending tokens to custom recipient instead of offerer
@@ -18,7 +18,7 @@ pragma solidity 0.8.33;
  * 6. testEmergencyCancelInsufficientBalance - Tests insufficient contract balance handling
  * 7. testEmergencyCancelInactiveOrder - Tests handling of non-existent and already cancelled orders
  * 8. testEmergencyCancelTransferFailure - Tests SafeERC20 transfer failure in emergency cancel
- * 
+ *
  * Emergency Withdraw (Basic) Tests:
  * 9. testEmergencyWithdrawTokens - Tests basic token withdrawal to owner (no accounting updates)
  * 10. testEmergencyWithdrawETH - Tests ETH withdrawal to owner from contract balance
@@ -27,7 +27,7 @@ pragma solidity 0.8.33;
  * 13. testEmergencyWithdrawETHFailure - Tests ETH withdrawal failure handling
  * 14. testEmergencyWithdrawBothETHAndTokens - Tests both ETH and token withdrawal in same call
  * 15. testEmergencyWithdrawNoETHNoTokens - Tests emergency withdraw with no ETH and no tokens
- * 
+ *
  * Emergency Withdraw (Accounting) Tests:
  * 16. testEmergencyWithdrawFromLockedBalance - Tests withdrawal from user's locked balance with accounting updates
  * 17. testEmergencyWithdrawFromUnlockedBalance - Tests withdrawal from user's unlocked balance with accounting updates
@@ -37,11 +37,11 @@ pragma solidity 0.8.33;
  * 21. testEmergencyWithdrawAccountingConsistency - Tests that balance accounting remains consistent after operations
  * 22. testEmergencyWithdrawAccountingFailedDecrease - Tests failed balance decrease in accounting emergency withdraw
  * 23. testEmergencyWithdrawAccountingTransferFailure - Tests SafeERC20 transfer failure in accounting emergency withdraw
- * 
+ *
  * Integration Tests:
  * 24. testEmergencyWorkflowAfterWithdraw - Tests emergency cancel after emergency withdraw (should fail gracefully)
  * 25. testContractFunctionalityAfterEmergency - Tests that normal operations work after emergency functions
- * 
+ *
  * Key Behaviors Tested:
  * - Emergency cancel: Source chain only, always transfers tokens, maintains accounting consistency
  * - Emergency withdraw (basic): Direct token/ETH extraction without accounting updates
@@ -52,25 +52,24 @@ pragma solidity 0.8.33;
  * - Integration scenarios: Complex workflows and edge cases
  */
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
-import {IAori} from "../../contracts/interfaces/IAori.sol";
-import {Aori} from "../../contracts/Aori.sol";
+import { IAori } from "../../contracts/interfaces/IAori.sol";
+import { Aori } from "../../contracts/Aori.sol";
 import "./TestUtils.sol";
 import "../../contracts/types/AoriErrors.sol";
 
 contract EmergencyTests is TestUtils {
-    
     // Test addresses
     address public nonOwner = makeAddr("nonOwner");
     address public customRecipient = makeAddr("customRecipient");
-    
+
     function setUp() public override {
         super.setUp();
-        
+
         // Mint tokens for testing
         inputToken.mint(userA, 10000e18);
         outputToken.mint(solver, 10000e18);
         inputToken.mint(address(localAori), 1000e18); // Direct contract balance
-        
+
         // Fund accounts for fees
         vm.deal(solver, 1 ether);
         vm.deal(userA, 1 ether);
@@ -126,9 +125,7 @@ contract EmergencyTests is TestUtils {
 
         // Verify custom recipient received tokens
         assertEq(
-            inputToken.balanceOf(customRecipient), 
-            recipientBalanceBefore + order.inputAmount, 
-            "Custom recipient should receive tokens"
+            inputToken.balanceOf(customRecipient), recipientBalanceBefore + order.inputAmount, "Custom recipient should receive tokens"
         );
         assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Cancelled), "Order should be cancelled");
     }
@@ -151,7 +148,7 @@ contract EmergencyTests is TestUtils {
         // Should work on source chain (order.srcEid == localEid)
         localAori.emergencyCancel(orderId, userA);
         assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Cancelled), "Should cancel on source chain");
-        
+
         // Note: Testing the negative case (wrong source chain) is complex because
         // we can't deposit an order with wrong srcEid due to validation.
         // The source chain validation is tested implicitly through the deposit validation.
@@ -245,10 +242,10 @@ contract EmergencyTests is TestUtils {
         localAori.deposit(order, signature);
 
         bytes32 orderId = localAori.hash(order);
-        
+
         // Cancel once
         localAori.emergencyCancel(orderId, userA);
-        
+
         // Try to cancel again
         vm.expectRevert(CanOnlyCancelActiveOrders.selector);
         localAori.emergencyCancel(orderId, userA);
@@ -268,15 +265,9 @@ contract EmergencyTests is TestUtils {
 
         localAori.emergencyWithdraw(address(inputToken), withdrawAmount);
 
+        assertEq(inputToken.balanceOf(address(this)), ownerBalanceBefore + withdrawAmount, "Owner should receive tokens");
         assertEq(
-            inputToken.balanceOf(address(this)), 
-            ownerBalanceBefore + withdrawAmount, 
-            "Owner should receive tokens"
-        );
-        assertEq(
-            inputToken.balanceOf(payable(address(localAori))), 
-            contractBalanceBefore - withdrawAmount, 
-            "Contract balance should decrease"
+            inputToken.balanceOf(payable(address(localAori))), contractBalanceBefore - withdrawAmount, "Contract balance should decrease"
         );
     }
 
@@ -288,14 +279,10 @@ contract EmergencyTests is TestUtils {
         vm.deal(address(localAori), ethAmount);
 
         uint256 ownerBalanceBefore = address(this).balance;
-        
+
         localAori.emergencyWithdraw(address(0), 0);
 
-        assertEq(
-            address(this).balance, 
-            ownerBalanceBefore + ethAmount, 
-            "Owner should receive ETH"
-        );
+        assertEq(address(this).balance, ownerBalanceBefore + ethAmount, "Owner should receive ETH");
         assertEq(address(localAori).balance, 0, "Contract should have no ETH");
     }
 
@@ -333,10 +320,10 @@ contract EmergencyTests is TestUtils {
 
     //     // Deploy a contract that rejects ETH to test failure
     //     RejectETH rejectContract = new RejectETH();
-        
+
     //     // Transfer ownership to the reject contract to test ETH failure
     //     localAori.transferOwnership(address(rejectContract));
-        
+
     //     // Should revert when ETH transfer fails
     //     vm.prank(address(rejectContract));
     //     vm.expectRevert("Ether withdrawal failed");
@@ -349,9 +336,9 @@ contract EmergencyTests is TestUtils {
     function testEmergencyWithdrawBothETHAndTokens() public {
         uint256 ethAmount = 0.5 ether;
         uint256 tokenAmount = 100e18;
-        
+
         vm.deal(address(localAori), ethAmount);
-        
+
         uint256 ownerEthBefore = address(this).balance;
         uint256 ownerTokenBefore = inputToken.balanceOf(address(this));
 
@@ -406,15 +393,9 @@ contract EmergencyTests is TestUtils {
         );
 
         assertEq(
-            localAori.getLockedBalances(userA, address(inputToken)), 
-            order.inputAmount - withdrawAmount, 
-            "Locked balance should decrease"
+            localAori.getLockedBalances(userA, address(inputToken)), order.inputAmount - withdrawAmount, "Locked balance should decrease"
         );
-        assertEq(
-            inputToken.balanceOf(customRecipient), 
-            recipientBalanceBefore + withdrawAmount, 
-            "Recipient should receive tokens"
-        );
+        assertEq(inputToken.balanceOf(customRecipient), recipientBalanceBefore + withdrawAmount, "Recipient should receive tokens");
 
         // Should revert with insufficient balance for unlocked
         vm.expectRevert(InsufficientUnlockedBalance.selector);
@@ -460,15 +441,11 @@ contract EmergencyTests is TestUtils {
         );
 
         assertEq(
-            localAori.getUnlockedBalances(solver, address(inputToken)), 
-            order.inputAmount - withdrawAmount, 
+            localAori.getUnlockedBalances(solver, address(inputToken)),
+            order.inputAmount - withdrawAmount,
             "Unlocked balance should decrease"
         );
-        assertEq(
-            inputToken.balanceOf(customRecipient), 
-            recipientBalanceBefore + withdrawAmount, 
-            "Recipient should receive tokens"
-        );
+        assertEq(inputToken.balanceOf(customRecipient), recipientBalanceBefore + withdrawAmount, "Recipient should receive tokens");
     }
 
     /**
@@ -528,7 +505,7 @@ contract EmergencyTests is TestUtils {
 
         vm.prank(userA);
         inputToken.approve(address(localAori), order1.inputAmount + order2.inputAmount);
-        
+
         vm.prank(solver);
         localAori.deposit(order1, sig1);
         vm.prank(solver);
@@ -540,7 +517,7 @@ contract EmergencyTests is TestUtils {
         localAori.emergencyWithdraw(address(inputToken), withdrawAmount, userA, true, customRecipient);
 
         uint256 totalLockedAfter = localAori.getLockedBalances(userA, address(inputToken));
-        
+
         assertEq(totalLockedAfter, totalLockedBefore - withdrawAmount, "Locked balance should decrease correctly");
         assertEq(totalLockedAfter, order2.inputAmount, "Remaining should equal second order");
     }
@@ -664,28 +641,44 @@ contract MaliciousToken {
     string public name = "MaliciousToken";
     string public symbol = "MAL";
     uint8 public decimals = 18;
-    
+
     mapping(address => uint256) public balanceOf;
     uint256 public totalSupply;
-    
-    function mint(address to, uint256 amount) external {
+
+    function mint(
+        address to,
+        uint256 amount
+    ) external {
         balanceOf[to] += amount;
         totalSupply += amount;
     }
-    
-    function transfer(address, uint256) external pure returns (bool) {
+
+    function transfer(
+        address,
+        uint256
+    ) external pure returns (bool) {
         revert("Transfer always fails");
     }
-    
-    function transferFrom(address, address, uint256) external pure returns (bool) {
+
+    function transferFrom(
+        address,
+        address,
+        uint256
+    ) external pure returns (bool) {
         revert("TransferFrom always fails");
     }
-    
-    function approve(address, uint256) external pure returns (bool) {
+
+    function approve(
+        address,
+        uint256
+    ) external pure returns (bool) {
         return true;
     }
-    
-    function allowance(address, address) external pure returns (uint256) {
+
+    function allowance(
+        address,
+        address
+    ) external pure returns (uint256) {
         return type(uint256).max;
     }
-} 
+}

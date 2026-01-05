@@ -22,11 +22,11 @@ pragma solidity 0.8.33;
  * - Each test verifies both the success case (whitelisted) and failure case (non-whitelisted)
  * - The whitelist management test demonstrates the dynamic nature of the whitelist
  */
-import {TestUtils} from "./TestUtils.sol";
-import {Order, OrderStatus, SrcHook, DstHook, Balance} from "../../contracts/types/AoriTypes.sol";
+import { TestUtils } from "./TestUtils.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import "../../contracts/types/AoriErrors.sol";
-import {MockHook} from "../Mock/MockHook.sol";
-import {IAori} from "../../contracts/Aori.sol";
+import { MockHook } from "../Mock/MockHook.sol";
+import { IAori } from "../../contracts/Aori.sol";
 import "forge-std/console.sol";
 
 /**
@@ -106,11 +106,7 @@ contract HookWhitelistTest is TestUtils {
         localAori.deposit(order, signature, srcData);
 
         // Verify the locked balance is updated
-        assertEq(
-            localAori.getLockedBalances(userA, address(convertedToken)),
-            order.inputAmount,
-            "Locked balance not increased for user"
-        );
+        assertEq(localAori.getLockedBalances(userA, address(convertedToken)), order.inputAmount, "Locked balance not increased for user");
     }
 
     /**
@@ -214,9 +210,7 @@ contract HookWhitelistTest is TestUtils {
         vm.chainId(localEid);
 
         // Initially the nonWhitelistedHook should not be in the whitelist
-        assertEq(
-            localAori.isAllowedHook(address(nonWhitelistedHook)), false, "Hook should not be whitelisted initially"
-        );
+        assertEq(localAori.isAllowedHook(address(nonWhitelistedHook)), false, "Hook should not be whitelisted initially");
 
         // Add the hook to the whitelist
         localAori.addAllowedHook(address(nonWhitelistedHook));
@@ -247,9 +241,7 @@ contract HookWhitelistTest is TestUtils {
         localAori.removeAllowedHook(address(nonWhitelistedHook));
 
         // Now it should no longer be whitelisted
-        assertEq(
-            localAori.isAllowedHook(address(nonWhitelistedHook)), false, "Hook should not be whitelisted after removing"
-        );
+        assertEq(localAori.isAllowedHook(address(nonWhitelistedHook)), false, "Hook should not be whitelisted after removing");
 
         // Create a unique second order
         Order memory order2 = order;

@@ -6,11 +6,11 @@ pragma solidity 0.8.33;
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
 enum OrderStatus {
-    Unknown,   // Order not found
-    Active,    // Order deposited but not filled
-    Filled,    // Pending settlement
+    Unknown, // Order not found
+    Active, // Order deposited but not filled
+    Filled, // Pending settlement
     Cancelled, // Order cancelled
-    Settled    // Order settled
+    Settled // Order settled
 }
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -56,6 +56,6 @@ struct DstHook {
 /// @notice Balance struct for tracking locked and unlocked token amounts
 /// @dev Uses uint128 for both values to pack them into a single storage slot
 struct Balance {
-    uint128 locked;   // Tokens locked in active orders
+    uint128 locked; // Tokens locked in active orders
     uint128 unlocked; // Tokens available for withdrawal
 }

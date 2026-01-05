@@ -32,15 +32,22 @@ contract TestSettlementAori is Aori {
     constructor(
         address _endpoint,
         uint32 _eid
-    ) Aori(_endpoint, _eid) {}
+    ) Aori(_endpoint, _eid) { }
 
     // Test-specific function to get the length of the fills array
-    function getFillsLength(uint32 srcEid, address filler) external view returns (uint256) {
+    function getFillsLength(
+        uint32 srcEid,
+        address filler
+    ) external view returns (uint256) {
         return _getAoriStorage().srcEidToFillerFills[srcEid][filler].length;
     }
 
     // Test-specific function to add an order to the fills array
-    function addFill(uint32 srcEid, address filler, bytes32 orderId) external {
+    function addFill(
+        uint32 srcEid,
+        address filler,
+        bytes32 orderId
+    ) external {
         _getAoriStorage().srcEidToFillerFills[srcEid][filler].push(orderId);
     }
 }
@@ -86,28 +93,12 @@ contract SettlementTests is TestUtils {
         // Mock the quote calls
         vm.mockCall(
             address(testLocalAori),
-            abi.encodeWithSelector(
-                testLocalAori.quote.selector,
-                remoteEid,
-                0,
-                bytes(""),
-                false,
-                0,
-                address(0)
-            ),
+            abi.encodeWithSelector(testLocalAori.quote.selector, remoteEid, 0, bytes(""), false, 0, address(0)),
             abi.encode(1 ether)
         );
         vm.mockCall(
             address(testRemoteAori),
-            abi.encodeWithSelector(
-                testRemoteAori.quote.selector,
-                localEid,
-                0,
-                bytes(""),
-                false,
-                0,
-                address(0)
-            ),
+            abi.encodeWithSelector(testRemoteAori.quote.selector, localEid, 0, bytes(""), false, 0, address(0)),
             abi.encode(1 ether)
         );
 
@@ -175,11 +166,7 @@ contract SettlementTests is TestUtils {
         testLocalAori.deposit(order, signature);
 
         // Verify order is active
-        assertEq(
-            uint8(testLocalAori.orderStatus(orderId)),
-            uint8(OrderStatus.Active),
-            "Order should be active after deposit"
-        );
+        assertEq(uint8(testLocalAori.orderStatus(orderId)), uint8(OrderStatus.Active), "Order should be active after deposit");
 
         // Fill the order
         vm.chainId(remoteEid);
@@ -192,11 +179,7 @@ contract SettlementTests is TestUtils {
         testRemoteAori.fill(order);
 
         // Verify order is filled
-        assertEq(
-            uint8(testRemoteAori.orderStatus(orderId)),
-            uint8(OrderStatus.Filled),
-            "Order should be filled after fill operation"
-        );
+        assertEq(uint8(testRemoteAori.orderStatus(orderId)), uint8(OrderStatus.Filled), "Order should be filled after fill operation");
 
         // Get fills length before settlement
         uint256 fillsLengthBefore = testRemoteAori.getFillsLength(localEid, solver);
@@ -223,11 +206,7 @@ contract SettlementTests is TestUtils {
 
         vm.prank(address(endpoints[localEid]));
         testLocalAori.lzReceive(
-            Origin(remoteEid, bytes32(uint256(uint160(address(testRemoteAori)))), 1),
-            guid,
-            settlementPayload,
-            address(0),
-            bytes("")
+            Origin(remoteEid, bytes32(uint256(uint160(address(testRemoteAori)))), 1), guid, settlementPayload, address(0), bytes("")
         );
 
         // Get fills length after settlement
@@ -236,11 +215,7 @@ contract SettlementTests is TestUtils {
 
         // Verify order is settled on source chain
         vm.chainId(localEid);
-        assertEq(
-            uint8(testLocalAori.orderStatus(orderId)),
-            uint8(OrderStatus.Settled),
-            "Order should be settled after settlement"
-        );
+        assertEq(uint8(testLocalAori.orderStatus(orderId)), uint8(OrderStatus.Settled), "Order should be settled after settlement");
     }
 
     /**
@@ -409,37 +384,22 @@ contract SettlementTests is TestUtils {
         // This should trigger the early return in settleOrder without changing any state
 
         // Record balances before settlement attempt
-        uint256 solverBalanceBefore = testLocalAori.getUnlockedBalances(
-            solver,
-            address(inputToken)
-        );
+        uint256 solverBalanceBefore = testLocalAori.getUnlockedBalances(solver, address(inputToken));
 
         // Execute settlement message
         vm.chainId(localEid);
         bytes32 guid = keccak256("mock-guid-inactive");
         vm.prank(address(endpoints[localEid]));
         testLocalAori.lzReceive(
-            Origin(remoteEid, bytes32(uint256(uint160(address(testRemoteAori)))), 1),
-            guid,
-            settlementPayload,
-            address(0),
-            bytes("")
+            Origin(remoteEid, bytes32(uint256(uint160(address(testRemoteAori)))), 1), guid, settlementPayload, address(0), bytes("")
         );
 
         // Verify that balances didn't change because of the early return
         uint256 solverBalanceAfter = testLocalAori.getUnlockedBalances(solver, address(inputToken));
-        assertEq(
-            solverBalanceBefore,
-            solverBalanceAfter,
-            "Solver balance should not change for inactive order"
-        );
+        assertEq(solverBalanceBefore, solverBalanceAfter, "Solver balance should not change for inactive order");
 
         // Verify order status didn't change
-        assertEq(
-            uint8(testLocalAori.orderStatus(orderId)),
-            uint8(OrderStatus.Unknown),
-            "Order status should remain Unknown"
-        );
+        assertEq(uint8(testLocalAori.orderStatus(orderId)), uint8(OrderStatus.Unknown), "Order status should remain Unknown");
     }
 
     /**
@@ -516,30 +476,19 @@ contract SettlementTests is TestUtils {
         );
 
         // Record balances before settlement attempt
-        uint256 solverBalanceBefore = testLocalAori.getUnlockedBalances(
-            solver,
-            address(inputToken)
-        );
+        uint256 solverBalanceBefore = testLocalAori.getUnlockedBalances(solver, address(inputToken));
 
         // Now execute the settlement
         vm.chainId(localEid);
         bytes32 guid = keccak256("mock-guid-insufficient-balance");
         vm.prank(address(endpoints[localEid]));
         testLocalAori.lzReceive(
-            Origin(remoteEid, bytes32(uint256(uint160(address(testRemoteAori)))), 1),
-            guid,
-            settlementPayload,
-            address(0),
-            bytes("")
+            Origin(remoteEid, bytes32(uint256(uint160(address(testRemoteAori)))), 1), guid, settlementPayload, address(0), bytes("")
         );
 
         // Verify that balances didn't change because of the early return due to insufficient balance
         uint256 solverBalanceAfter = testLocalAori.getUnlockedBalances(solver, address(inputToken));
-        assertEq(
-            solverBalanceBefore,
-            solverBalanceAfter,
-            "Solver balance should not change when balance ops fail"
-        );
+        assertEq(solverBalanceBefore, solverBalanceAfter, "Solver balance should not change when balance ops fail");
 
         // Verify the order status - it appears the status is actually Unknown, not Active
         // This is because the test doesn't fully set up the order in storage
@@ -547,10 +496,6 @@ contract SettlementTests is TestUtils {
 
         // Adjust assertion to match actual behavior
         // The key thing we're testing is that the status didn't change to Settled (which would be 3)
-        assertNotEq(
-            actualStatus,
-            uint8(OrderStatus.Settled),
-            "Order status should not be Settled"
-        );
+        assertNotEq(actualStatus, uint8(OrderStatus.Settled), "Order status should not be Settled");
     }
 }

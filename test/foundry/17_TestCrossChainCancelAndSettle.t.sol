@@ -18,10 +18,10 @@ pragma solidity 0.8.33;
  * - The tests focus on the entire flow from deposit to cancellation to final token withdrawal
  * - Cancellation permissions are tested to ensure only authorized actors can cancel orders
  */
-import {TestUtils} from "./TestUtils.sol";
-import {Order, OrderStatus, SrcHook, DstHook, Balance} from "../../contracts/types/AoriTypes.sol";
-import {IAori} from "../../contracts/Aori.sol";
-import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
+import { TestUtils } from "./TestUtils.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
+import { IAori } from "../../contracts/Aori.sol";
+import { Origin } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 
 /**
  * @notice Tests cross-chain cancellation and settlement flows in the Aori protocol
@@ -69,14 +69,10 @@ contract CrossChainCancelAndSettleTest is TestUtils {
 
         // Cancel as whitelisted solver before endTime
         vm.prank(solver);
-        remoteAori.cancel{value: fee}(orderHash, order, options);
+        remoteAori.cancel{ value: fee }(orderHash, order, options);
 
         // Verify order is cancelled
-        assertEq(
-            uint256(remoteAori.orderStatus(orderHash)),
-            uint8(OrderStatus.Cancelled),
-            "Order not cancelled on destination chain"
-        );
+        assertEq(uint256(remoteAori.orderStatus(orderHash)), uint8(OrderStatus.Cancelled), "Order not cancelled on destination chain");
     }
 
     /**
@@ -85,7 +81,7 @@ contract CrossChainCancelAndSettleTest is TestUtils {
     function testDestinationCancelByUser() public {
         // Store user's initial token balance
         uint256 initialUserBalance = inputToken.balanceOf(userA);
-        
+
         // PHASE 1: Deposit on Source Chain
         vm.chainId(localEid);
         Order memory order = createValidOrder();
@@ -124,7 +120,7 @@ contract CrossChainCancelAndSettleTest is TestUtils {
 
         // Cancel as offerer after endTime
         vm.prank(userA);
-        remoteAori.cancel{value: fee}(orderHash, order, options);
+        remoteAori.cancel{ value: fee }(orderHash, order, options);
 
         // PHASE 3: Simulate LZ message delivery to Source Chain
         vm.chainId(localEid);
@@ -142,11 +138,7 @@ contract CrossChainCancelAndSettleTest is TestUtils {
         bytes32 guid = keccak256("mock-guid");
         vm.prank(address(endpoints[localEid]));
         localAori.lzReceive(
-            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),
-            guid,
-            cancellationPayload,
-            address(0),
-            bytes("")
+            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1), guid, cancellationPayload, address(0), bytes("")
         );
 
         // PHASE 4: Verification

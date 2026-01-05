@@ -15,7 +15,7 @@ pragma solidity 0.8.33;
  * using a custom FailingDepositHook that intentionally reverts to simulate errors.
  */
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
-import {IAori} from "../../contracts/interfaces/IAori.sol";
+import { IAori } from "../../contracts/interfaces/IAori.sol";
 import "../../contracts/types/AoriErrors.sol";
 import "./TestUtils.sol";
 
@@ -126,7 +126,9 @@ contract DepositFailTest is TestUtils {
 // A simple hook contract that always reverts when called.
 // It is used to simulate a deposit where the hook call fails.
 contract FailingDepositHook {
-    function failHook(bytes memory) external payable {
+    function failHook(
+        bytes memory
+    ) external payable {
         revert("Failing deposit hook");
     }
 }

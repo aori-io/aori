@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.33;
 
-import {IAori} from "../interfaces/IAori.sol";
+import { IAori } from "../interfaces/IAori.sol";
 import "../types/AoriErrors.sol";
 
 /**
@@ -13,6 +13,7 @@ contract AoriPeriphery {
     /// @notice The Aori contract to read from
     IAori public immutable aori;
 
+    /* forgefmt: disable-next-item */
     constructor(address _aori) {
         if (_aori == address(0)) revert InvalidAoriAddress();
         aori = IAori(_aori);
@@ -35,9 +36,7 @@ contract AoriPeriphery {
             uint256 count = 0;
 
             for (uint256 i = 0; i < 100; i++) {
-                try aori.srcEidToFillerFills(srcEids[j], filler, i) returns (
-                    bytes32 orderId
-                ) {
+                try aori.srcEidToFillerFills(srcEids[j], filler, i) returns (bytes32 orderId) {
                     temp[count++] = orderId;
                 } catch {
                     break;
@@ -57,20 +56,14 @@ contract AoriPeriphery {
      * @return inputTokens Array of unique input token addresses
      * @return totalAmounts Array of total input amounts corresponding to each token
      */
-    function getOrdersInputTotals(
-        bytes32[] calldata orderHashes
-    )
-        external
-        view
-        returns (address[] memory inputTokens, uint256[] memory totalAmounts)
-    {
+    /* forgefmt: disable-next-item */
+    function getOrdersInputTotals(bytes32[] calldata orderHashes) external view returns (address[] memory inputTokens, uint256[] memory totalAmounts) {
         address[] memory tempTokens = new address[](20);
         uint256[] memory tempAmounts = new uint256[](20);
         uint256 uniqueCount = 0;
 
         for (uint256 i = 0; i < orderHashes.length; i++) {
-            (uint128 inputAmount, , address inputToken, , , , , , , ) = aori
-                .orders(orderHashes[i]);
+            (uint128 inputAmount,, address inputToken,,,,,,,) = aori.orders(orderHashes[i]);
 
             bool found = false;
             for (uint256 k = 0; k < uniqueCount; k++) {
