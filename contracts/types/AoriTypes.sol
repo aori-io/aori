@@ -37,7 +37,7 @@ struct Order {
 struct SrcHook {
     address hookAddress;
     address preferredToken;
-    uint256 minPreferedTokenAmountOut;
+    uint256 minPreferredTokenAmountOut;
     bytes instructions;
     address solver;
 }
@@ -46,7 +46,7 @@ struct DstHook {
     address hookAddress;
     address preferredToken;
     bytes instructions;
-    uint256 preferedDstInputAmount;
+    uint256 preferredDstInputAmount;
 }
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/

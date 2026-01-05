@@ -195,7 +195,7 @@ contract CC_ERC20ToNativeHook is TestUtils {
         SrcHook memory srcHookConfig = SrcHook({
             hookAddress: address(srcHook),
             preferredToken: address(srcHookPreferredToken), // Hook converts to srcPreferred tokens
-            minPreferedTokenAmountOut: SRC_PREFERRED_OUTPUT, // Minimum output expected
+            minPreferredTokenAmountOut: SRC_PREFERRED_OUTPUT, // Minimum output expected
             instructions: abi.encodeWithSignature(
                 "swapTokens(address,uint256,address,uint256)",
                 address(inputToken), // tokenIn
@@ -226,7 +226,7 @@ contract CC_ERC20ToNativeHook is TestUtils {
         DstHook memory dstHookConfig = DstHook({
             hookAddress: address(dstHook),
             preferredToken: address(dstHookPreferredToken), // Solver's preferred token (6 decimals)
-            preferedDstInputAmount: DST_PREFERRED_INPUT, // Amount solver will provide
+            preferredDstInputAmount: DST_PREFERRED_INPUT, // Amount solver will provide
             instructions: abi.encodeWithSignature(
                 "swapTokens(address,uint256,address,uint256)",
                 address(dstHookPreferredToken), // tokenIn (6 decimals)

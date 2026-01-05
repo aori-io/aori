@@ -26,7 +26,7 @@ contract ReentrantAttacker {
         SrcHook memory data = SrcHook({
             hookAddress: address(this), // Use this contract as the hook
             preferredToken: address(0x1234), // Use a different token for conversion
-            minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount
+            minPreferredTokenAmountOut: 1000, // Arbitrary minimum amount
             instructions: abi.encodeWithSelector(this.attackHook.selector),
             solver: address(0) // Placeholder - will fail validation
         });

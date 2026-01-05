@@ -125,7 +125,7 @@ contract SingleChainHookTest is TestUtils {
         SrcHook memory hook = SrcHook({
             hookAddress: address(testHook),
             preferredToken: address(outputToken),
-            minPreferedTokenAmountOut: uint256(outputAmount),
+            minPreferredTokenAmountOut: uint256(outputAmount),
             instructions: hookData,
             solver: solver
         });
@@ -205,7 +205,7 @@ contract SingleChainHookTest is TestUtils {
         SrcHook memory hook = SrcHook({
             hookAddress: address(testHook),
             preferredToken: address(outputToken),
-            minPreferedTokenAmountOut: uint256(outputAmount),
+            minPreferredTokenAmountOut: uint256(outputAmount),
             instructions: hookData,
             solver: solver
         });
@@ -274,7 +274,7 @@ contract SingleChainHookTest is TestUtils {
         SrcHook memory hook = SrcHook({
             hookAddress: address(testHook),
             preferredToken: address(outputToken), // For single-chain, this should be output token
-            minPreferedTokenAmountOut: uint256(outputAmount),
+            minPreferredTokenAmountOut: uint256(outputAmount),
             instructions: hookData,
             solver: solver
         });
@@ -326,7 +326,7 @@ contract SingleChainHookTest is TestUtils {
         SrcHook memory hook = SrcHook({
             hookAddress: address(mockFailingHook),
             preferredToken: address(outputToken),
-            minPreferedTokenAmountOut: uint256(outputAmount),
+            minPreferredTokenAmountOut: uint256(outputAmount),
             instructions: hookData,
             solver: solver
         });
@@ -366,7 +366,7 @@ contract SingleChainHookTest is TestUtils {
         SrcHook memory hook = SrcHook({
             hookAddress: address(nonWhitelistedHook),
             preferredToken: address(outputToken),
-            minPreferedTokenAmountOut: uint256(outputAmount),
+            minPreferredTokenAmountOut: uint256(outputAmount),
             instructions: hookData,
             solver: solver
         });
@@ -411,7 +411,7 @@ contract SingleChainHookTest is TestUtils {
         SrcHook memory hook = SrcHook({
             hookAddress: address(testHook),
             preferredToken: address(outputToken),
-            minPreferedTokenAmountOut: uint256(outputAmount),
+            minPreferredTokenAmountOut: uint256(outputAmount),
             instructions: hookData,
             solver: solver
         });

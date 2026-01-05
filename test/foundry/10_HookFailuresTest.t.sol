@@ -55,7 +55,7 @@ contract HookFailuresTest is TestUtils {
             hookAddress: address(failingHook),
             preferredToken: address(outputToken),
             instructions: abi.encodeWithSelector(FailingHook.alwaysFail.selector),
-            preferedDstInputAmount: order.outputAmount
+            preferredDstInputAmount: order.outputAmount
         });
 
         vm.prank(solver);
@@ -79,7 +79,7 @@ contract HookFailuresTest is TestUtils {
             hookAddress: address(partialOutputHook),
             preferredToken: address(outputToken),
             instructions: abi.encodeWithSelector(PartialOutputHook.partialTransfer.selector, address(outputToken), 1e18), // Only half
-            preferedDstInputAmount: order.outputAmount
+            preferredDstInputAmount: order.outputAmount
         });
 
         vm.prank(solver);
@@ -102,7 +102,7 @@ contract HookFailuresTest is TestUtils {
         SrcHook memory srcData = SrcHook({
             hookAddress: address(failingHook),
             preferredToken: address(outputToken), // Different from input to take the hook path
-            minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount since no conversion
+            minPreferredTokenAmountOut: 1000, // Arbitrary minimum amount since no conversion
             instructions: abi.encodeWithSelector(FailingHook.transfer.selector),
             solver: solver
         });
@@ -127,7 +127,7 @@ contract HookFailuresTest is TestUtils {
         SrcHook memory srcData = SrcHook({
             hookAddress: address(failingHook),
             preferredToken: address(outputToken),
-            minPreferedTokenAmountOut: 1000,
+            minPreferredTokenAmountOut: 1000,
             instructions: abi.encodeWithSelector(FailingHook.transfer.selector),
             solver: solver
         });

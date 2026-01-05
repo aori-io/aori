@@ -207,6 +207,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     /* forgefmt: disable-next-item */
     function addAllowedHook(address hook) external onlyOwner {
         _getAoriStorage().isAllowedHook[hook] = true;
+        emit HookAdded(hook);
     }
 
     /**
@@ -217,6 +218,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     /* forgefmt: disable-next-item */
     function removeAllowedHook(address hook) external onlyOwner {
         _getAoriStorage().isAllowedHook[hook] = false;
+        emit HookRemoved(hook);
     }
 
     /**
@@ -227,6 +229,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     /* forgefmt: disable-next-item */
     function addAllowedSolver(address solver) external onlyOwner {
         _getAoriStorage().isAllowedSolver[solver] = true;
+        emit SolverAdded(solver);
     }
 
     /**
@@ -237,6 +240,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     /* forgefmt: disable-next-item */
     function removeAllowedSolver(address solver) external onlyOwner {
         _getAoriStorage().isAllowedSolver[solver] = false;
+        emit SolverRemoved(solver);
     }
 
     /**
@@ -288,7 +292,10 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     /* forgefmt: disable-next-item */
     function setMaxFillsPerSettle(uint16 _maxFillsPerSettle) external onlyOwner {
         if (_maxFillsPerSettle == 0) revert InvalidMaxFillsPerSettle();
-        _getAoriStorage().maxFillsPerSettle = _maxFillsPerSettle;
+        AoriStorageData storage $ = _getAoriStorage();
+        uint16 oldValue = $.maxFillsPerSettle;
+        $.maxFillsPerSettle = _maxFillsPerSettle;
+        emit MaxFillsPerSettleUpdated(oldValue, _maxFillsPerSettle);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -499,8 +506,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             // Cross-chain: convert to preferred token for cross-chain transfer
             amountReceived = ExecutionUtils.observeBalChg(hook.hookAddress, hook.instructions, hook.preferredToken);
 
-            if (amountReceived < hook.minPreferedTokenAmountOut) {
-                revert InsufficientSrcHookOutput(hook.minPreferedTokenAmountOut, amountReceived);
+            if (amountReceived < hook.minPreferredTokenAmountOut) {
+                revert InsufficientSrcHookOutput(hook.minPreferredTokenAmountOut, amountReceived);
             }
             tokenReceived = hook.preferredToken;
         }
@@ -707,8 +714,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             // Cross-chain: convert to preferred token for cross-chain transfer
             uint256 amountReceived = ExecutionUtils.observeBalChg(hook.hookAddress, hook.instructions, hook.preferredToken);
 
-            if (amountReceived < hook.minPreferedTokenAmountOut) {
-                revert InsufficientSrcHookOutput(hook.minPreferedTokenAmountOut, amountReceived);
+            if (amountReceived < hook.minPreferredTokenAmountOut) {
+                revert InsufficientSrcHookOutput(hook.minPreferredTokenAmountOut, amountReceived);
             }
 
             emit SrcHookExecuted(orderId, hook.preferredToken, amountReceived);
@@ -800,15 +807,15 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         // Validate hook struct upfront
         hook.validateDstHook(this.isAllowedHook);
 
-        if (hook.preferedDstInputAmount > 0) {
+        if (hook.preferredDstInputAmount > 0) {
             if (hook.preferredToken.isNativeToken()) {
-                if (msg.value != hook.preferedDstInputAmount) revert IncorrectNativeAmount(hook.preferedDstInputAmount, msg.value);
-                (bool success,) = payable(hook.hookAddress).call{ value: hook.preferedDstInputAmount }("");
+                if (msg.value != hook.preferredDstInputAmount) revert IncorrectNativeAmount(hook.preferredDstInputAmount, msg.value);
+                (bool success,) = payable(hook.hookAddress).call{ value: hook.preferredDstInputAmount }("");
                 if (!success) revert NativeTransferFailed();
             } else {
                 // ERC20 token input - no native tokens should be sent
                 if (msg.value != 0) revert UnexpectedNativeTokens();
-                IERC20(hook.preferredToken).safeTransferFrom(msg.sender, hook.hookAddress, hook.preferedDstInputAmount);
+                IERC20(hook.preferredToken).safeTransferFrom(msg.sender, hook.hookAddress, hook.preferredDstInputAmount);
             }
         } else {
             // Hook expects no input tokens - ensure no ETH was mistakenly sent
@@ -920,7 +927,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             Order memory order = $.orders[orderId];
 
             if (order.dstEid != senderEid) {
-                emit settlementFailed(orderId, order.dstEid, senderEid, "Eid mismatch");
+                emit SettlementFailed(orderId, order.dstEid, senderEid, "Eid mismatch");
                 continue;
             }
 

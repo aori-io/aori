@@ -172,7 +172,7 @@ contract CC_NativeToERC20DstHook is TestUtils {
         DstHook memory dstHookConfig = DstHook({
             hookAddress: address(dstHook),
             preferredToken: address(inputToken), // Solver's preferred token
-            preferedDstInputAmount: PREFERRED_INPUT, // Amount solver will provide
+            preferredDstInputAmount: PREFERRED_INPUT, // Amount solver will provide
             instructions: abi.encodeWithSignature(
                 "swapTokens(address,uint256,address,uint256)",
                 address(inputToken), // tokenIn

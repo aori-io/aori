@@ -207,7 +207,7 @@ contract CC_ERC20ToNativeDstHook is TestUtils {
                 NATIVE_TOKEN, // Output native tokens
                 HOOK_OUTPUT // Amount of native tokens to output
             ),
-            preferedDstInputAmount: PREFERRED_AMOUNT
+            preferredDstInputAmount: PREFERRED_AMOUNT
         });
 
         // Approve solver's preferred tokens to be spent (use destination solver)

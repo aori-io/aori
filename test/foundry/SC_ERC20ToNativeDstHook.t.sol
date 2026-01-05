@@ -230,7 +230,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         DstHook memory dstHook = DstHook({
             hookAddress: address(mockHook2),
             preferredToken: NATIVE_TOKEN,
-            preferedDstInputAmount: DST_HOOK_INPUT, // Solver provides 1.2 ETH
+            preferredDstInputAmount: DST_HOOK_INPUT, // Solver provides 1.2 ETH
             instructions: abi.encodeWithSelector(
                 MockHook2.handleHook.selector,
                 NATIVE_TOKEN,
@@ -390,7 +390,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         DstHook memory dstHook = DstHook({
             hookAddress: address(mockHook2),
             preferredToken: NATIVE_TOKEN,
-            preferedDstInputAmount: hookInput,
+            preferredDstInputAmount: hookInput,
             instructions: abi.encodeWithSelector(MockHook2.handleHook.selector, NATIVE_TOKEN, hookOutput)
         });
 
@@ -471,7 +471,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         DstHook memory dstHook = DstHook({
             hookAddress: address(mockHook2),
             preferredToken: NATIVE_TOKEN,
-            preferedDstInputAmount: OUTPUT_AMOUNT, // Exact amount
+            preferredDstInputAmount: OUTPUT_AMOUNT, // Exact amount
             instructions: abi.encodeWithSelector(
                 MockHook2.handleHook.selector,
                 NATIVE_TOKEN,
@@ -531,7 +531,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         DstHook memory dstHook = DstHook({
             hookAddress: address(mockHook2),
             preferredToken: NATIVE_TOKEN,
-            preferedDstInputAmount: OUTPUT_AMOUNT,
+            preferredDstInputAmount: OUTPUT_AMOUNT,
             instructions: abi.encodeWithSelector(MockHook2.handleHook.selector, NATIVE_TOKEN, OUTPUT_AMOUNT)
         });
 
@@ -577,7 +577,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         DstHook memory dstHook = DstHook({
             hookAddress: address(mockHook2),
             preferredToken: NATIVE_TOKEN,
-            preferedDstInputAmount: DST_HOOK_INPUT,
+            preferredDstInputAmount: DST_HOOK_INPUT,
             instructions: abi.encodeWithSelector(MockHook2.handleHook.selector, NATIVE_TOKEN, DST_HOOK_OUTPUT)
         });
 
@@ -623,7 +623,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         DstHook memory dstHook = DstHook({
             hookAddress: address(mockHook2),
             preferredToken: NATIVE_TOKEN,
-            preferedDstInputAmount: OUTPUT_AMOUNT,
+            preferredDstInputAmount: OUTPUT_AMOUNT,
             instructions: abi.encodeWithSelector(
                 MockHook2.handleHook.selector,
                 NATIVE_TOKEN,

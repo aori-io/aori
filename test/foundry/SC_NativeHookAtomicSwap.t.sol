@@ -148,7 +148,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
         return SrcHook({
             hookAddress: address(mockHook2),
             preferredToken: address(outputToken), // Hook outputs ERC20 tokens
-            minPreferedTokenAmountOut: OUTPUT_AMOUNT, // Minimum tokens expected
+            minPreferredTokenAmountOut: OUTPUT_AMOUNT, // Minimum tokens expected
             instructions: abi.encodeWithSelector(
                 MockHook2.handleHook.selector,
                 address(outputToken), // Output ERC20 tokens
@@ -233,7 +233,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
         SrcHook memory srcHook = SrcHook({
             hookAddress: address(mockHook2),
             preferredToken: address(outputToken),
-            minPreferedTokenAmountOut: OUTPUT_AMOUNT,
+            minPreferredTokenAmountOut: OUTPUT_AMOUNT,
             instructions: abi.encodeWithSelector(
                 MockHook2.handleHook.selector,
                 address(outputToken),
@@ -349,7 +349,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
         SrcHook memory srcHook = SrcHook({
             hookAddress: address(mockHook2),
             preferredToken: address(outputToken),
-            minPreferedTokenAmountOut: OUTPUT_AMOUNT,
+            minPreferredTokenAmountOut: OUTPUT_AMOUNT,
             instructions: abi.encodeWithSelector(MockHook2.handleHook.selector, address(outputToken), HOOK_OUTPUT),
             solver: nonWhitelistedSolver // Not whitelisted
         });

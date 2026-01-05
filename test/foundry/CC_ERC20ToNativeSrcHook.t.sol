@@ -163,7 +163,7 @@ contract CC_ERC20ToNativeSrcHook is TestUtils {
         SrcHook memory srcHook = SrcHook({
             hookAddress: address(mockHook2),
             preferredToken: address(convertedToken), // Hook converts to this token
-            minPreferedTokenAmountOut: MIN_PREFERRED_OUT,
+            minPreferredTokenAmountOut: MIN_PREFERRED_OUT,
             instructions: abi.encodeWithSelector(
                 MockHook2.handleHook.selector,
                 address(convertedToken), // Output preferred tokens
