@@ -165,7 +165,7 @@ contract EdgeCasesTest is TestUtils {
         SrcHook memory data = SrcHook({
             hookAddress: address(mockHook),
             preferredToken: address(inputToken),
-            minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
+            minPreferredTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
             instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(inputToken), 1 ether),
             solver: solver
         });

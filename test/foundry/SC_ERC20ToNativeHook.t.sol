@@ -148,7 +148,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         SrcHook memory srcHook = SrcHook({
             hookAddress: address(mockHook2),
             preferredToken: NATIVE_TOKEN, // Hook outputs native tokens
-            minPreferedTokenAmountOut: OUTPUT_AMOUNT, // Minimum native tokens expected
+            minPreferredTokenAmountOut: OUTPUT_AMOUNT, // Minimum native tokens expected
             instructions: abi.encodeWithSelector(
                 MockHook2.handleHook.selector,
                 NATIVE_TOKEN, // Output native tokens
@@ -330,7 +330,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         SrcHook memory srcHook = SrcHook({
             hookAddress: address(mockHook2),
             preferredToken: NATIVE_TOKEN,
-            minPreferedTokenAmountOut: OUTPUT_AMOUNT,
+            minPreferredTokenAmountOut: OUTPUT_AMOUNT,
             instructions: abi.encodeWithSelector(MockHook2.handleHook.selector, NATIVE_TOKEN, HOOK_OUTPUT),
             solver: solverSC
         });
@@ -376,7 +376,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         SrcHook memory srcHook = SrcHook({
             hookAddress: address(mockHook2),
             preferredToken: NATIVE_TOKEN,
-            minPreferedTokenAmountOut: OUTPUT_AMOUNT,
+            minPreferredTokenAmountOut: OUTPUT_AMOUNT,
             instructions: abi.encodeWithSelector(
                 MockHook2.handleHook.selector,
                 NATIVE_TOKEN,
@@ -421,7 +421,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         SrcHook memory srcHook = SrcHook({
             hookAddress: address(mockHook2),
             preferredToken: NATIVE_TOKEN,
-            minPreferedTokenAmountOut: customOutputAmount,
+            minPreferredTokenAmountOut: customOutputAmount,
             instructions: abi.encodeWithSelector(MockHook2.handleHook.selector, NATIVE_TOKEN, customHookOutput),
             solver: solverSC
         });
@@ -496,7 +496,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         SrcHook memory srcHook2 = SrcHook({
             hookAddress: address(mockHook2),
             preferredToken: NATIVE_TOKEN,
-            minPreferedTokenAmountOut: customOutputAmount,
+            minPreferredTokenAmountOut: customOutputAmount,
             instructions: abi.encodeWithSelector(MockHook2.handleHook.selector, NATIVE_TOKEN, customHookOutput),
             solver: solverSC
         });

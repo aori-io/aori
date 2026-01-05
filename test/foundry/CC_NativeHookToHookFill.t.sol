@@ -196,7 +196,7 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
         return SrcHook({
             hookAddress: address(srcMockHook),
             preferredToken: address(convertedToken), // Hook outputs this ERC20
-            minPreferedTokenAmountOut: MIN_SRC_PREFERRED_OUT,
+            minPreferredTokenAmountOut: MIN_SRC_PREFERRED_OUT,
             instructions: abi.encodeWithSelector(
                 MockHook2.handleHook.selector,
                 address(convertedToken), // Output converted token
@@ -218,7 +218,7 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
                 NATIVE_TOKEN, // Output native tokens
                 DST_HOOK_OUTPUT // Amount of native to output
             ),
-            preferedDstInputAmount: DST_PREFERRED_AMOUNT
+            preferredDstInputAmount: DST_PREFERRED_AMOUNT
         });
     }
 

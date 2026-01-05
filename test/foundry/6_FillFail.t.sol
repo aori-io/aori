@@ -55,7 +55,7 @@ contract FillFailTest is TestUtils {
         uint256 _expectedAmount
     ) internal pure returns (DstHook memory) {
         return
-            DstHook({ hookAddress: address(0), preferredToken: _preferredToken, instructions: "", preferedDstInputAmount: _expectedAmount });
+            DstHook({ hookAddress: address(0), preferredToken: _preferredToken, instructions: "", preferredDstInputAmount: _expectedAmount });
     }
 
     /// @notice Test that fill reverts when the order's startTime is after its endTime.
@@ -196,7 +196,7 @@ contract FillFailTest is TestUtils {
             hookAddress: address(failingHook),
             preferredToken: address(outputToken),
             instructions: abi.encodeWithSelector(FailingHook.handleHook.selector, address(outputToken), 0),
-            preferedDstInputAmount: order.outputAmount
+            preferredDstInputAmount: order.outputAmount
         });
 
         // Approve remoteAori so the fill function can pull tokens.

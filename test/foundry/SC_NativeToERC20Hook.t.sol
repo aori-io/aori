@@ -196,7 +196,7 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
                 address(outputToken), // tokenOut
                 OUTPUT_AMOUNT // minAmountOut
             ),
-            preferedDstInputAmount: PREFERRED_AMOUNT
+            preferredDstInputAmount: PREFERRED_AMOUNT
         });
 
         // Approve solver's preferred tokens to be spent

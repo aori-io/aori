@@ -203,7 +203,7 @@ contract ValidationFailuresTest is TestUtils {
             hookAddress: address(failingHook),
             preferredToken: address(outputToken),
             instructions: abi.encodeWithSelector(FailingHook.alwaysFail.selector),
-            preferedDstInputAmount: order.outputAmount
+            preferredDstInputAmount: order.outputAmount
         });
 
         vm.prank(solver);

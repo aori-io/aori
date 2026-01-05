@@ -339,7 +339,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         SrcHook memory srcData = SrcHook({
             hookAddress: nonWhitelistedHook,
             preferredToken: address(inputToken),
-            minPreferedTokenAmountOut: 1000,
+            minPreferredTokenAmountOut: 1000,
             instructions: "",
             solver: solver
         });
@@ -358,7 +358,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
 
         // Test insufficient output from hook
         srcData.preferredToken = address(convertedToken);
-        srcData.minPreferedTokenAmountOut = 2000e18; // Set to an impossibly high amount
+        srcData.minPreferredTokenAmountOut = 2000e18; // Set to an impossibly high amount
         srcData.instructions = abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), 100); // Will return much less than required
 
         vm.prank(solver);
@@ -371,7 +371,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
 
         // First deposit and approve for fill
         vm.chainId(localEid);
-        srcData.minPreferedTokenAmountOut = 1; // Set to a very low amount to make deposit succeed
+        srcData.minPreferredTokenAmountOut = 1; // Set to a very low amount to make deposit succeed
 
         vm.prank(solver);
         localAori.deposit(order, signature, srcData);
@@ -382,7 +382,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
             hookAddress: address(0x400), // Non-whitelisted hook
             preferredToken: address(outputToken),
             instructions: "",
-            preferedDstInputAmount: order.outputAmount
+            preferredDstInputAmount: order.outputAmount
         });
 
         vm.prank(solver);

@@ -48,13 +48,13 @@ contract GasReportTest is TestUtils {
         commonSrcData = SrcHook({
             hookAddress: address(0),
             preferredToken: address(inputToken),
-            minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount since no conversion
+            minPreferredTokenAmountOut: 1000, // Arbitrary minimum amount since no conversion
             instructions: "",
             solver: solver
         });
 
         commonDstData =
-            DstHook({ hookAddress: address(0), preferredToken: address(outputToken), instructions: "", preferedDstInputAmount: 2e18 });
+            DstHook({ hookAddress: address(0), preferredToken: address(outputToken), instructions: "", preferredDstInputAmount: 2e18 });
 
         // Pre-approve tokens
         vm.prank(userA);

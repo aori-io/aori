@@ -344,7 +344,7 @@ contract DepositTests is TestUtils {
         SrcHook memory hook = SrcHook({
             hookAddress: address(0), // Missing hook
             preferredToken: address(inputToken),
-            minPreferedTokenAmountOut: 1e18,
+            minPreferredTokenAmountOut: 1e18,
             instructions: "",
             solver: solver
         });
@@ -366,7 +366,7 @@ contract DepositTests is TestUtils {
         SrcHook memory hook = SrcHook({
             hookAddress: nonWhitelistedHook,
             preferredToken: address(inputToken),
-            minPreferedTokenAmountOut: 1e18,
+            minPreferredTokenAmountOut: 1e18,
             instructions: "",
             solver: solver
         });

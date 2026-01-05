@@ -301,7 +301,7 @@ contract TestUtils is TestHelperOz5 {
         return SrcHook({
             hookAddress: address(mockHook),
             preferredToken: address(convertedToken),
-            minPreferedTokenAmountOut: 1500,
+            minPreferredTokenAmountOut: 1500,
             instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), inputAmount),
             solver: solver
         });
@@ -325,7 +325,7 @@ contract TestUtils is TestHelperOz5 {
             hookAddress: address(mockHook),
             preferredToken: address(dstPreferredToken),
             instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(outputToken), outputAmount),
-            preferedDstInputAmount: outputAmount
+            preferredDstInputAmount: outputAmount
         });
     }
 

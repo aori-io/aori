@@ -75,7 +75,7 @@ contract HookUtilsTest is Test {
     function test_isSome_SrcHook_zeroAddress() public view {
         // Arrange
         SrcHook memory hook = SrcHook({
-            hookAddress: ZERO_ADDRESS, preferredToken: address(0), minPreferedTokenAmountOut: 0, instructions: bytes(""), solver: address(0)
+            hookAddress: ZERO_ADDRESS, preferredToken: address(0), minPreferredTokenAmountOut: 0, instructions: bytes(""), solver: address(0)
         });
 
         // Act
@@ -90,7 +90,7 @@ contract HookUtilsTest is Test {
     function test_isSome_SrcHook_nonZeroAddress() public view {
         // Arrange
         SrcHook memory hook = SrcHook({
-            hookAddress: TEST_ADDRESS, preferredToken: address(0), minPreferedTokenAmountOut: 0, instructions: bytes(""), solver: address(0)
+            hookAddress: TEST_ADDRESS, preferredToken: address(0), minPreferredTokenAmountOut: 0, instructions: bytes(""), solver: address(0)
         });
 
         // Act
@@ -109,7 +109,7 @@ contract HookUtilsTest is Test {
     function test_isSome_DstHook_zeroAddress() public view {
         // Arrange
         DstHook memory hook =
-            DstHook({ hookAddress: ZERO_ADDRESS, preferredToken: address(0), preferedDstInputAmount: 0, instructions: bytes("") });
+            DstHook({ hookAddress: ZERO_ADDRESS, preferredToken: address(0), preferredDstInputAmount: 0, instructions: bytes("") });
 
         // Act
         bool result = wrapper.isSomeDstHook(hook);
@@ -123,7 +123,7 @@ contract HookUtilsTest is Test {
     function test_isSome_DstHook_nonZeroAddress() public view {
         // Arrange
         DstHook memory hook =
-            DstHook({ hookAddress: TEST_ADDRESS, preferredToken: address(0), preferedDstInputAmount: 0, instructions: bytes("") });
+            DstHook({ hookAddress: TEST_ADDRESS, preferredToken: address(0), preferredDstInputAmount: 0, instructions: bytes("") });
 
         // Act
         bool result = wrapper.isSomeDstHook(hook);
@@ -153,7 +153,7 @@ contract HookUtilsTest is Test {
             SrcHook memory hook = SrcHook({
                 hookAddress: addresses[i],
                 preferredToken: address(0),
-                minPreferedTokenAmountOut: 0,
+                minPreferredTokenAmountOut: 0,
                 instructions: bytes(""),
                 solver: address(0)
             });
@@ -178,7 +178,7 @@ contract HookUtilsTest is Test {
 
         for (uint256 i = 0; i < addresses.length; i++) {
             DstHook memory hook =
-                DstHook({ hookAddress: addresses[i], preferredToken: address(0), preferedDstInputAmount: 0, instructions: bytes("") });
+                DstHook({ hookAddress: addresses[i], preferredToken: address(0), preferredDstInputAmount: 0, instructions: bytes("") });
 
             bool result = wrapper.isSomeDstHook(hook);
             assertEq(result, expected[i], string(abi.encodePacked("DstHook test failed for address: ", addresses[i])));

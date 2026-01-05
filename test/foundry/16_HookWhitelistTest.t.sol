@@ -67,7 +67,7 @@ contract HookWhitelistTest is TestUtils {
         SrcHook memory srcData = SrcHook({
             hookAddress: address(nonWhitelistedHook),
             preferredToken: address(convertedToken),
-            minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
+            minPreferredTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
             instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), order.inputAmount),
             solver: solver
         });
@@ -96,7 +96,7 @@ contract HookWhitelistTest is TestUtils {
         SrcHook memory srcData = SrcHook({
             hookAddress: address(mockHook),
             preferredToken: address(convertedToken),
-            minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
+            minPreferredTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
             instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), order.inputAmount),
             solver: solver
         });
@@ -126,7 +126,7 @@ contract HookWhitelistTest is TestUtils {
         SrcHook memory srcData = SrcHook({
             hookAddress: address(mockHook),
             preferredToken: address(convertedToken),
-            minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
+            minPreferredTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
             instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), order.inputAmount),
             solver: solver
         });
@@ -142,7 +142,7 @@ contract HookWhitelistTest is TestUtils {
             hookAddress: address(nonWhitelistedHook),
             preferredToken: address(outputToken),
             instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(outputToken), order.outputAmount),
-            preferedDstInputAmount: order.outputAmount
+            preferredDstInputAmount: order.outputAmount
         });
 
         vm.prank(solver);
@@ -171,7 +171,7 @@ contract HookWhitelistTest is TestUtils {
         SrcHook memory srcData = SrcHook({
             hookAddress: address(mockHook),
             preferredToken: address(convertedToken),
-            minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
+            minPreferredTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
             instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), order.inputAmount),
             solver: solver
         });
@@ -187,7 +187,7 @@ contract HookWhitelistTest is TestUtils {
             hookAddress: address(mockHook),
             preferredToken: address(outputToken),
             instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(outputToken), order.outputAmount),
-            preferedDstInputAmount: order.outputAmount
+            preferredDstInputAmount: order.outputAmount
         });
 
         vm.prank(solver);
@@ -228,7 +228,7 @@ contract HookWhitelistTest is TestUtils {
         SrcHook memory srcData = SrcHook({
             hookAddress: address(nonWhitelistedHook),
             preferredToken: address(convertedToken),
-            minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
+            minPreferredTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
             instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), order.inputAmount),
             solver: solver
         });

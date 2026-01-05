@@ -22,6 +22,16 @@ interface IAori {
     event ChainRemoved(uint32 indexed eid);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                      ADMIN EVENTS                          */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    event HookAdded(address indexed hook);
+    event HookRemoved(address indexed hook);
+    event SolverAdded(address indexed solver);
+    event SolverRemoved(address indexed solver);
+    event MaxFillsPerSettleUpdated(uint16 oldValue, uint16 newValue);
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                          DST EVENTS                        */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
@@ -117,7 +127,7 @@ interface IAori {
     /* forgefmt: disable-next-item */
     function cancel(bytes32 orderId) external;
 
-    event settlementFailed(bytes32 indexed orderId, uint32 expectedEid, uint32 submittedEid, string reason);
+    event SettlementFailed(bytes32 indexed orderId, uint32 expectedEid, uint32 submittedEid, string reason);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                        DST FUNCTIONS                       */

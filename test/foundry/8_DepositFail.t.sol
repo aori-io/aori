@@ -67,11 +67,11 @@ contract DepositFailTest is TestUtils {
     /// @notice Test that a deposit reverts when the same order is deposited twice.
     function testRevertDepositOrderAlreadyExists() public {
         Order memory order = createValidOrder();
-        uint256 minPreferedTokenAmountOut = 1000;
+        uint256 minPreferredTokenAmountOut = 1000;
         bytes memory signature = signOrder(order);
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
-        inputToken.mint(address(localAori), minPreferedTokenAmountOut);
+        inputToken.mint(address(localAori), minPreferredTokenAmountOut);
         // First deposit should succeed.
         vm.prank(solver);
         localAori.deposit(order, signature);
@@ -103,11 +103,11 @@ contract DepositFailTest is TestUtils {
     //     Order memory order = createValidOrder();
     //     // Prepare SrcSolverData to trigger the hook branch.
     //     // (order.inputToken != preferredToken so that the hook branch is taken)
-    //     uint minPreferedTokenAmountOut = 1000;
+    //     uint minPreferredTokenAmountOut = 1000;
     //     SrcHook memory srcData = SrcHook({
     //         hookAddress: address(failingHook),
     //         preferredToken: address(outputToken), // different from order.inputToken
-    //         minPreferedTokenAmountOut: minPreferedTokenAmountOut, // Arbitrary minimum amount since no conversion
+    //         minPreferredTokenAmountOut: minPreferredTokenAmountOut, // Arbitrary minimum amount since no conversion
     //         instructions: abi.encodeWithSelector(FailingDepositHook.failHook.selector, address(outputToken), order.inputAmount),
     //         solver: solver
     //     });

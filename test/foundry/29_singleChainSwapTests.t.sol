@@ -599,7 +599,7 @@ contract SingleChainSwapTests is TestUtils {
         SrcHook memory hook = SrcHook({
             hookAddress: address(testHook),
             preferredToken: address(outputToken),
-            minPreferedTokenAmountOut: OUTPUT_AMOUNT,
+            minPreferredTokenAmountOut: OUTPUT_AMOUNT,
             instructions: hookData,
             solver: solver
         });
@@ -656,7 +656,7 @@ contract SingleChainSwapTests is TestUtils {
         SrcHook memory hook = SrcHook({
             hookAddress: address(testHook),
             preferredToken: address(outputToken),
-            minPreferedTokenAmountOut: OUTPUT_AMOUNT,
+            minPreferredTokenAmountOut: OUTPUT_AMOUNT,
             instructions: hookData,
             solver: solver
         });
@@ -694,7 +694,7 @@ contract SingleChainSwapTests is TestUtils {
         SrcHook memory hook = SrcHook({
             hookAddress: address(testHook),
             preferredToken: address(outputToken),
-            minPreferedTokenAmountOut: OUTPUT_AMOUNT,
+            minPreferredTokenAmountOut: OUTPUT_AMOUNT,
             instructions: hookData,
             solver: solver
         });
@@ -778,7 +778,7 @@ contract SingleChainSwapTests is TestUtils {
         SrcHook memory hook = SrcHook({
             hookAddress: address(testHook),
             preferredToken: address(outputToken),
-            minPreferedTokenAmountOut: OUTPUT_AMOUNT,
+            minPreferredTokenAmountOut: OUTPUT_AMOUNT,
             instructions: createHookData(address(outputToken), OUTPUT_AMOUNT),
             solver: solver
         });
