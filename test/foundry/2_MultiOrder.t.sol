@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
 /**
  * MultiOrderSuccessTest - Tests the full cross-chain flow for multiple orders with token conversion via hooks
@@ -14,12 +14,12 @@ pragma solidity 0.8.28;
  * Note: This test creates and processes multiple orders (NUM_ORDERS = 3) in batch to test the system's ability to
  * handle multiple orders simultaneously and efficiently.
  */
-import {Aori, IAori} from "../../contracts/Aori.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {OApp, Origin, MessagingFee} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
-import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
-import {MockERC20} from "../Mock/MockERC20.sol";
-import {MockHook} from "../Mock/MockHook.sol";
+import { Aori, IAori } from "../../contracts/Aori.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { OApp, Origin, MessagingFee } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
+import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
+import { MockERC20 } from "../Mock/MockERC20.sol";
+import { MockHook } from "../Mock/MockHook.sol";
 import "forge-std/console.sol";
 import "./TestUtils.sol";
 
@@ -32,12 +32,12 @@ contract MultiOrderSuccessTest is TestUtils {
 
     uint256 private constant GAS_LIMIT = 200000;
     uint256 private constant NUM_ORDERS = 3;
-    IAori.Order[] private orders;
+    Order[] private orders;
     uint256 private totalInput;
 
     function setUp() public override {
         super.setUp();
-        orders = new IAori.Order[](NUM_ORDERS);
+        orders = new Order[](NUM_ORDERS);
         totalInput = 0;
     }
 
@@ -90,7 +90,7 @@ contract MultiOrderSuccessTest is TestUtils {
         uint256 fee = remoteAori.quote(localEid, 0, options, false, localEid, solver).nativeFee;
         vm.deal(solver, fee);
         vm.prank(solver);
-        remoteAori.settle{value: fee}(localEid, solver, options);
+        remoteAori.settle{ value: fee }(localEid, solver, options);
     }
 
     /**
@@ -123,9 +123,7 @@ contract MultiOrderSuccessTest is TestUtils {
             expectedUserOutput += orders[i].outputAmount;
         }
         assertEq(
-            dstPreferredToken.balanceOf(solver),
-            expectedSolverPreferred,
-            "Solver preferred token balance not reduced correctly after fills"
+            dstPreferredToken.balanceOf(solver), expectedSolverPreferred, "Solver preferred token balance not reduced correctly after fills"
         );
         assertEq(outputToken.balanceOf(userA), expectedUserOutput, "User did not receive the expected output tokens");
     }
@@ -169,11 +167,7 @@ contract MultiOrderSuccessTest is TestUtils {
         vm.prank(address(endpoints[localEid]));
         uint256 gas0 = gasleft();
         localAori.lzReceive(
-            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),
-            guid,
-            settlementPayload,
-            address(0),
-            bytes("")
+            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1), guid, settlementPayload, address(0), bytes("")
         );
         uint256 gas1 = gasleft();
         console.log("Gas used for lzReceive settlement: %d", gas0 - gas1);
@@ -213,11 +207,7 @@ contract MultiOrderSuccessTest is TestUtils {
         vm.prank(address(endpoints[localEid]));
         uint256 gas0 = gasleft();
         localAori.lzReceive(
-            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),
-            guid,
-            settlementPayload,
-            address(0),
-            bytes("")
+            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1), guid, settlementPayload, address(0), bytes("")
         );
         uint256 gas1 = gasleft();
         console.log("Gas used for lzReceive settlement: %d", gas0 - gas1);

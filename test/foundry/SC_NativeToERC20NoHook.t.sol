@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
 /**
  * @title End-to-End Test: Single-Chain Native Deposit → ERC20 (No Hooks)
@@ -9,50 +9,54 @@ pragma solidity 0.8.28;
  *   2. Solver fills order with ERC20 tokens using fill() - direct ERC20 transfer to user
  *   3. Atomic settlement - locked ETH transferred to solver's unlocked balance
  * @dev Flow: depositNative(order) -> fill(order)
- * 
+ *
  * @dev This is the simplest case with no hooks involved - pure atomic settlement
  * @dev To run with detailed accounting logs:
  *   forge test --match-test testNativeToERC20NoHookWithDetailedLogging -vv
  */
-import {Aori, IAori} from "../../contracts/Aori.sol";
-import {TestUtils} from "./TestUtils.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {Test} from "forge-std/Test.sol";
-import {console} from "forge-std/console.sol";
-import "../../contracts/AoriUtils.sol";
+import { Aori, IAori } from "../../contracts/Aori.sol";
+import { TestUtils } from "./TestUtils.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Test } from "forge-std/Test.sol";
+import { console } from "forge-std/console.sol";
+import "../../contracts/libraries/AoriUtils.sol";
+import "../../contracts/types/AoriErrors.sol";
 
 contract SC_NativeToERC20NoHook_Test is TestUtils {
     using NativeTokenUtils for address;
 
     // Test amounts
-    uint128 public constant INPUT_AMOUNT = 1 ether;        // Native ETH input (user deposits)
-    uint128 public constant OUTPUT_AMOUNT = 2000e18;       // ERC20 output tokens (user receives)
+    uint128 public constant INPUT_AMOUNT = 1 ether; // Native ETH input (user deposits)
+    uint128 public constant OUTPUT_AMOUNT = 2000e18; // ERC20 output tokens (user receives)
 
     // Single-chain addresses
-    address public userSC;     // User on single chain
-    address public solverSC;   // Solver on single chain
+    address public userSC; // User on single chain
+    address public solverSC; // Solver on single chain
 
     // Private keys for signing
     uint256 public userSCPrivKey = 0xABCD;
     uint256 public solverSCPrivKey = 0xDEAD;
 
     // Order details
-    IAori.Order private order;
+    Order private order;
 
     /**
      * @notice Helper function to format wei amount to ETH string
      */
-    function formatETH(int256 weiAmount) internal pure returns (string memory) {
+    function formatETH(
+        int256 weiAmount
+    ) internal pure returns (string memory) {
         if (weiAmount == 0) return "0 ETH";
-        
+
         bool isNegative = weiAmount < 0;
         uint256 absAmount = uint256(isNegative ? -weiAmount : weiAmount);
-        
+
         uint256 ethPart = absAmount / 1e18;
         uint256 weiPart = absAmount % 1e18;
-        
+
         string memory sign = isNegative ? "-" : "+";
-        
+
         if (weiPart == 0) {
             return string(abi.encodePacked(sign, vm.toString(ethPart), " ETH"));
         } else {
@@ -65,17 +69,19 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
     /**
      * @notice Helper function to format token amount to readable string
      */
-    function formatTokens(int256 tokenAmount) internal pure returns (string memory) {
+    function formatTokens(
+        int256 tokenAmount
+    ) internal pure returns (string memory) {
         if (tokenAmount == 0) return "0 tokens";
-        
+
         bool isNegative = tokenAmount < 0;
         uint256 absAmount = uint256(isNegative ? -tokenAmount : tokenAmount);
-        
+
         uint256 tokenPart = absAmount / 1e18; // 18 decimals for output tokens
         uint256 decimalPart = absAmount % 1e18;
-        
+
         string memory sign = isNegative ? "-" : "+";
-        
+
         if (decimalPart == 0) {
             return string(abi.encodePacked(sign, vm.toString(tokenPart), " tokens"));
         } else {
@@ -87,18 +93,18 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
 
     function setUp() public override {
         super.setUp();
-        
+
         // Derive addresses from private keys
         userSC = vm.addr(userSCPrivKey);
         solverSC = vm.addr(solverSCPrivKey);
-        
+
         // Setup balances
-        vm.deal(userSC, 5 ether);             // User has 5 ETH
+        vm.deal(userSC, 5 ether); // User has 5 ETH
         outputToken.mint(solverSC, 10000e18); // Solver has 10,000 output tokens
-        
+
         // Setup contract balances (start clean)
         vm.deal(address(localAori), 0 ether);
-        
+
         // Add solver to allowed list
         localAori.addAllowedSolver(solverSC);
     }
@@ -116,13 +122,13 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
 
         // === PHASE 0: INITIAL STATE ===
         _logInitialState();
-        
+
         // === PHASE 1: USER NATIVE DEPOSIT ===
         bytes32 orderId = _executeNativeDepositPhase();
-        
+
         // === PHASE 2: SOLVER FILL WITH ERC20 ===
         _executeFillPhase(orderId);
-        
+
         // === PHASE 3: VERIFY FINAL STATE ===
         _verifyFinalState(orderId);
     }
@@ -132,7 +138,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
      */
     function _logInitialState() internal view {
         console.log("=== PHASE 0: INITIAL STATE ===");
-        
+
         console.log("User:");
         console.log("  Native balance:", userSC.balance / 1e18, "ETH");
         console.log("  Output tokens:", outputToken.balanceOf(userSC) / 1e18, "tokens");
@@ -150,21 +156,21 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
      */
     function _executeNativeDepositPhase() internal returns (bytes32 orderId) {
         console.log("=== PHASE 1: USER NATIVE DEPOSIT ===");
-        
+
         vm.chainId(localEid);
-        
+
         // Create order for Native → ERC20
         order = createCustomOrder(
-            userSC,                      // offerer
-            userSC,                      // recipient
-            NATIVE_TOKEN,                // inputToken (native ETH)
-            address(outputToken),        // outputToken (ERC20)
-            INPUT_AMOUNT,                // inputAmount
-            OUTPUT_AMOUNT,               // outputAmount
-            block.timestamp,             // startTime
-            block.timestamp + 1 hours,   // endTime
-            localEid,                    // srcEid
-            localEid                     // dstEid (same chain)
+            userSC, // offerer
+            userSC, // recipient
+            NATIVE_TOKEN, // inputToken (native ETH)
+            address(outputToken), // outputToken (ERC20)
+            INPUT_AMOUNT, // inputAmount
+            OUTPUT_AMOUNT, // outputAmount
+            block.timestamp, // startTime
+            block.timestamp + 1 hours, // endTime
+            localEid, // srcEid
+            localEid // dstEid (same chain)
         );
 
         bytes memory signature = signOrder(order, userSCPrivKey);
@@ -172,7 +178,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
 
         // User deposits native tokens directly
         vm.prank(userSC);
-        localAori.depositNative{value: INPUT_AMOUNT}(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order);
 
         // Log state after deposit
         console.log("After Native Deposit:");
@@ -185,7 +191,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
         console.log("");
 
         // Verify deposit worked correctly
-        assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Active, "Order should be Active after deposit");
+        assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active after deposit");
         assertEq(localAori.getLockedBalances(userSC, NATIVE_TOKEN), INPUT_AMOUNT, "User should have locked native balance");
         assertEq(address(localAori).balance, INPUT_AMOUNT, "Contract should hold the native tokens");
     }
@@ -193,7 +199,9 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
     /**
      * @notice Helper function to execute fill phase
      */
-    function _executeFillPhase(bytes32 orderId) internal {
+    function _executeFillPhase(
+        bytes32 orderId
+    ) internal {
         console.log("=== PHASE 2: SOLVER FILL WITH ERC20 ===");
 
         console.log("Before Fill:");
@@ -218,7 +226,9 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
     /**
      * @notice Helper function to verify final state and run assertions
      */
-    function _verifyFinalState(bytes32 orderId) internal {
+    function _verifyFinalState(
+        bytes32 orderId
+    ) internal {
         console.log("=== PHASE 3: FINAL STATE AFTER ATOMIC SETTLEMENT ===");
 
         console.log("After Fill & Settlement:");
@@ -249,25 +259,25 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
         console.log("");
 
         // === FINAL ASSERTIONS ===
-        
+
         // Order should be settled
-        assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Settled, "Order should be Settled");
-        
+        assertTrue(localAori.orderStatus(orderId) == OrderStatus.Settled, "Order should be Settled");
+
         // User should receive exact output amount
         assertEq(outputToken.balanceOf(userSC), OUTPUT_AMOUNT, "User should receive exact output amount");
-        
+
         // User should have spent the native tokens (but they're now in solver's unlocked balance)
         assertEq(userSC.balance, 5 ether - INPUT_AMOUNT, "User should have spent native tokens");
-        
+
         // Solver should have unlocked native tokens in the contract
         assertEq(localAori.getUnlockedBalances(solverSC, NATIVE_TOKEN), INPUT_AMOUNT, "Solver should have unlocked native balance");
-        
+
         // Solver should have spent the output tokens
         assertEq(outputToken.balanceOf(solverSC), 10000e18 - OUTPUT_AMOUNT, "Solver should have spent output tokens");
-        
+
         // All locked balances should be cleared
         assertEq(localAori.getLockedBalances(userSC, NATIVE_TOKEN), 0, "User should have no locked balance after settlement");
-        
+
         // Contract should still hold the native tokens (they're in solver's unlocked balance)
         assertEq(address(localAori).balance, INPUT_AMOUNT, "Contract should hold native tokens in solver's unlocked balance");
 
@@ -281,19 +291,19 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
      */
     function testBasicNativeToERC20Swap() public {
         vm.chainId(localEid);
-        
+
         // Create order for Native → ERC20
         order = createCustomOrder(
-            userSC,                      // offerer
-            userSC,                      // recipient
-            NATIVE_TOKEN,                // inputToken (native ETH)
-            address(outputToken),        // outputToken (ERC20)
-            INPUT_AMOUNT,                // inputAmount
-            OUTPUT_AMOUNT,               // outputAmount
-            block.timestamp,             // startTime
-            block.timestamp + 1 hours,   // endTime
-            localEid,                    // srcEid
-            localEid                     // dstEid (same chain)
+            userSC, // offerer
+            userSC, // recipient
+            NATIVE_TOKEN, // inputToken (native ETH)
+            address(outputToken), // outputToken (ERC20)
+            INPUT_AMOUNT, // inputAmount
+            OUTPUT_AMOUNT, // outputAmount
+            block.timestamp, // startTime
+            block.timestamp + 1 hours, // endTime
+            localEid, // srcEid
+            localEid // dstEid (same chain)
         );
 
         bytes memory signature = signOrder(order, userSCPrivKey);
@@ -301,10 +311,10 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
 
         // Phase 1: User deposits native tokens
         vm.prank(userSC);
-        localAori.depositNative{value: INPUT_AMOUNT}(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order);
 
         // Verify deposit state
-        assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Active, "Order should be Active after deposit");
+        assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active after deposit");
         assertEq(localAori.getLockedBalances(userSC, NATIVE_TOKEN), INPUT_AMOUNT, "User should have locked native balance");
 
         // Phase 2: Solver fills with ERC20 tokens
@@ -318,7 +328,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
         localAori.fill(order);
 
         // Verify final state
-        assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(orderId) == OrderStatus.Settled, "Order should be Settled");
         assertEq(outputToken.balanceOf(userSC), initialUserTokens + OUTPUT_AMOUNT, "User should receive output tokens");
         assertEq(outputToken.balanceOf(solverSC), initialSolverTokens - OUTPUT_AMOUNT, "Solver should spend output tokens");
         assertEq(localAori.getLockedBalances(userSC, NATIVE_TOKEN), 0, "User locked balance should be cleared");
@@ -330,25 +340,31 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
      */
     function testOrderStatusTransitions() public {
         vm.chainId(localEid);
-        
+
         order = createCustomOrder(
-            userSC, userSC, NATIVE_TOKEN, address(outputToken),
-            INPUT_AMOUNT, OUTPUT_AMOUNT,
-            block.timestamp, block.timestamp + 1 hours,
-            localEid, localEid
+            userSC,
+            userSC,
+            NATIVE_TOKEN,
+            address(outputToken),
+            INPUT_AMOUNT,
+            OUTPUT_AMOUNT,
+            block.timestamp,
+            block.timestamp + 1 hours,
+            localEid,
+            localEid
         );
 
         bytes memory signature = signOrder(order, userSCPrivKey);
         bytes32 orderId = localAori.hash(order);
 
         // Initial: Unknown
-        assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Unknown, "Order should start as Unknown");
+        assertTrue(localAori.orderStatus(orderId) == OrderStatus.Unknown, "Order should start as Unknown");
 
         // After deposit: Active
         vm.prank(userSC);
-        localAori.depositNative{value: INPUT_AMOUNT}(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order);
 
-        assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Active, "Order should be Active after deposit");
+        assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active after deposit");
 
         // After fill: Settled (single-chain atomic settlement)
         vm.prank(solverSC);
@@ -357,7 +373,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
         vm.prank(solverSC);
         localAori.fill(order);
 
-        assertTrue(localAori.orderStatus(orderId) == IAori.OrderStatus.Settled, "Order should be Settled after fill");
+        assertTrue(localAori.orderStatus(orderId) == OrderStatus.Settled, "Order should be Settled after fill");
     }
 
     /**
@@ -365,12 +381,18 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
      */
     function testEventEmission() public {
         vm.chainId(localEid);
-        
+
         order = createCustomOrder(
-            userSC, userSC, NATIVE_TOKEN, address(outputToken),
-            INPUT_AMOUNT, OUTPUT_AMOUNT,
-            block.timestamp, block.timestamp + 1 hours,
-            localEid, localEid
+            userSC,
+            userSC,
+            NATIVE_TOKEN,
+            address(outputToken),
+            INPUT_AMOUNT,
+            OUTPUT_AMOUNT,
+            block.timestamp,
+            block.timestamp + 1 hours,
+            localEid,
+            localEid
         );
 
         bytes memory signature = signOrder(order, userSCPrivKey);
@@ -381,7 +403,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
         emit IAori.Deposit(orderId, order);
 
         vm.prank(userSC);
-        localAori.depositNative{value: INPUT_AMOUNT}(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order);
 
         // Phase 2: Fill should emit Settle event (atomic settlement)
         vm.prank(solverSC);
@@ -399,20 +421,26 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
      */
     function testInsufficientNativeDeposit() public {
         vm.chainId(localEid);
-        
+
         order = createCustomOrder(
-            userSC, userSC, NATIVE_TOKEN, address(outputToken),
-            INPUT_AMOUNT, OUTPUT_AMOUNT,
-            block.timestamp, block.timestamp + 1 hours,
-            localEid, localEid
+            userSC,
+            userSC,
+            NATIVE_TOKEN,
+            address(outputToken),
+            INPUT_AMOUNT,
+            OUTPUT_AMOUNT,
+            block.timestamp,
+            block.timestamp + 1 hours,
+            localEid,
+            localEid
         );
 
         bytes memory signature = signOrder(order, userSCPrivKey);
 
         // Try to deposit less than required
-        vm.expectRevert("Incorrect native amount");
+        vm.expectRevert(abi.encodeWithSelector(IncorrectNativeAmount.selector, INPUT_AMOUNT, INPUT_AMOUNT - 1));
         vm.prank(userSC);
-        localAori.depositNative{value: INPUT_AMOUNT - 1}(order);
+        localAori.depositNative{ value: INPUT_AMOUNT - 1 }(order);
     }
 
     /**
@@ -420,24 +448,30 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
      */
     function testInsufficientSolverTokens() public {
         vm.chainId(localEid);
-        
+
         // Create a new solver with insufficient tokens
         address poorSolver = vm.addr(0xBEEF);
         localAori.addAllowedSolver(poorSolver);
         outputToken.mint(poorSolver, OUTPUT_AMOUNT - 1); // Give 1 less token than needed
-        
+
         order = createCustomOrder(
-            userSC, userSC, NATIVE_TOKEN, address(outputToken),
-            INPUT_AMOUNT, OUTPUT_AMOUNT,
-            block.timestamp, block.timestamp + 1 hours,
-            localEid, localEid
+            userSC,
+            userSC,
+            NATIVE_TOKEN,
+            address(outputToken),
+            INPUT_AMOUNT,
+            OUTPUT_AMOUNT,
+            block.timestamp,
+            block.timestamp + 1 hours,
+            localEid,
+            localEid
         );
 
         bytes memory signature = signOrder(order, userSCPrivKey);
 
         // User deposits correctly
         vm.prank(userSC);
-        localAori.depositNative{value: INPUT_AMOUNT}(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order);
 
         // Poor solver tries to fill without enough tokens
         vm.prank(poorSolver);
@@ -452,16 +486,22 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
      * @notice Test with different amounts to verify flexibility
      */
     function testDifferentAmounts() public {
-        uint128 customInputAmount = 0.5 ether;   // 0.5 ETH
-        uint128 customOutputAmount = 1000e18;    // 1,000 tokens
-        
+        uint128 customInputAmount = 0.5 ether; // 0.5 ETH
+        uint128 customOutputAmount = 1000e18; // 1,000 tokens
+
         vm.chainId(localEid);
-        
+
         order = createCustomOrder(
-            userSC, userSC, NATIVE_TOKEN, address(outputToken),
-            customInputAmount, customOutputAmount,
-            block.timestamp, block.timestamp + 1 hours,
-            localEid, localEid
+            userSC,
+            userSC,
+            NATIVE_TOKEN,
+            address(outputToken),
+            customInputAmount,
+            customOutputAmount,
+            block.timestamp,
+            block.timestamp + 1 hours,
+            localEid,
+            localEid
         );
 
         bytes memory signature = signOrder(order, userSCPrivKey);
@@ -471,7 +511,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
 
         // User deposits
         vm.prank(userSC);
-        localAori.depositNative{value: customInputAmount}(order);
+        localAori.depositNative{ value: customInputAmount }(order);
 
         // Solver fills
         vm.prank(solverSC);
@@ -481,20 +521,10 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
         localAori.fill(order);
 
         // Verify correct amounts
+        assertEq(userSC.balance, initialUserNative - customInputAmount, "User should have spent custom input amount");
+        assertEq(outputToken.balanceOf(userSC), initialUserTokens + customOutputAmount, "User should receive custom output amount");
         assertEq(
-            userSC.balance,
-            initialUserNative - customInputAmount,
-            "User should have spent custom input amount"
-        );
-        assertEq(
-            outputToken.balanceOf(userSC),
-            initialUserTokens + customOutputAmount,
-            "User should receive custom output amount"
-        );
-        assertEq(
-            localAori.getUnlockedBalances(solverSC, NATIVE_TOKEN),
-            customInputAmount,
-            "Solver should have unlocked custom input amount"
+            localAori.getUnlockedBalances(solverSC, NATIVE_TOKEN), customInputAmount, "Solver should have unlocked custom input amount"
         );
     }
 
@@ -503,12 +533,18 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
      */
     function testAtomicSettlement() public {
         vm.chainId(localEid);
-        
+
         order = createCustomOrder(
-            userSC, userSC, NATIVE_TOKEN, address(outputToken),
-            INPUT_AMOUNT, OUTPUT_AMOUNT,
-            block.timestamp, block.timestamp + 1 hours,
-            localEid, localEid
+            userSC,
+            userSC,
+            NATIVE_TOKEN,
+            address(outputToken),
+            INPUT_AMOUNT,
+            OUTPUT_AMOUNT,
+            block.timestamp,
+            block.timestamp + 1 hours,
+            localEid,
+            localEid
         );
 
         bytes memory signature = signOrder(order, userSCPrivKey);
@@ -516,7 +552,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
 
         // Deposit
         vm.prank(userSC);
-        localAori.depositNative{value: INPUT_AMOUNT}(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order);
 
         // Fill
         vm.prank(solverSC);
@@ -524,16 +560,17 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
 
         vm.prank(solverSC);
         localAori.fill(order);
-        
+
         // Verify order was settled atomically (not just filled)
-        assertTrue(
-            localAori.orderStatus(orderId) == IAori.OrderStatus.Settled,
-            "Single-chain swap should be immediately settled"
-        );
-        
+        assertTrue(localAori.orderStatus(orderId) == OrderStatus.Settled, "Single-chain swap should be immediately settled");
+
         // Verify balance accounting is complete
         assertEq(localAori.getLockedBalances(userSC, NATIVE_TOKEN), 0, "User should have no locked balance after atomic settlement");
-        assertEq(localAori.getUnlockedBalances(solverSC, NATIVE_TOKEN), INPUT_AMOUNT, "Solver should have unlocked balance after atomic settlement");
+        assertEq(
+            localAori.getUnlockedBalances(solverSC, NATIVE_TOKEN),
+            INPUT_AMOUNT,
+            "Solver should have unlocked balance after atomic settlement"
+        );
     }
 
     /**
@@ -541,19 +578,25 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
      */
     function testSolverWithdrawal() public {
         vm.chainId(localEid);
-        
+
         order = createCustomOrder(
-            userSC, userSC, NATIVE_TOKEN, address(outputToken),
-            INPUT_AMOUNT, OUTPUT_AMOUNT,
-            block.timestamp, block.timestamp + 1 hours,
-            localEid, localEid
+            userSC,
+            userSC,
+            NATIVE_TOKEN,
+            address(outputToken),
+            INPUT_AMOUNT,
+            OUTPUT_AMOUNT,
+            block.timestamp,
+            block.timestamp + 1 hours,
+            localEid,
+            localEid
         );
 
         bytes memory signature = signOrder(order, userSCPrivKey);
 
         // Complete the swap
         vm.prank(userSC);
-        localAori.depositNative{value: INPUT_AMOUNT}(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order);
 
         vm.prank(solverSC);
         outputToken.approve(address(localAori), OUTPUT_AMOUNT);
@@ -566,7 +609,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
 
         // Solver withdraws their native tokens
         uint256 initialSolverNative = solverSC.balance;
-        
+
         vm.prank(solverSC);
         localAori.withdraw(NATIVE_TOKEN, INPUT_AMOUNT);
 

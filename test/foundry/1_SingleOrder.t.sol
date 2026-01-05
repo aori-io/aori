@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
 /**
  * SingleOrderSuccessTest - Tests the full cross-chain flow with token conversion via hooks
@@ -11,14 +11,15 @@ pragma solidity 0.8.28;
  * 4. testPhase4_MessageDeliveryAndVerification - Tests the LayerZero message delivery and verifies final state
  * 5. testSingleOrderSuccess - End-to-end test that runs all phases in sequence (deposit, fill, settle, and message delivery)
  */
-import {Aori, IAori} from "../../contracts/Aori.sol";
-import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
-import {TestUtils} from "./TestUtils.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {Test} from "forge-std/Test.sol";
+import { Aori, IAori } from "../../contracts/Aori.sol";
+import { Origin } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
+import { TestUtils } from "./TestUtils.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Test } from "forge-std/Test.sol";
 
 contract SingleOrderSuccessTest is TestUtils {
-    IAori.Order private order;
+    Order private order;
 
     function setUp() public override {
         super.setUp();
@@ -56,7 +57,6 @@ contract SingleOrderSuccessTest is TestUtils {
         remoteAori.fill(order, defaultDstSolverData(order.outputAmount));
     }
 
-
     /**
      * @notice Helper function to settle order
      */
@@ -65,7 +65,7 @@ contract SingleOrderSuccessTest is TestUtils {
         uint256 fee = remoteAori.quote(localEid, 0, options, false, localEid, solver).nativeFee;
         vm.deal(solver, fee);
         vm.prank(solver);
-        remoteAori.settle{value: fee}(localEid, solver, options);
+        remoteAori.settle{ value: fee }(localEid, solver, options);
     }
 
     /**
@@ -83,11 +83,7 @@ contract SingleOrderSuccessTest is TestUtils {
 
         vm.prank(address(endpoints[localEid]));
         localAori.lzReceive(
-            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),
-            guid,
-            settlementPayload,
-            address(0),
-            bytes("")
+            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1), guid, settlementPayload, address(0), bytes("")
         );
     }
 
@@ -125,11 +121,7 @@ contract SingleOrderSuccessTest is TestUtils {
             preFillSolverPreferred - order.outputAmount,
             "Solver preferred token balance not reduced by fill"
         );
-        assertEq(
-            outputToken.balanceOf(userA),
-            preFillUserOutput + order.outputAmount,
-            "User did not receive the expected output tokens"
-        );
+        assertEq(outputToken.balanceOf(userA), preFillUserOutput + order.outputAmount, "User did not receive the expected output tokens");
     }
 
     /**

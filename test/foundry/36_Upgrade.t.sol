@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
 /**
  * UpgradeTests - Tests for UUPS upgradeability of Aori
@@ -14,14 +14,15 @@ pragma solidity 0.8.28;
  * 7. testImmutableEndpointIdPreserved - Verify ENDPOINT_ID works correctly
  */
 import "forge-std/Test.sol";
-import {Aori} from "../../contracts/Aori.sol";
-import {IAori} from "../../contracts/IAori.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {AoriProxy} from "../../contracts/AoriProxy.sol";
-import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
-import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
-import {MockERC20} from "../Mock/MockERC20.sol";
-import {MockHook} from "../Mock/MockHook.sol";
+import { Aori } from "../../contracts/Aori.sol";
+import { IAori } from "../../contracts/interfaces/IAori.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { TestHelperOz5 } from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
+import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
+import { MockERC20 } from "../Mock/MockERC20.sol";
+import { MockHook } from "../Mock/MockHook.sol";
 
 /**
  * @title MockAoriUpgraded
@@ -31,7 +32,10 @@ import {MockHook} from "../Mock/MockHook.sol";
 contract MockAoriUpgraded is Aori {
     uint256 public constant VERSION = 2;
 
-    constructor(address _endpoint, uint32 _eid) Aori(_endpoint, _eid) {}
+    constructor(
+        address _endpoint,
+        uint32 _eid
+    ) Aori(_endpoint, _eid) { }
 
     function getVersion() external pure returns (uint256) {
         return VERSION;
@@ -48,7 +52,7 @@ contract UpgradeTests is TestHelperOz5 {
     // Contracts
     Aori public implementation;
     Aori public aori; // proxy cast to Aori
-    AoriProxy public proxy;
+    ERC1967Proxy public proxy;
 
     // Mock contracts
     MockERC20 public inputToken;
@@ -88,18 +92,10 @@ contract UpgradeTests is TestHelperOz5 {
         supportedChains[0] = REMOTE_EID;
 
         // Deploy proxy with initialization
-        bytes memory initData = abi.encodeCall(
-            Aori.initialize,
-            (
-                owner,
-                MAX_FILLS_PER_SETTLE,
-                initialSolvers,
-                initialHooks,
-                supportedChains
-            )
-        );
+        bytes memory initData =
+            abi.encodeCall(Aori.initialize, (owner, MAX_FILLS_PER_SETTLE, initialSolvers, initialHooks, supportedChains));
 
-        proxy = new AoriProxy(address(implementation), initData);
+        proxy = new ERC1967Proxy(address(implementation), initData);
         aori = Aori(payable(address(proxy)));
 
         // Setup test tokens
@@ -147,13 +143,7 @@ contract UpgradeTests is TestHelperOz5 {
         uint32[] memory emptyChains = new uint32[](0);
 
         vm.expectRevert();
-        aori.initialize(
-            nonOwner,
-            5,
-            emptySolvers,
-            emptyHooks,
-            emptyChains
-        );
+        aori.initialize(nonOwner, 5, emptySolvers, emptyHooks, emptyChains);
     }
 
     /**
@@ -165,13 +155,7 @@ contract UpgradeTests is TestHelperOz5 {
         uint32[] memory emptyChains = new uint32[](0);
 
         vm.expectRevert();
-        implementation.initialize(
-            owner,
-            MAX_FILLS_PER_SETTLE,
-            emptySolvers,
-            emptyHooks,
-            emptyChains
-        );
+        implementation.initialize(owner, MAX_FILLS_PER_SETTLE, emptySolvers, emptyHooks, emptyChains);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -333,7 +317,7 @@ contract UpgradeTests is TestHelperOz5 {
      */
     function testNativeDepositThroughProxy() public {
         // Create order for native token
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE, // Native token
@@ -349,14 +333,10 @@ contract UpgradeTests is TestHelperOz5 {
         // Deposit native tokens as userA
         vm.deal(userA, 10e18);
         vm.prank(userA);
-        aori.depositNative{value: order.inputAmount}(order);
+        aori.depositNative{ value: order.inputAmount }(order);
 
         // Verify locked balance
-        assertEq(
-            aori.getLockedBalances(userA, order.inputToken),
-            order.inputAmount,
-            "Native tokens should be locked"
-        );
+        assertEq(aori.getLockedBalances(userA, order.inputToken), order.inputAmount, "Native tokens should be locked");
     }
 
     /**
@@ -366,7 +346,7 @@ contract UpgradeTests is TestHelperOz5 {
      */
     function testWithdrawThroughProxy() public {
         // First do a native deposit
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE,
@@ -383,14 +363,10 @@ contract UpgradeTests is TestHelperOz5 {
         uint256 balanceBefore = userA.balance;
 
         vm.prank(userA);
-        aori.depositNative{value: order.inputAmount}(order);
+        aori.depositNative{ value: order.inputAmount }(order);
 
         // Verify locked balance
-        assertEq(
-            aori.getLockedBalances(userA, order.inputToken),
-            order.inputAmount,
-            "Native tokens should be locked after deposit"
-        );
+        assertEq(aori.getLockedBalances(userA, order.inputToken), order.inputAmount, "Native tokens should be locked after deposit");
         assertEq(userA.balance, balanceBefore - order.inputAmount, "User balance should decrease after deposit");
 
         // Warp time to after order expiry so offerer can cancel
@@ -402,11 +378,7 @@ contract UpgradeTests is TestHelperOz5 {
         aori.cancel(orderId);
 
         // Verify locked balance is now 0
-        assertEq(
-            aori.getLockedBalances(userA, order.inputToken),
-            0,
-            "Locked balance should be 0 after cancel"
-        );
+        assertEq(aori.getLockedBalances(userA, order.inputToken), 0, "Locked balance should be 0 after cancel");
 
         // Verify tokens were directly transferred back to user
         assertEq(userA.balance, balanceBefore, "User should have full balance back after cancel");
@@ -420,7 +392,7 @@ contract UpgradeTests is TestHelperOz5 {
      * @notice Test that order hashing works through proxy
      */
     function testOrderHashingThroughProxy() public view {
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),

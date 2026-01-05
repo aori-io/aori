@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
 /**
  * @title End-to-End Test: Cross-Chain Native + SrcHook → Direct Fill (No DstHook)
@@ -10,33 +10,35 @@ pragma solidity 0.8.28;
  *   4. Settlement: LayerZero message unlocks preferred tokens for solver on source chain
  *   5. Solver withdraws preferred tokens on source chain
  * @dev Verifies balance accounting, token transfers, and cross-chain messaging
- * 
+ *
  * @dev To run with detailed accounting logs:
  *   forge test --match-test testCrossChainNativeHookToDirectFillSuccess -vv
  */
-import {Aori, IAori} from "../../contracts/Aori.sol";
-import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
-import {TestUtils} from "./TestUtils.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {Test} from "forge-std/Test.sol";
-import {console} from "forge-std/console.sol";
-import {MockHook2} from "../Mock/MockHook2.sol";
-import "../../contracts/AoriUtils.sol";
+import { Aori, IAori } from "../../contracts/Aori.sol";
+import { Origin } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
+import { TestUtils } from "./TestUtils.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Test } from "forge-std/Test.sol";
+import { console } from "forge-std/console.sol";
+import { MockHook2 } from "../Mock/MockHook2.sol";
+import "../../contracts/libraries/AoriUtils.sol";
+import "../../contracts/types/AoriErrors.sol";
 
 contract CC_NativeHookToDirectFill_Test is TestUtils {
     using NativeTokenUtils for address;
 
     // Test amounts
-    uint128 public constant INPUT_AMOUNT = 1 ether;           // Native ETH input (user deposits)
-    uint128 public constant OUTPUT_AMOUNT = 1000e18;          // ERC20 output (user receives on dest)
-    uint128 public constant HOOK_CONVERTED_AMOUNT = 1500e18;  // srcHook converts ETH to this many tokens
-    uint128 public constant MIN_PREFERRED_OUT = 1400e18;      // Minimum acceptable from hook
+    uint128 public constant INPUT_AMOUNT = 1 ether; // Native ETH input (user deposits)
+    uint128 public constant OUTPUT_AMOUNT = 1000e18; // ERC20 output (user receives on dest)
+    uint128 public constant HOOK_CONVERTED_AMOUNT = 1500e18; // srcHook converts ETH to this many tokens
+    uint128 public constant MIN_PREFERRED_OUT = 1400e18; // Minimum acceptable from hook
 
     // Cross-chain addresses
-    address public userSource;     // User on source chain
-    address public userDest;       // User on destination chain
-    address public solverSource;   // Solver on source chain
-    address public solverDest;     // Solver on destination chain
+    address public userSource; // User on source chain
+    address public userDest; // User on destination chain
+    address public solverSource; // Solver on source chain
+    address public solverDest; // Solver on destination chain
 
     // Private keys for signing
     uint256 public userSourcePrivKey = 0xABCD;
@@ -44,23 +46,25 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
     uint256 public solverDestPrivKey = 0xBEEF;
 
     // Order details
-    IAori.Order private order;
+    Order private order;
     MockHook2 private mockHook2;
 
     /**
      * @notice Helper function to format wei amount to ETH string
      */
-    function formatETH(int256 weiAmount) internal pure returns (string memory) {
+    function formatETH(
+        int256 weiAmount
+    ) internal pure returns (string memory) {
         if (weiAmount == 0) return "0 ETH";
-        
+
         bool isNegative = weiAmount < 0;
         uint256 absAmount = uint256(isNegative ? -weiAmount : weiAmount);
-        
+
         uint256 ethPart = absAmount / 1e18;
         uint256 weiPart = absAmount % 1e18;
-        
+
         string memory sign = isNegative ? "-" : "+";
-        
+
         if (weiPart == 0) {
             return string(abi.encodePacked(sign, vm.toString(ethPart), " ETH"));
         } else {
@@ -72,17 +76,19 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
     /**
      * @notice Helper function to format token amount to readable string
      */
-    function formatTokens(int256 tokenAmount) internal pure returns (string memory) {
+    function formatTokens(
+        int256 tokenAmount
+    ) internal pure returns (string memory) {
         if (tokenAmount == 0) return "0 tokens";
-        
+
         bool isNegative = tokenAmount < 0;
         uint256 absAmount = uint256(isNegative ? -tokenAmount : tokenAmount);
-        
+
         uint256 tokenPart = absAmount / 1e18;
         uint256 decimalPart = absAmount % 1e18;
-        
+
         string memory sign = isNegative ? "-" : "+";
-        
+
         if (decimalPart == 0) {
             return string(abi.encodePacked(sign, vm.toString(tokenPart), " tokens"));
         } else {
@@ -93,38 +99,38 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
 
     function setUp() public override {
         super.setUp();
-        
+
         // Derive addresses from private keys
         userSource = vm.addr(userSourcePrivKey);
         solverSource = vm.addr(solverSourcePrivKey);
         solverDest = vm.addr(solverDestPrivKey);
         userDest = makeAddr("userDest");
-        
+
         // Deploy MockHook2
         mockHook2 = new MockHook2();
-        
+
         // Setup native token balances for source chain
         vm.deal(userSource, 5 ether);
         vm.deal(solverSource, 1 ether);
-        
+
         // Setup destination chain balances
         vm.deal(userDest, 0 ether);
         vm.deal(solverDest, 1 ether);
-        
+
         // Setup contract balances
         vm.deal(address(localAori), 0 ether);
         vm.deal(address(remoteAori), 0 ether);
-        
+
         // Give hook the preferred token to output (what srcHook converts to)
         convertedToken.mint(address(mockHook2), 5000e18);
-        
+
         // Give solver ERC20 output tokens to fill with on destination
         outputToken.mint(solverDest, 5000e18);
-        
+
         // Add MockHook2 to allowed hooks
         localAori.addAllowedHook(address(mockHook2));
         remoteAori.addAllowedHook(address(mockHook2));
-        
+
         // Add solvers to allowed list
         localAori.addAllowedSolver(solverSource);
         remoteAori.addAllowedSolver(solverDest);
@@ -135,33 +141,33 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
      */
     function _createOrder() internal {
         vm.chainId(localEid);
-        
+
         order = createCustomOrder(
-            userSource,                      // offerer
-            userDest,                        // recipient (different chain)
-            NATIVE_TOKEN,                    // inputToken (native ETH)
-            address(outputToken),            // outputToken (ERC20)
-            INPUT_AMOUNT,                    // inputAmount
-            OUTPUT_AMOUNT,                   // outputAmount
-            block.timestamp,                 // startTime
-            block.timestamp + 1 hours,       // endTime
-            localEid,                        // srcEid
-            remoteEid                        // dstEid (cross-chain)
+            userSource, // offerer
+            userDest, // recipient (different chain)
+            NATIVE_TOKEN, // inputToken (native ETH)
+            address(outputToken), // outputToken (ERC20)
+            INPUT_AMOUNT, // inputAmount
+            OUTPUT_AMOUNT, // outputAmount
+            block.timestamp, // startTime
+            block.timestamp + 1 hours, // endTime
+            localEid, // srcEid
+            remoteEid // dstEid (cross-chain)
         );
     }
 
     /**
      * @notice Helper to create srcHook that converts native ETH to preferred token
      */
-    function _createSrcHook() internal view returns (IAori.SrcHook memory) {
-        return IAori.SrcHook({
+    function _createSrcHook() internal view returns (SrcHook memory) {
+        return SrcHook({
             hookAddress: address(mockHook2),
-            preferredToken: address(convertedToken),   // Hook outputs this ERC20
-            minPreferedTokenAmountOut: MIN_PREFERRED_OUT,
+            preferredToken: address(convertedToken), // Hook outputs this ERC20
+            minPreferredTokenAmountOut: MIN_PREFERRED_OUT,
             instructions: abi.encodeWithSelector(
                 MockHook2.handleHook.selector,
-                address(convertedToken),       // Output converted token
-                HOOK_CONVERTED_AMOUNT          // Amount of tokens to output
+                address(convertedToken), // Output converted token
+                HOOK_CONVERTED_AMOUNT // Amount of tokens to output
             ),
             solver: solverSource
         });
@@ -172,10 +178,10 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
      */
     function _depositNativeWithSrcHook() internal {
         _createOrder();
-        IAori.SrcHook memory srcHook = _createSrcHook();
+        SrcHook memory srcHook = _createSrcHook();
 
         vm.prank(userSource);
-        localAori.depositNative{value: INPUT_AMOUNT}(order, srcHook);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, srcHook);
     }
 
     /**
@@ -188,7 +194,7 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
         // Approve output tokens
         vm.prank(solverDest);
         outputToken.approve(address(remoteAori), OUTPUT_AMOUNT);
-        
+
         // Fill directly without hook
         vm.prank(solverDest);
         remoteAori.fill(order);
@@ -202,7 +208,7 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
         uint256 fee = remoteAori.quote(localEid, 0, options, false, localEid, solverDest).nativeFee;
         vm.deal(solverDest, fee);
         vm.prank(solverDest);
-        remoteAori.settle{value: fee}(localEid, solverDest, options);
+        remoteAori.settle{ value: fee }(localEid, solverDest, options);
     }
 
     /**
@@ -220,11 +226,7 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
 
         vm.prank(address(endpoints[localEid]));
         localAori.lzReceive(
-            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),
-            guid,
-            settlementPayload,
-            address(0),
-            bytes("")
+            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1), guid, settlementPayload, address(0), bytes("")
         );
     }
 
@@ -233,28 +235,21 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
      */
     function testPhase1_DepositNativeWithSrcHook() public {
         uint256 initialUserNative = userSource.balance;
-        
+
         _depositNativeWithSrcHook();
-        
+
         // Verify user spent native ETH
-        assertEq(
-            userSource.balance,
-            initialUserNative - INPUT_AMOUNT,
-            "User should spend native ETH"
-        );
-        
+        assertEq(userSource.balance, initialUserNative - INPUT_AMOUNT, "User should spend native ETH");
+
         // Verify converted tokens are locked
         assertEq(
             localAori.getLockedBalances(userSource, address(convertedToken)),
             HOOK_CONVERTED_AMOUNT,
             "Converted tokens should be locked for user"
         );
-        
+
         // Verify order status
-        assertTrue(
-            localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Active,
-            "Order should be Active"
-        );
+        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Active, "Order should be Active");
     }
 
     /**
@@ -262,31 +257,20 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
      */
     function testPhase2_FillWithoutHook() public {
         _depositNativeWithSrcHook();
-        
+
         uint256 initialUserOutput = outputToken.balanceOf(userDest);
         uint256 initialSolverOutput = outputToken.balanceOf(solverDest);
-        
+
         _fillOrderDirectly();
-        
+
         // Verify user received output tokens
-        assertEq(
-            outputToken.balanceOf(userDest),
-            initialUserOutput + OUTPUT_AMOUNT,
-            "User should receive output tokens"
-        );
-        
+        assertEq(outputToken.balanceOf(userDest), initialUserOutput + OUTPUT_AMOUNT, "User should receive output tokens");
+
         // Verify solver spent output tokens
-        assertEq(
-            outputToken.balanceOf(solverDest),
-            initialSolverOutput - OUTPUT_AMOUNT,
-            "Solver should spend output tokens"
-        );
-        
+        assertEq(outputToken.balanceOf(solverDest), initialSolverOutput - OUTPUT_AMOUNT, "Solver should spend output tokens");
+
         // Verify order status
-        assertTrue(
-            remoteAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Filled,
-            "Order should be Filled"
-        );
+        assertTrue(remoteAori.orderStatus(localAori.hash(order)) == OrderStatus.Filled, "Order should be Filled");
     }
 
     /**
@@ -297,21 +281,14 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
         _fillOrderDirectly();
         _settleOrder();
         _simulateLzMessageDelivery();
-        
+
         // Verify order status on source chain
         vm.chainId(localEid);
-        assertTrue(
-            localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Settled,
-            "Order should be Settled"
-        );
-        
+        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
+
         // Verify locked balance is cleared
-        assertEq(
-            localAori.getLockedBalances(userSource, address(convertedToken)),
-            0,
-            "User should have no locked balance after settlement"
-        );
-        
+        assertEq(localAori.getLockedBalances(userSource, address(convertedToken)), 0, "User should have no locked balance after settlement");
+
         // Verify solver has unlocked balance
         assertEq(
             localAori.getUnlockedBalances(solverSource, address(convertedToken)),
@@ -328,27 +305,23 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
         _fillOrderDirectly();
         _settleOrder();
         _simulateLzMessageDelivery();
-        
+
         // Switch to source chain for withdrawal
         vm.chainId(localEid);
-        
+
         uint256 solverBalanceBefore = convertedToken.balanceOf(solverSource);
-        
+
         // Solver withdraws earned tokens
         vm.prank(solverSource);
         localAori.withdraw(address(convertedToken), HOOK_CONVERTED_AMOUNT);
-        
+
         // Verify withdrawal
         assertEq(
-            convertedToken.balanceOf(solverSource),
-            solverBalanceBefore + HOOK_CONVERTED_AMOUNT,
-            "Solver should receive withdrawn tokens"
+            convertedToken.balanceOf(solverSource), solverBalanceBefore + HOOK_CONVERTED_AMOUNT, "Solver should receive withdrawn tokens"
         );
-        
+
         assertEq(
-            localAori.getUnlockedBalances(solverSource, address(convertedToken)),
-            0,
-            "Solver should have no remaining unlocked balance"
+            localAori.getUnlockedBalances(solverSource, address(convertedToken)), 0, "Solver should have no remaining unlocked balance"
         );
     }
 
@@ -357,7 +330,9 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
      */
     function testCrossChainNativeHookToDirectFillSuccess() public {
         console.log("=== CROSS-CHAIN NATIVE + SRCHOOK TO DIRECT FILL TEST ===");
-        console.log("Flow: User deposits 1 ETH + srcHook (converts to 1500 tokens) -> Solver fills 1000 tokens directly -> Settlement -> Solver withdraws");
+        console.log(
+            "Flow: User deposits 1 ETH + srcHook (converts to 1500 tokens) -> Solver fills 1000 tokens directly -> Settlement -> Solver withdraws"
+        );
         console.log("");
 
         // === PHASE 0: INITIAL STATE ===
@@ -365,11 +340,11 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
         uint256 initialUserNative = userSource.balance;
         uint256 initialSolverConvertedTokens = convertedToken.balanceOf(solverSource);
         uint256 initialContractConvertedTokens = convertedToken.balanceOf(address(localAori));
-        
+
         vm.chainId(remoteEid);
         uint256 initialUserOutput = outputToken.balanceOf(userDest);
         uint256 initialSolverOutput = outputToken.balanceOf(solverDest);
-        
+
         console.log("=== PHASE 0: INITIAL STATE ===");
         console.log("Source Chain:");
         console.log("  User native balance:", initialUserNative / 1e18, "ETH");
@@ -382,12 +357,12 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
         // === PHASE 1: DEPOSIT WITH SRCHOOK ===
         console.log("=== PHASE 1: USER DEPOSITS NATIVE ETH WITH SRCHOOK ===");
         _depositNativeWithSrcHook();
-        
+
         vm.chainId(localEid);
         uint256 afterDepositUserNative = userSource.balance;
         uint256 afterDepositLockedTokens = localAori.getLockedBalances(userSource, address(convertedToken));
         uint256 afterDepositContractTokens = convertedToken.balanceOf(address(localAori));
-        
+
         console.log("After Deposit:");
         console.log("  User native balance:", afterDepositUserNative / 1e18, "ETH");
         console.log("    Change:", formatETH(int256(afterDepositUserNative) - int256(initialUserNative)));
@@ -396,55 +371,55 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
         console.log("    Change:", formatTokens(int256(afterDepositContractTokens) - int256(initialContractConvertedTokens)));
         console.log("  Hook conversion: 1 ETH -> 1500 converted tokens");
         console.log("");
-        
+
         // Verify deposit state
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Active, "Order should be Active");
+        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Active, "Order should be Active");
 
         // === PHASE 2: FILL DIRECTLY (NO HOOK) ===
         console.log("=== PHASE 2: SOLVER FILLS DIRECTLY ON DESTINATION (NO HOOK) ===");
         _fillOrderDirectly();
-        
+
         vm.chainId(remoteEid);
         uint256 afterFillUserOutput = outputToken.balanceOf(userDest);
         uint256 afterFillSolverOutput = outputToken.balanceOf(solverDest);
-        
+
         console.log("After Fill:");
         console.log("  User output tokens:", afterFillUserOutput / 1e18, "tokens");
         console.log("    Change:", formatTokens(int256(afterFillUserOutput) - int256(initialUserOutput)));
         console.log("  Solver output tokens:", afterFillSolverOutput / 1e18, "tokens");
         console.log("    Change:", formatTokens(int256(afterFillSolverOutput) - int256(initialSolverOutput)));
         console.log("");
-        
+
         // Verify fill state
-        assertTrue(remoteAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Filled, "Order should be Filled");
+        assertTrue(remoteAori.orderStatus(localAori.hash(order)) == OrderStatus.Filled, "Order should be Filled");
 
         // === PHASE 3: SETTLEMENT ===
         console.log("=== PHASE 3: SETTLEMENT VIA LAYERZERO ===");
         _settleOrder();
         _simulateLzMessageDelivery();
-        
+
         vm.chainId(localEid);
         uint256 afterSettleLockedTokens = localAori.getLockedBalances(userSource, address(convertedToken));
         uint256 afterSettleUnlockedTokens = localAori.getUnlockedBalances(solverSource, address(convertedToken));
-        
+
         console.log("After Settlement:");
         console.log("  User locked tokens:", afterSettleLockedTokens / 1e18, "tokens (should be 0)");
         console.log("  Solver unlocked tokens:", afterSettleUnlockedTokens / 1e18, "tokens");
         console.log("");
-        
+
         // Verify settlement state
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == IAori.OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
 
         // === PHASE 4: WITHDRAWAL ===
         console.log("=== PHASE 4: SOLVER WITHDRAWS EARNED TOKENS ===");
-        
+
         uint256 beforeWithdrawSolverTokens = convertedToken.balanceOf(solverSource);
         vm.prank(solverSource);
         localAori.withdraw(address(convertedToken), HOOK_CONVERTED_AMOUNT);
-        
+
         uint256 afterWithdrawSolverTokens = convertedToken.balanceOf(solverSource);
         uint256 afterWithdrawUnlockedTokens = localAori.getUnlockedBalances(solverSource, address(convertedToken));
-        
+
         console.log("After Withdrawal:");
         console.log("  Solver converted token balance:", afterWithdrawSolverTokens / 1e18, "tokens");
         console.log("    Change:", formatTokens(int256(afterWithdrawSolverTokens) - int256(beforeWithdrawSolverTokens)));
@@ -465,9 +440,13 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
         // Final assertions
         assertEq(userSource.balance, initialUserNative - INPUT_AMOUNT, "User spent 1 ETH");
         assertEq(outputToken.balanceOf(userDest), initialUserOutput + OUTPUT_AMOUNT, "User received 1000 output tokens");
-        assertEq(convertedToken.balanceOf(solverSource), initialSolverConvertedTokens + HOOK_CONVERTED_AMOUNT, "Solver received 1500 converted tokens");
+        assertEq(
+            convertedToken.balanceOf(solverSource),
+            initialSolverConvertedTokens + HOOK_CONVERTED_AMOUNT,
+            "Solver received 1500 converted tokens"
+        );
         assertEq(outputToken.balanceOf(solverDest), initialSolverOutput - OUTPUT_AMOUNT, "Solver spent 1000 output tokens");
-        
+
         console.log("All assertions passed!");
     }
 
@@ -476,23 +455,23 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
      */
     function testRevertInsufficientSrcHookOutput() public {
         _createOrder();
-        
+
         // Create hook that outputs less than minimum
-        IAori.SrcHook memory badHook = IAori.SrcHook({
+        SrcHook memory badHook = SrcHook({
             hookAddress: address(mockHook2),
             preferredToken: address(convertedToken),
-            minPreferedTokenAmountOut: MIN_PREFERRED_OUT,
+            minPreferredTokenAmountOut: MIN_PREFERRED_OUT,
             instructions: abi.encodeWithSelector(
                 MockHook2.handleHook.selector,
                 address(convertedToken),
-                MIN_PREFERRED_OUT - 1  // Less than minimum
+                MIN_PREFERRED_OUT - 1 // Less than minimum
             ),
             solver: solverSource
         });
 
         vm.prank(userSource);
-        vm.expectRevert("Insufficient output from hook");
-        localAori.depositNative{value: INPUT_AMOUNT}(order, badHook);
+        vm.expectRevert(abi.encodeWithSelector(InsufficientSrcHookOutput.selector, MIN_PREFERRED_OUT, MIN_PREFERRED_OUT - 1));
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, badHook);
     }
 }
 

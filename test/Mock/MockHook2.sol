@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -131,7 +131,7 @@ contract MockHook2 {
         require(msg.sender != address(0), "MockHook2: Zero caller");
         
         // For this mock, we assume the caller (Aori contract) has already sent us the input tokens
-        // via the preferedDstInputAmount mechanism, so we don't need to do transferFrom here.
+        // via the preferredDstInputAmount mechanism, so we don't need to do transferFrom here.
         // In a real DEX, this would be different, but for our test setup this is how it works.
         
         // Verify we have the expected input tokens (for ERC20 tokens)

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.33;
 
 /**
  * HookFailuresTest - Tests various hook-related failure conditions in the Aori contract
@@ -13,8 +13,10 @@ pragma solidity 0.8.28;
  * This test file focuses on edge cases involving hook interactions in the Aori protocol,
  * using custom hooks (FailingHook and PartialOutputHook) to simulate error conditions.
  */
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IAori} from "../../contracts/IAori.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IAori } from "../../contracts/interfaces/IAori.sol";
+import "../../contracts/types/AoriErrors.sol";
 import "./TestUtils.sol";
 
 /**
@@ -45,22 +47,22 @@ contract HookFailuresTest is TestUtils {
      */
     function testRevertFillHookFailure() public {
         vm.chainId(remoteEid);
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         vm.warp(order.startTime + 1);
 
         // Create DstSolverData with a failing hook
-        IAori.DstHook memory dstData = IAori.DstHook({
+        DstHook memory dstData = DstHook({
             hookAddress: address(failingHook),
             preferredToken: address(outputToken),
             instructions: abi.encodeWithSelector(FailingHook.alwaysFail.selector),
-            preferedDstInputAmount: order.outputAmount
+            preferredDstInputAmount: order.outputAmount
         });
 
         vm.prank(solver);
         outputToken.approve(address(remoteAori), order.outputAmount);
 
         vm.prank(solver);
-        vm.expectRevert(bytes("Call failed"));
+        vm.expectRevert(HookCallFailed.selector);
         remoteAori.fill(order, dstData);
     }
 
@@ -69,22 +71,22 @@ contract HookFailuresTest is TestUtils {
      */
     function testRevertFillInsufficientOutput() public {
         vm.chainId(remoteEid);
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         vm.warp(order.startTime + 1);
 
         // Create DstSolverData with a hook that only returns half the required output
-        IAori.DstHook memory dstData = IAori.DstHook({
+        DstHook memory dstData = DstHook({
             hookAddress: address(partialOutputHook),
             preferredToken: address(outputToken),
             instructions: abi.encodeWithSelector(PartialOutputHook.partialTransfer.selector, address(outputToken), 1e18), // Only half
-            preferedDstInputAmount: order.outputAmount
+            preferredDstInputAmount: order.outputAmount
         });
 
         vm.prank(solver);
         outputToken.approve(address(remoteAori), order.outputAmount);
 
         vm.prank(solver);
-        vm.expectRevert(bytes("Hook must provide at least the expected output amount"));
+        vm.expectRevert(abi.encodeWithSelector(InsufficientDstHookOutput.selector, order.outputAmount, 1e18));
         remoteAori.fill(order, dstData);
     }
 
@@ -93,14 +95,14 @@ contract HookFailuresTest is TestUtils {
      */
     function testRevertDepositHookInsufficientApproval() public {
         vm.chainId(localEid);
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
         // Create SrcSolverData with a non-failing hook but no approval
-        IAori.SrcHook memory srcData = IAori.SrcHook({
+        SrcHook memory srcData = SrcHook({
             hookAddress: address(failingHook),
             preferredToken: address(outputToken), // Different from input to take the hook path
-            minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount since no conversion
+            minPreferredTokenAmountOut: 1000, // Arbitrary minimum amount since no conversion
             instructions: abi.encodeWithSelector(FailingHook.transfer.selector),
             solver: solver
         });
@@ -118,14 +120,14 @@ contract HookFailuresTest is TestUtils {
      */
     function testRevertDepositNonSolver() public {
         vm.chainId(localEid);
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
         // Create SrcSolverData with a valid hook
-        IAori.SrcHook memory srcData = IAori.SrcHook({
+        SrcHook memory srcData = SrcHook({
             hookAddress: address(failingHook),
             preferredToken: address(outputToken),
-            minPreferedTokenAmountOut: 1000,
+            minPreferredTokenAmountOut: 1000,
             instructions: abi.encodeWithSelector(FailingHook.transfer.selector),
             solver: solver
         });
@@ -136,7 +138,7 @@ contract HookFailuresTest is TestUtils {
 
         // Call directly from userA (not a solver)
         vm.prank(userA);
-        vm.expectRevert("Invalid solver");
+        vm.expectRevert(InvalidSolver.selector);
         localAori.deposit(order, signature, srcData);
     }
 }
@@ -155,7 +157,10 @@ contract FailingHook {
 
 // Mock contract that returns insufficient output tokens
 contract PartialOutputHook {
-    function partialTransfer(address token, uint256 amount) external {
+    function partialTransfer(
+        address token,
+        uint256 amount
+    ) external {
         // Transfer only the specified amount to the caller
         IERC20(token).transfer(msg.sender, amount);
     }
