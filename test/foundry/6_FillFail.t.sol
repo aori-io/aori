@@ -55,9 +55,7 @@ contract FillFailTest is TestUtils {
         uint256 _expectedAmount
     ) internal pure returns (DstHook memory) {
         return
-            DstHook({
-                hookAddress: address(0), preferredToken: _preferredToken, instructions: "", preferredDstInputAmount: _expectedAmount
-            });
+            DstHook({ hookAddress: address(0), preferredToken: _preferredToken, instructions: "", preferredDstInputAmount: _expectedAmount });
     }
 
     /// @notice Test that fill reverts when the order's startTime is after its endTime.

@@ -7,13 +7,7 @@ import "../types/AoriErrors.sol";
 /**
  * @title AoriPeriphery
  * @notice A periphery contract that aggregates fill statistics per endpoint ID
- * @dev Provides view functions to get order counts and input token sums for fillers.
- *
- *      LIMITATIONS:
- *      - getPendingSettle: Returns maximum 100 pending fills per (srcEid, filler). Results are
- *        truncated without indication if more exist.
- *      - getOrdersInputTotals: Tracks maximum 20 unique input tokens. Orders with tokens beyond
- *        the first 20 unique tokens encountered are silently excluded from totals.
+ * @dev Provides view functions to get order counts and input token sums for fillers
  */
 contract AoriPeriphery {
     /// @notice The Aori contract to read from
@@ -27,8 +21,6 @@ contract AoriPeriphery {
 
     /**
      * @notice Get all order hashes for a filler across multiple source endpoints
-     * @dev Returns up to 100 pending fills per srcEid. Results are truncated without indication
-     *      if more exist. Pending fills are removed from storage when settle() is called.
      * @param srcEids Array of source endpoint IDs to query
      * @param filler The filler address
      * @return orderHashesPerEid Array of order hash arrays, one per source endpoint
@@ -40,7 +32,6 @@ contract AoriPeriphery {
         orderHashesPerEid = new bytes32[][](srcEids.length);
 
         for (uint256 j = 0; j < srcEids.length; j++) {
-            // Maximum 100 pending fills per srcEid
             bytes32[] memory temp = new bytes32[](100);
             uint256 count = 0;
 
@@ -61,15 +52,12 @@ contract AoriPeriphery {
 
     /**
      * @notice Get total input amounts grouped by input token for a list of order hashes
-     * @dev Tracks up to 20 unique input tokens. Orders with tokens beyond the first 20 unique
-     *      tokens encountered are silently excluded from totals.
      * @param orderHashes Array of order hashes to query
      * @return inputTokens Array of unique input token addresses
      * @return totalAmounts Array of total input amounts corresponding to each token
      */
     /* forgefmt: disable-next-item */
     function getOrdersInputTotals(bytes32[] calldata orderHashes) external view returns (address[] memory inputTokens, uint256[] memory totalAmounts) {
-        // Maximum 20 unique tokens
         address[] memory tempTokens = new address[](20);
         uint256[] memory tempAmounts = new uint256[](20);
         uint256 uniqueCount = 0;

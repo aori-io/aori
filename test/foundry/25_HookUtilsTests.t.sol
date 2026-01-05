@@ -75,11 +75,7 @@ contract HookUtilsTest is Test {
     function test_isSome_SrcHook_zeroAddress() public view {
         // Arrange
         SrcHook memory hook = SrcHook({
-            hookAddress: ZERO_ADDRESS,
-            preferredToken: address(0),
-            minPreferredTokenAmountOut: 0,
-            instructions: bytes(""),
-            solver: address(0)
+            hookAddress: ZERO_ADDRESS, preferredToken: address(0), minPreferredTokenAmountOut: 0, instructions: bytes(""), solver: address(0)
         });
 
         // Act
@@ -94,11 +90,7 @@ contract HookUtilsTest is Test {
     function test_isSome_SrcHook_nonZeroAddress() public view {
         // Arrange
         SrcHook memory hook = SrcHook({
-            hookAddress: TEST_ADDRESS,
-            preferredToken: address(0),
-            minPreferredTokenAmountOut: 0,
-            instructions: bytes(""),
-            solver: address(0)
+            hookAddress: TEST_ADDRESS, preferredToken: address(0), minPreferredTokenAmountOut: 0, instructions: bytes(""), solver: address(0)
         });
 
         // Act
