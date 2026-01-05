@@ -21,9 +21,8 @@ library ValidationUtils {
      * @dev Checks offerer, recipient, time bounds, amounts, and token addresses
      * @param order The order to validate
      */
-    function validateCommonOrderParams(
-        Order calldata order
-    ) internal view {
+    /* forgefmt: disable-next-item */
+    function validateCommonOrderParams(Order calldata order) internal view {
         if (order.offerer == address(0)) revert InvalidOfferer();
         if (order.recipient == address(0)) revert InvalidRecipient();
         if (order.startTime >= order.endTime) revert InvalidEndTime(order.startTime, order.endTime);
@@ -166,11 +165,8 @@ library ValidationUtils {
      * @param order The order to check
      * @return True if the order is a single-chain swap
      */
-    function isSingleChainSwap(
-        Order calldata order
-    ) internal pure returns (bool) {
-        return order.srcEid == order.dstEid;
-    }
+    /* forgefmt: disable-next-item */
+    function isSingleChainSwap(Order calldata order) internal pure returns (bool) { return order.srcEid == order.dstEid; }
 }
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -189,12 +185,8 @@ library BalanceUtils {
      * @param balance The Balance struct reference
      * @param amount The amount to lock
      */
-    function lock(
-        Balance storage balance,
-        uint128 amount
-    ) internal {
-        balance.locked += amount;
-    }
+    /* forgefmt: disable-next-item */
+    function lock(Balance storage balance, uint128 amount) internal { balance.locked += amount; }
 
     /**
      * @notice Unlocks a specified amount of tokens from locked to unlocked state
@@ -266,9 +258,8 @@ library BalanceUtils {
      * @param balance The Balance struct reference
      * @return amount The amount that was unlocked
      */
-    function unlockAll(
-        Balance storage balance
-    ) internal returns (uint128 amount) {
+    /* forgefmt: disable-next-item */
+    function unlockAll(Balance storage balance) internal returns (uint128 amount) {
         (uint128 locked, uint128 unlocked) = loadBalance(balance);
         amount = locked;
         unlocked += amount;
@@ -282,22 +273,16 @@ library BalanceUtils {
      * @param balance The Balance struct reference
      * @return The unlocked balance amount
      */
-    function getUnlocked(
-        Balance storage balance
-    ) internal view returns (uint128) {
-        return balance.unlocked;
-    }
+    /* forgefmt: disable-next-item */
+    function getUnlocked(Balance storage balance) internal view returns (uint128) { return balance.unlocked; }
 
     /**
      * @notice Gets the locked balance amount
      * @param balance The Balance struct reference
      * @return The locked balance amount
      */
-    function getLocked(
-        Balance storage balance
-    ) internal view returns (uint128) {
-        return balance.locked;
-    }
+    /* forgefmt: disable-next-item */
+    function getLocked(Balance storage balance) internal view returns (uint128) { return balance.locked; }
 
     /**
      * @notice Load balance values using optimized storage operations
@@ -306,9 +291,8 @@ library BalanceUtils {
      * @return locked The locked balance
      * @return unlocked The unlocked balance
      */
-    function loadBalance(
-        Balance storage balance
-    ) internal view returns (uint128 locked, uint128 unlocked) {
+    /* forgefmt: disable-next-item */
+    function loadBalance(Balance storage balance) internal view returns (uint128 locked, uint128 unlocked) {
         assembly {
             let fullSlot := sload(balance.slot)
             unlocked := shr(128, fullSlot)
@@ -556,9 +540,8 @@ library PayloadPackUtils {
      * @param orderHash The hash of the order to cancel
      * @return payload The packed cancellation payload
      */
-    function packCancellation(
-        bytes32 orderHash
-    ) internal pure returns (bytes memory) {
+    /* forgefmt: disable-next-item */
+    function packCancellation(bytes32 orderHash) internal pure returns (bytes memory) {
         uint8 msgType = uint8(PayloadType.Cancellation);
         return abi.encodePacked(msgType, orderHash);
     }
@@ -578,9 +561,8 @@ library PayloadUnpackUtils {
      * @dev Ensures the payload is exactly 33 bytes (1 byte type + 32 bytes order hash)
      * @param payload The payload to validate
      */
-    function validateCancellationLen(
-        bytes calldata payload
-    ) internal pure {
+    /* forgefmt: disable-next-item */
+    function validateCancellationLen(bytes calldata payload) internal pure {
         if (payload.length != 33) revert InvalidPayloadLength(33, payload.length);
     }
 
@@ -590,9 +572,8 @@ library PayloadUnpackUtils {
      * @param payload The cancellation payload to unpack
      * @return orderHash The extracted order hash
      */
-    function unpackCancellation(
-        bytes calldata payload
-    ) internal pure returns (bytes32 orderHash) {
+    /* forgefmt: disable-next-item */
+    function unpackCancellation(bytes calldata payload) internal pure returns (bytes32 orderHash) {
         assembly {
             orderHash := calldataload(add(payload.offset, 1))
         }
@@ -603,9 +584,8 @@ library PayloadUnpackUtils {
      * @dev Ensures the payload is at least 23 bytes (header size)
      * @param payload The payload to validate
      */
-    function validateSettlementLen(
-        bytes calldata payload
-    ) internal pure {
+    /* forgefmt: disable-next-item */
+    function validateSettlementLen(bytes calldata payload) internal pure {
         if (payload.length < 23) revert InvalidPayloadLength(23, payload.length);
     }
 
@@ -629,11 +609,8 @@ library PayloadUnpackUtils {
      * @param payload The payload to check
      * @return The payload type (Settlement or Cancellation)
      */
-    function getType(
-        bytes calldata payload
-    ) internal pure returns (PayloadType) {
-        return PayloadType(uint8(payload[0]));
-    }
+    /* forgefmt: disable-next-item */
+    function getType(bytes calldata payload) internal pure returns (PayloadType) { return PayloadType(uint8(payload[0])); }
 
     /**
      * @notice Unpacks the header from a settlement payload
@@ -682,11 +659,8 @@ library PayloadUnpackUtils {
  * @param fillCount The number of fills in the settlement
  * @return The total payload size in bytes
  */
-function settlementPayloadSize(
-    uint256 fillCount
-) pure returns (uint256) {
-    return 1 + 20 + 2 + (fillCount * 32);
-}
+/* forgefmt: disable-next-item */
+function settlementPayloadSize(uint256 fillCount) pure returns (uint256) { return 1 + 20 + 2 + (fillCount * 32); }
 
 // Constant size of a cancellation payload: 1 byte type + 32 bytes order hash
 uint256 constant CANCELLATION_PAYLOAD_SIZE = 33;
@@ -742,11 +716,8 @@ library NativeTokenUtils {
      * @param token The token address to check
      * @return True if the token is the native token address
      */
-    function isNativeToken(
-        address token
-    ) internal pure returns (bool) {
-        return token == NATIVE_TOKEN;
-    }
+    /* forgefmt: disable-next-item */
+    function isNativeToken(address token) internal pure returns (bool) { return token == NATIVE_TOKEN; }
 
     /**
      * @notice Safely transfers tokens (native or ERC20) to a recipient

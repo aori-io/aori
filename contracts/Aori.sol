@@ -147,9 +147,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         );
     }
 
-    function isSupportedChain(
-        uint32 eid
-    ) public view returns (bool) {
+    /* forgefmt: disable-next-item */
+    function isSupportedChain(uint32 eid) public view returns (bool) {
         return _getAoriStorage().isSupportedChain[eid];
     }
 
@@ -157,21 +156,18 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         return _getAoriStorage().maxFillsPerSettle;
     }
 
-    function orderStatus(
-        bytes32 orderId
-    ) public view returns (OrderStatus) {
+    /* forgefmt: disable-next-item */
+    function orderStatus(bytes32 orderId) public view returns (OrderStatus) {
         return _getAoriStorage().orderStatus[orderId];
     }
 
-    function isAllowedHook(
-        address hook
-    ) public view returns (bool) {
+    /* forgefmt: disable-next-item */
+    function isAllowedHook(address hook) public view returns (bool) {
         return _getAoriStorage().isAllowedHook[hook];
     }
 
-    function isAllowedSolver(
-        address solver
-    ) public view returns (bool) {
+    /* forgefmt: disable-next-item */
+    function isAllowedSolver(address solver) public view returns (bool) {
         return _getAoriStorage().isAllowedSolver[solver];
     }
 
@@ -208,9 +204,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      * @param hook The address of the hook to whitelist
      * @dev Only callable by the contract owner
      */
-    function addAllowedHook(
-        address hook
-    ) external onlyOwner {
+    /* forgefmt: disable-next-item */
+    function addAllowedHook(address hook) external onlyOwner {
         _getAoriStorage().isAllowedHook[hook] = true;
     }
 
@@ -219,9 +214,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      * @param hook The address of the hook to remove
      * @dev Only callable by the contract owner
      */
-    function removeAllowedHook(
-        address hook
-    ) external onlyOwner {
+    /* forgefmt: disable-next-item */
+    function removeAllowedHook(address hook) external onlyOwner {
         _getAoriStorage().isAllowedHook[hook] = false;
     }
 
@@ -230,9 +224,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      * @param solver The address of the solver to whitelist
      * @dev Only callable by the contract owner
      */
-    function addAllowedSolver(
-        address solver
-    ) external onlyOwner {
+    /* forgefmt: disable-next-item */
+    function addAllowedSolver(address solver) external onlyOwner {
         _getAoriStorage().isAllowedSolver[solver] = true;
     }
 
@@ -241,9 +234,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      * @param solver The address of the solver to remove
      * @dev Only callable by the contract owner
      */
-    function removeAllowedSolver(
-        address solver
-    ) external onlyOwner {
+    /* forgefmt: disable-next-item */
+    function removeAllowedSolver(address solver) external onlyOwner {
         _getAoriStorage().isAllowedSolver[solver] = false;
     }
 
@@ -252,9 +244,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      * @param eid The endpoint ID of the chain to add
      * @dev Only callable by the contract owner
      */
-    function addSupportedChain(
-        uint32 eid
-    ) external onlyOwner {
+    /* forgefmt: disable-next-item */
+    function addSupportedChain(uint32 eid) external onlyOwner {
         _getAoriStorage().isSupportedChain[eid] = true;
         emit ChainSupported(eid);
     }
@@ -265,9 +256,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      * @return results Array of booleans indicating which EIDs were successfully added
      * @dev Only callable by the contract owner
      */
-    function addSupportedChains(
-        uint32[] calldata eids
-    ) external onlyOwner returns (bool[] memory results) {
+    /* forgefmt: disable-next-item */
+    function addSupportedChains(uint32[] calldata eids) external onlyOwner returns (bool[] memory results) {
         AoriStorageData storage $ = _getAoriStorage();
         uint256 length = eids.length;
         results = new bool[](length);
@@ -284,9 +274,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      * @param eid The endpoint ID of the chain to remove
      * @dev Only callable by the contract owner
      */
-    function removeSupportedChain(
-        uint32 eid
-    ) external onlyOwner {
+    /* forgefmt: disable-next-item */
+    function removeSupportedChain(uint32 eid) external onlyOwner {
         _getAoriStorage().isSupportedChain[eid] = false;
         emit ChainRemoved(eid);
     }
@@ -296,9 +285,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      * @param _maxFillsPerSettle The new maximum fills per settle value
      * @dev Only callable by the contract owner
      */
-    function setMaxFillsPerSettle(
-        uint16 _maxFillsPerSettle
-    ) external onlyOwner {
+    /* forgefmt: disable-next-item */
+    function setMaxFillsPerSettle(uint16 _maxFillsPerSettle) external onlyOwner {
         if (_maxFillsPerSettle == 0) revert InvalidMaxFillsPerSettle();
         _getAoriStorage().maxFillsPerSettle = _maxFillsPerSettle;
     }
@@ -546,9 +534,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      * @dev User calls this directly and sends their own ETH via msg.value.
      * @param order The order details (must specify NATIVE_TOKEN as inputToken)
      */
-    function depositNative(
-        Order calldata order
-    ) external payable nonReentrant whenNotPaused {
+    /* forgefmt: disable-next-item */
+    function depositNative(Order calldata order) external payable nonReentrant whenNotPaused {
         if (!order.inputToken.isNativeToken()) revert OrderMustSpecifyNativeToken();
         if (msg.value != order.inputAmount) revert IncorrectNativeAmount(order.inputAmount, msg.value);
         if (msg.sender != order.offerer) revert OnlyOffererCanDepositNativeTokens();
@@ -741,9 +728,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      *      For cross-chain orders: marks as filled and queues for later settlement.
      * @param order The order details to fill
      */
-    function fill(
-        Order calldata order
-    ) external payable nonReentrant whenNotPaused onlySolver {
+    /* forgefmt: disable-next-item */
+    function fill(Order calldata order) external payable nonReentrant whenNotPaused onlySolver {
         bytes32 orderId = order.validateFill(ENDPOINT_ID, this.orderStatus);
 
         // Validate payment method matches output token type
@@ -996,9 +982,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      *      2. Order offerers (for their own expired single-chain orders)
      * @param orderId The hash of the order to cancel
      */
-    function cancel(
-        bytes32 orderId
-    ) external nonReentrant whenNotPaused {
+    /* forgefmt: disable-next-item */
+    function cancel(bytes32 orderId) external nonReentrant whenNotPaused {
         Order memory order = _getAoriStorage().orders[orderId];
 
         order.validateSourceChainCancel(orderId, ENDPOINT_ID, this.orderStatus, msg.sender, this.isAllowedSolver);
@@ -1038,9 +1023,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      * @dev Updates order status, decreases locked balance, and transfers tokens back.
      * @param orderId The hash of the order to cancel
      */
-    function _cancel(
-        bytes32 orderId
-    ) internal {
+    /* forgefmt: disable-next-item */
+    function _cancel(bytes32 orderId) internal {
         AoriStorageData storage $ = _getAoriStorage();
         if ($.orderStatus[orderId] != OrderStatus.Active) revert CanOnlyCancelActiveOrders();
 
@@ -1067,9 +1051,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      * @notice Handles cancellation payload from source chain
      * @param payload The cancellation payload containing the order hash
      */
-    function _handleCancellation(
-        bytes calldata payload
-    ) internal {
+    /* forgefmt: disable-next-item */
+    function _handleCancellation(bytes calldata payload) internal {
         payload.validateCancellationLen();
         bytes32 orderId = payload.unpackCancellation();
         _cancel(orderId);
@@ -1190,9 +1173,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      * @param order The order details
      * @return The computed digest
      */
-    function _hashOrder712(
-        Order calldata order
-    ) internal view returns (bytes32) {
+    /* forgefmt: disable-next-item */
+    function _hashOrder712(Order calldata order) internal view returns (bytes32) {
         return _hashTypedDataSansChainId(
             keccak256(
                 abi.encode(
@@ -1217,11 +1199,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      * @param order The order to hash
      * @return The computed hash
      */
-    function hash(
-        Order calldata order
-    ) public pure returns (bytes32) {
-        return keccak256(abi.encode(order));
-    }
+    /* forgefmt: disable-next-item */
+    function hash(Order calldata order) public pure returns (bytes32) { return keccak256(abi.encode(order)); }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                       VIEW FUNCTIONS                       */
@@ -1291,7 +1270,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      * @dev Only callable by the contract owner
      * @param newImplementation The address of the new implementation
      */
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal override onlyOwner { }
+    /* forgefmt: disable-next-item */
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner { }
 }

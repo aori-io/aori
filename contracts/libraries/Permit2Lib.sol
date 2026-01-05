@@ -47,9 +47,8 @@ library Permit2Lib {
      * @param order The order to hash
      * @return The keccak256 hash of the order following EIP-712 struct hashing
      */
-    function hashOrder(
-        Order calldata order
-    ) internal pure returns (bytes32) {
+    /* forgefmt: disable-next-item */
+    function hashOrder(Order calldata order) internal pure returns (bytes32) {
         return keccak256(
             abi.encode(
                 ORDER_TYPEHASH,

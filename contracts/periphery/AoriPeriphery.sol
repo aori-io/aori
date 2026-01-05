@@ -13,9 +13,8 @@ contract AoriPeriphery {
     /// @notice The Aori contract to read from
     IAori public immutable aori;
 
-    constructor(
-        address _aori
-    ) {
+    /* forgefmt: disable-next-item */
+    constructor(address _aori) {
         if (_aori == address(0)) revert InvalidAoriAddress();
         aori = IAori(_aori);
     }
@@ -57,9 +56,8 @@ contract AoriPeriphery {
      * @return inputTokens Array of unique input token addresses
      * @return totalAmounts Array of total input amounts corresponding to each token
      */
-    function getOrdersInputTotals(
-        bytes32[] calldata orderHashes
-    ) external view returns (address[] memory inputTokens, uint256[] memory totalAmounts) {
+    /* forgefmt: disable-next-item */
+    function getOrdersInputTotals(bytes32[] calldata orderHashes) external view returns (address[] memory inputTokens, uint256[] memory totalAmounts) {
         address[] memory tempTokens = new address[](20);
         uint256[] memory tempAmounts = new uint256[](20);
         uint256 uniqueCount = 0;

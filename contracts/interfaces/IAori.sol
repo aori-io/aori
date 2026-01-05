@@ -64,9 +64,8 @@ interface IAori {
         SrcHook calldata data
     ) external;
 
-    function depositNative(
-        Order calldata order
-    ) external payable;
+    /* forgefmt: disable-next-item */
+    function depositNative(Order calldata order) external payable;
 
     function depositNative(
         Order calldata order,
@@ -115,9 +114,8 @@ interface IAori {
         uint256 amount
     ) external;
 
-    function cancel(
-        bytes32 orderId
-    ) external;
+    /* forgefmt: disable-next-item */
+    function cancel(bytes32 orderId) external;
 
     event settlementFailed(bytes32 indexed orderId, uint32 expectedEid, uint32 submittedEid, string reason);
 
@@ -125,9 +123,8 @@ interface IAori {
     /*                        DST FUNCTIONS                       */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    function fill(
-        Order calldata order
-    ) external payable;
+    /* forgefmt: disable-next-item */
+    function fill(Order calldata order) external payable;
 
     function fill(
         Order calldata order,
@@ -150,9 +147,8 @@ interface IAori {
     /*                        UTILITY FUNCTIONS                   */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    function hash(
-        Order calldata order
-    ) external pure returns (bytes32);
+    /* forgefmt: disable-next-item */
+    function hash(Order calldata order) external pure returns (bytes32);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                       VIEW FUNCTIONS                       */
@@ -164,9 +160,8 @@ interface IAori {
         uint256 index
     ) external view returns (bytes32);
 
-    function orders(
-        bytes32 orderId
-    ) external view returns (uint128, uint128, address, address, uint32, uint32, uint32, uint32, address, address);
+    /* forgefmt: disable-next-item */
+    function orders(bytes32 orderId) external view returns (uint128, uint128, address, address, uint32, uint32, uint32, uint32, address, address);
 
     function getLockedBalances(
         address offerer,
