@@ -15,7 +15,18 @@
     "test": "forge test",
     "test:forge": "forge test",
     "hardhat:deploy": "npx hardhat lz:deploy",
-    "hardhat:wire": "npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts"
+    "hardhat:wire": "npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts",
+    "deploy:testnet": "./deploy/deploy.sh testnet --broadcast",
+    "deploy:testnet:dry": "./deploy/deploy.sh testnet",
+    "deploy:testnet:peers": "./deploy/deploy.sh testnet --configure-peers",
+    "deploy:testnet:full": "./deploy/deploy.sh testnet --full",
+    "deploy:mainnet": "./deploy/deploy.sh mainnet --broadcast",
+    "deploy:mainnet:dry": "./deploy/deploy.sh mainnet",
+    "deploy:mainnet:peers": "./deploy/deploy.sh mainnet --configure-peers",
+    "deploy:mainnet:full": "./deploy/deploy.sh mainnet --full",
+    "upgrade:testnet": "./deploy/deploy.sh testnet --upgrade",
+    "upgrade:mainnet": "./deploy/deploy.sh mainnet --upgrade",
+    "verify": "forge script script/DeployMultichain.s.sol:VerifyDeployments"
   },
   "resolutions": {
     "ethers": "^5.7.2",
