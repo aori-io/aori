@@ -85,7 +85,7 @@ abstract contract BaseScript is Script {
             name: "monad",
             chainId: 143,
             eid: 30390,
-            endpoint: LZ_ENDPOINT_2_MAINNET, // TODO: Verify endpoint address
+            endpoint: LZ_ENDPOINT_2_MAINNET,
             rpcEnvVar: "MONAD_RPC_URL",
             isTestnet: false
         });
@@ -94,7 +94,7 @@ abstract contract BaseScript is Script {
             name: "stable",
             chainId: 988,
             eid: 30396,
-            endpoint: LZ_ENDPOINT_2_MAINNET, // TODO: Verify endpoint address
+            endpoint: LZ_ENDPOINT_2_MAINNET,
             rpcEnvVar: "STABLE_RPC_URL",
             isTestnet: false
         });
