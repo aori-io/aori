@@ -78,12 +78,7 @@ abstract contract BaseScript is Script {
         });
 
         chains[5] = ChainConfig({
-            name: "plasma",
-            chainId: 9745,
-            eid: 30383,
-            endpoint: LZ_ENDPOINT_2_MAINNET,
-            rpcEnvVar: "PLASMA_RPC_URL",
-            isTestnet: false
+            name: "plasma", chainId: 9745, eid: 30383, endpoint: LZ_ENDPOINT_2_MAINNET, rpcEnvVar: "PLASMA_RPC_URL", isTestnet: false
         });
 
         chains[6] = ChainConfig({

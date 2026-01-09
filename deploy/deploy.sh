@@ -88,6 +88,24 @@ log_always() {
     echo -e "$@"
 }
 
+# Helper to extract chain name from RPC var (e.g., "ETHEREUM_RPC_URL" -> "ETHEREUM")
+get_chain_name() {
+    local rpc_var=$1
+    local name="${rpc_var%_RPC_URL}"
+    echo "${name%_URL}"
+}
+
+# Helper to get address entry for a chain from DEPLOYED_ADDRESSES array
+get_chain_addresses() {
+    local target_chain=$1
+    for entry in "${DEPLOYED_ADDRESSES[@]}"; do
+        if [ "${entry%%|*}" == "$target_chain" ]; then
+            echo "$entry"
+            return
+        fi
+    done
+}
+
 # Define chain RPC environment variables
 TESTNET_RPCS=(
     "SEPOLIA_RPC_URL"
@@ -162,6 +180,12 @@ if [ "$MODE" != "dry-run" ]; then
     sleep 5
 fi
 
+# Set forge quiet flag once (used by all functions)
+FORGE_QUIET=""
+if [ -n "$QUIET" ]; then
+    FORGE_QUIET="--quiet"
+fi
+
 # Track results
 DEPLOY_SUCCESS=()
 DEPLOY_FAILED=()
@@ -178,22 +202,16 @@ DEPLOYED_ADDRESSES=()
 deploy_chain() {
     local rpc_var=$1
     local rpc_url="${!rpc_var}"
-    local chain_name="${rpc_var%_RPC_URL}"
-    chain_name="${chain_name%_URL}"
+    local chain_name=$(get_chain_name "$rpc_var")
 
     log "${GREEN}=== Deploying to $chain_name ===${NC}"
     log "RPC: $rpc_var"
-
-    local forge_quiet=""
-    if [ -n "$QUIET" ]; then
-        forge_quiet="--quiet"
-    fi
 
     # Capture output to parse addresses
     local output
     output=$(forge script script/DeployMultichain.s.sol:DeployMultichain \
         --rpc-url "$rpc_url" \
-        $BROADCAST $VERIFY $forge_quiet 2>&1)
+        $BROADCAST $VERIFY $FORGE_QUIET 2>&1)
     local exit_code=$?
 
     if [ $exit_code -eq 0 ]; then
@@ -227,20 +245,14 @@ deploy_chain() {
 configure_peers_chain() {
     local rpc_var=$1
     local rpc_url="${!rpc_var}"
-    local chain_name="${rpc_var%_RPC_URL}"
-    chain_name="${chain_name%_URL}"
+    local chain_name=$(get_chain_name "$rpc_var")
 
     log "${BLUE}=== Configuring peers on $chain_name ===${NC}"
     log "RPC: $rpc_var"
 
-    local forge_quiet=""
-    if [ -n "$QUIET" ]; then
-        forge_quiet="--quiet"
-    fi
-
     if forge script script/ConfigurePeers.s.sol:ConfigurePeers \
         --rpc-url "$rpc_url" \
-        --broadcast $forge_quiet; then
+        --broadcast $FORGE_QUIET; then
         PEERS_SUCCESS+=("$chain_name")
         log "${GREEN}Peers configured: $chain_name${NC}"
         return 0
@@ -255,20 +267,14 @@ configure_peers_chain() {
 upgrade_chain() {
     local rpc_var=$1
     local rpc_url="${!rpc_var}"
-    local chain_name="${rpc_var%_RPC_URL}"
-    chain_name="${chain_name%_URL}"
+    local chain_name=$(get_chain_name "$rpc_var")
 
     log "${YELLOW}=== Upgrading on $chain_name ===${NC}"
     log "RPC: $rpc_var"
 
-    local forge_quiet=""
-    if [ -n "$QUIET" ]; then
-        forge_quiet="--quiet"
-    fi
-
     if forge script script/UpgradeAori.s.sol:UpgradeMultichain \
         --rpc-url "$rpc_url" \
-        $BROADCAST $VERIFY $forge_quiet; then
+        $BROADCAST $VERIFY $FORGE_QUIET; then
         UPGRADE_SUCCESS+=("$chain_name")
         log "${GREEN}Upgrade success: $chain_name${NC}"
         return 0
@@ -295,22 +301,16 @@ if [ "$MODE" == "configure-peers" ] || [ "$MODE" == "full" ]; then
     log "${BLUE}=== Phase 2: Configure Peers ===${NC}"
     log ""
 
-    # For --full mode, compute the deterministic proxy address if not set
+    # For --full mode, use the proxy address from phase 1 deployment
     if [ "$MODE" == "full" ] && [ -z "$AORI_PROXY_ADDRESS" ]; then
-        log "Computing deterministic proxy address..."
-        # Use first available RPC to compute address
-        first_rpc="${RPCS[0]}"
-        first_rpc_url="${!first_rpc}"
-
-        # Run forge script to get the expected proxy address
-        PROXY_ADDR=$(forge script script/DeployMultichain.s.sol:PrintDeploymentInfo \
-            --rpc-url "$first_rpc_url" 2>/dev/null | grep "Proxy:" | awk '{print $2}')
-
-        if [ -n "$PROXY_ADDR" ]; then
+        if [ ${#DEPLOYED_ADDRESSES[@]} -gt 0 ]; then
+            # Use the proxy address from first successful deployment
+            first_entry="${DEPLOYED_ADDRESSES[0]}"
+            PROXY_ADDR=$(echo "$first_entry" | cut -d'|' -f2)
             export AORI_PROXY_ADDRESS="$PROXY_ADDR"
-            log "Computed proxy address: $AORI_PROXY_ADDRESS"
+            log "Using proxy address from deployment: $AORI_PROXY_ADDRESS"
         else
-            log_always "${RED}Error: Could not compute proxy address${NC}"
+            log_always "${RED}Error: No deployments completed, cannot configure peers${NC}"
             exit 1
         fi
         log ""
@@ -342,18 +342,6 @@ if [ -n "$BROADCAST" ]; then
     echo "Artifacts: broadcast/"
 fi
 echo ""
-
-# Helper function to get address for a chain from DEPLOYED_ADDRESSES array
-get_chain_addresses() {
-    local target_chain=$1
-    for entry in "${DEPLOYED_ADDRESSES[@]}"; do
-        local chain=$(echo "$entry" | cut -d'|' -f1)
-        if [ "$chain" == "$target_chain" ]; then
-            echo "$entry"
-            return
-        fi
-    done
-}
 
 if [ ${#DEPLOY_SUCCESS[@]} -ne 0 ]; then
     echo -e "${GREEN}Deployments successful (${#DEPLOY_SUCCESS[@]}):${NC}"
@@ -441,8 +429,16 @@ fi
 if [ "$MODE" == "deploy" ]; then
     echo -e "${YELLOW}IMPORTANT: Peers must be configured for cross-chain messaging!${NC}"
     echo ""
-    echo "Set AORI_PROXY_ADDRESS to the deployed proxy address, then run:"
-    echo "  AORI_PROXY_ADDRESS=0x... ./deploy/deploy.sh $NETWORK --configure-peers"
+    # Get proxy address from deployment if available
+    if [ ${#DEPLOYED_ADDRESSES[@]} -gt 0 ]; then
+        first_entry="${DEPLOYED_ADDRESSES[0]}"
+        proxy_addr=$(echo "$first_entry" | cut -d'|' -f2)
+        echo "Run:"
+        echo "  AORI_PROXY_ADDRESS=$proxy_addr ./deploy/deploy.sh $NETWORK --configure-peers"
+    else
+        echo "Set AORI_PROXY_ADDRESS to the deployed proxy address, then run:"
+        echo "  AORI_PROXY_ADDRESS=0x... ./deploy/deploy.sh $NETWORK --configure-peers"
+    fi
     echo ""
     echo "Or run full deployment next time:"
     echo "  ./deploy/deploy.sh $NETWORK --full"
