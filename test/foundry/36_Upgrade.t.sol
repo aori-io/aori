@@ -266,7 +266,7 @@ contract UpgradeTests is TestHelperOz5 {
         // When accessed through proxy, it reads from the implementation being delegated to
         assertEq(aori.ENDPOINT_ID(), LOCAL_EID, "ENDPOINT_ID should be LOCAL_EID");
 
-        // Directly check implementation - should have the same value
+        // Directly check implementation
         assertEq(implementation.ENDPOINT_ID(), LOCAL_EID, "Implementation ENDPOINT_ID should be LOCAL_EID");
     }
 
