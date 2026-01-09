@@ -30,8 +30,11 @@ abstract contract BaseScript is Script {
     /// @dev Deployed at same address on 48+ chains: https://github.com/aori-io/create3-factory
     address constant CREATE3_FACTORY = 0x2Dfcc7415D89af828cbef005F0d072D8b3F23183;
 
-    /// @notice LayerZero EndpointV2 address on mainnets
+    /// @notice LayerZero EndpointV2 address on mostmainnets
     address constant LZ_ENDPOINT_MAINNET = 0x1a44076050125825900e736c501f859c50fE728c;
+
+    /// @notice LayerZero EndpointV2 address on other mainnets
+    address constant LZ_ENDPOINT_2_MAINNET = 0x6F475642a6e85809B1c36Fa62763669b1b48DD5B;
 
     /// @notice LayerZero EndpointV2 address on testnets
     address constant LZ_ENDPOINT_TESTNET = 0x6EDCE65403992e310A62460808c4b910D972f10f;
@@ -78,7 +81,7 @@ abstract contract BaseScript is Script {
             name: "plasma",
             chainId: 9745,
             eid: 30383,
-            endpoint: LZ_ENDPOINT_MAINNET, // TODO: Verify endpoint address
+            endpoint: LZ_ENDPOINT_2_MAINNET,
             rpcEnvVar: "PLASMA_RPC_URL",
             isTestnet: false
         });
@@ -87,7 +90,7 @@ abstract contract BaseScript is Script {
             name: "monad",
             chainId: 143,
             eid: 30390,
-            endpoint: LZ_ENDPOINT_MAINNET, // TODO: Verify endpoint address
+            endpoint: LZ_ENDPOINT_2_MAINNET, // TODO: Verify endpoint address
             rpcEnvVar: "MONAD_RPC_URL",
             isTestnet: false
         });
@@ -96,7 +99,7 @@ abstract contract BaseScript is Script {
             name: "stable",
             chainId: 988,
             eid: 30396,
-            endpoint: LZ_ENDPOINT_MAINNET, // TODO: Verify endpoint address
+            endpoint: LZ_ENDPOINT_2_MAINNET, // TODO: Verify endpoint address
             rpcEnvVar: "STABLE_RPC_URL",
             isTestnet: false
         });

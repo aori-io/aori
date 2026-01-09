@@ -1,6 +1,13 @@
 #!/bin/bash
 set -e
 
+# Load .env file if it exists
+if [ -f .env ]; then
+    set -a
+    source .env
+    set +a
+fi
+
 # Aori Multichain Deployment Script
 # Usage:
 #   ./deploy/deploy.sh testnet                    # Dry run deploy on all testnets
@@ -19,41 +26,6 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Deployment artifacts file
-ARTIFACTS_DIR="./deploy/artifacts"
-ARTIFACTS_FILE="$ARTIFACTS_DIR/deployment-$(date +%Y%m%d-%H%M%S).json"
-
-# Initialize artifacts JSON
-init_artifacts() {
-    mkdir -p "$ARTIFACTS_DIR"
-    cat > "$ARTIFACTS_FILE" << EOF
-{
-  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "network": "$NETWORK",
-  "deploySalt": "${DEPLOY_SALT:-aori-v1}",
-  "deployments": {}
-}
-EOF
-    log "${BLUE}Artifacts will be saved to: $ARTIFACTS_FILE${NC}"
-}
-
-# Add deployment to artifacts JSON
-# Usage: add_deployment_artifact <chain_name> <proxy_address> <impl_address>
-add_deployment_artifact() {
-    local chain_name=$1
-    local proxy_address=$2
-    local impl_address=$3
-
-    # Use jq if available, otherwise use sed
-    if command -v jq &> /dev/null; then
-        local tmp_file=$(mktemp)
-        jq --arg chain "$chain_name" \
-           --arg proxy "$proxy_address" \
-           --arg impl "$impl_address" \
-           '.deployments[$chain] = {"proxy": $proxy, "implementation": $impl, "timestamp": (now | todate)}' \
-           "$ARTIFACTS_FILE" > "$tmp_file" && mv "$tmp_file" "$ARTIFACTS_FILE"
-    fi
-}
 
 # Check arguments
 if [ -z "$1" ]; then
@@ -165,6 +137,7 @@ if [ -z "$OWNER_ADDRESS" ]; then
     missing_vars+=("OWNER_ADDRESS")
 fi
 
+# AORI_PROXY_ADDRESS required for configure-peers and upgrade (but not for --full, we compute it)
 if ([ "$MODE" == "configure-peers" ] || [ "$MODE" == "upgrade" ]) && [ -z "$AORI_PROXY_ADDRESS" ]; then
     missing_vars+=("AORI_PROXY_ADDRESS")
 fi
@@ -190,12 +163,16 @@ if [ "$MODE" != "dry-run" ]; then
 fi
 
 # Track results
-declare -a DEPLOY_SUCCESS
-declare -a DEPLOY_FAILED
-declare -a PEERS_SUCCESS
-declare -a PEERS_FAILED
-declare -a UPGRADE_SUCCESS
-declare -a UPGRADE_FAILED
+DEPLOY_SUCCESS=()
+DEPLOY_FAILED=()
+DEPLOY_SKIPPED=()
+PEERS_SUCCESS=()
+PEERS_FAILED=()
+UPGRADE_SUCCESS=()
+UPGRADE_FAILED=()
+
+# Store deployed addresses (chain|proxy|impl format)
+DEPLOYED_ADDRESSES=()
 
 # Function to deploy to a chain
 deploy_chain() {
@@ -212,15 +189,36 @@ deploy_chain() {
         forge_quiet="--quiet"
     fi
 
-    if forge script script/DeployMultichain.s.sol:DeployMultichain \
+    # Capture output to parse addresses
+    local output
+    output=$(forge script script/DeployMultichain.s.sol:DeployMultichain \
         --rpc-url "$rpc_url" \
-        $BROADCAST $VERIFY $forge_quiet; then
-        DEPLOY_SUCCESS+=("$chain_name")
-        log "${GREEN}Deploy success: $chain_name${NC}"
+        $BROADCAST $VERIFY $forge_quiet 2>&1)
+    local exit_code=$?
+
+    if [ $exit_code -eq 0 ]; then
+        # Check if skipped
+        if echo "$output" | grep -q "SKIPPING: Already Deployed"; then
+            DEPLOY_SKIPPED+=("$chain_name")
+            # Parse the existing proxy address
+            local proxy_addr=$(echo "$output" | grep -E "Proxy already exists at:" | awk '{print $NF}')
+            DEPLOYED_ADDRESSES+=("$chain_name|$proxy_addr|skipped")
+            log "${YELLOW}Skipped (already deployed): $chain_name${NC}"
+        else
+            DEPLOY_SUCCESS+=("$chain_name")
+            # Parse addresses from output
+            local proxy_addr=$(echo "$output" | grep -E "Proxy \(Aori\):|Proxy.*deployed.*at:" | tail -1 | awk '{print $NF}')
+            local impl_addr=$(echo "$output" | grep -E "Implementation:" | tail -1 | awk '{print $NF}')
+            DEPLOYED_ADDRESSES+=("$chain_name|$proxy_addr|$impl_addr")
+            log "${GREEN}Deploy success: $chain_name${NC}"
+        fi
         return 0
     else
         DEPLOY_FAILED+=("$chain_name")
         log_always "${RED}Deploy failed: $chain_name${NC}"
+        if [ -z "$QUIET" ]; then
+            echo "$output" | tail -20
+        fi
         return 1
     fi
 }
@@ -286,11 +284,6 @@ if [ "$MODE" == "dry-run" ] || [ "$MODE" == "deploy" ] || [ "$MODE" == "full" ];
     log "${GREEN}=== Phase 1: Deployment ===${NC}"
     log ""
 
-    # Initialize artifacts file for broadcast mode
-    if [ -n "$BROADCAST" ]; then
-        init_artifacts
-        log ""
-    fi
 
     for rpc_var in "${RPCS[@]}"; do
         deploy_chain "$rpc_var"
@@ -301,6 +294,27 @@ fi
 if [ "$MODE" == "configure-peers" ] || [ "$MODE" == "full" ]; then
     log "${BLUE}=== Phase 2: Configure Peers ===${NC}"
     log ""
+
+    # For --full mode, compute the deterministic proxy address if not set
+    if [ "$MODE" == "full" ] && [ -z "$AORI_PROXY_ADDRESS" ]; then
+        log "Computing deterministic proxy address..."
+        # Use first available RPC to compute address
+        first_rpc="${RPCS[0]}"
+        first_rpc_url="${!first_rpc}"
+
+        # Run forge script to get the expected proxy address
+        PROXY_ADDR=$(forge script script/DeployMultichain.s.sol:PrintDeploymentInfo \
+            --rpc-url "$first_rpc_url" 2>/dev/null | grep "Proxy:" | awk '{print $2}')
+
+        if [ -n "$PROXY_ADDR" ]; then
+            export AORI_PROXY_ADDRESS="$PROXY_ADDR"
+            log "Computed proxy address: $AORI_PROXY_ADDRESS"
+        else
+            log_always "${RED}Error: Could not compute proxy address${NC}"
+            exit 1
+        fi
+        log ""
+    fi
 
     for rpc_var in "${RPCS[@]}"; do
         configure_peers_chain "$rpc_var"
@@ -324,15 +338,53 @@ echo -e "${GREEN}=== Deployment Summary ===${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo "Network: $NETWORK"
 echo "Mode: $MODE"
-if [ -n "$BROADCAST" ] && [ -f "$ARTIFACTS_FILE" ]; then
-    echo "Artifacts: $ARTIFACTS_FILE"
+if [ -n "$BROADCAST" ]; then
+    echo "Artifacts: broadcast/"
 fi
 echo ""
+
+# Helper function to get address for a chain from DEPLOYED_ADDRESSES array
+get_chain_addresses() {
+    local target_chain=$1
+    for entry in "${DEPLOYED_ADDRESSES[@]}"; do
+        local chain=$(echo "$entry" | cut -d'|' -f1)
+        if [ "$chain" == "$target_chain" ]; then
+            echo "$entry"
+            return
+        fi
+    done
+}
 
 if [ ${#DEPLOY_SUCCESS[@]} -ne 0 ]; then
     echo -e "${GREEN}Deployments successful (${#DEPLOY_SUCCESS[@]}):${NC}"
     for chain in "${DEPLOY_SUCCESS[@]}"; do
         echo "  ✓ $chain"
+        entry=$(get_chain_addresses "$chain")
+        if [ -n "$entry" ]; then
+            proxy_addr=$(echo "$entry" | cut -d'|' -f2)
+            impl_addr=$(echo "$entry" | cut -d'|' -f3)
+            if [ -n "$proxy_addr" ]; then
+                echo "    Proxy:          $proxy_addr"
+            fi
+            if [ -n "$impl_addr" ] && [ "$impl_addr" != "skipped" ]; then
+                echo "    Implementation: $impl_addr"
+            fi
+        fi
+    done
+    echo ""
+fi
+
+if [ ${#DEPLOY_SKIPPED[@]} -ne 0 ]; then
+    echo -e "${YELLOW}Deployments skipped (${#DEPLOY_SKIPPED[@]}):${NC}"
+    for chain in "${DEPLOY_SKIPPED[@]}"; do
+        echo "  ⊘ $chain (already deployed)"
+        entry=$(get_chain_addresses "$chain")
+        if [ -n "$entry" ]; then
+            proxy_addr=$(echo "$entry" | cut -d'|' -f2)
+            if [ -n "$proxy_addr" ]; then
+                echo "    Proxy: $proxy_addr"
+            fi
+        fi
     done
     echo ""
 fi

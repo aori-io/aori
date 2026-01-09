@@ -33,7 +33,14 @@ AORI_PROXY_ADDRESS=0x... ./deploy/deploy.sh testnet --configure-peers
 
 # Full deployment: deploy + configure peers
 ./deploy/deploy.sh testnet --full
+
+# Quiet mode (suppress verbose output)
+./deploy/deploy.sh testnet --broadcast --quiet
 ```
+
+**Features:**
+- **Skip-if-deployed**: Re-running on a chain where Aori is already deployed will skip that chain automatically
+- **Artifacts**: Foundry saves transaction logs to `broadcast/` folder automatically
 
 Or use npm scripts:
 
@@ -80,20 +87,9 @@ forge build
 Create a `.env` file (never commit this):
 
 ```bash
-# Deployer key (used for deployment transactions)
+# Required
 PRIVATE_KEY=0x...
-
-# Contract owner (should be multisig for mainnet)
 OWNER_ADDRESS=0x...
-
-# Deployment configuration
-DEPLOY_SALT=aori-v1              # Same salt = same address on all chains
-MAX_FILLS_PER_SETTLE=100         # Max orders per settlement batch
-
-# Optional: Initial configuration
-INITIAL_SOLVERS=0x...,0x...      # Comma-separated solver addresses
-INITIAL_HOOKS=0x...,0x...        # Comma-separated hook addresses
-SUPPORTED_EIDS=30101,30184       # Comma-separated chain EIDs
 
 # Testnet RPC URLs
 SEPOLIA_RPC_URL=https://...
@@ -110,7 +106,20 @@ BSC_RPC_URL=https://...
 PLASMA_RPC_URL=https://...
 MONAD_RPC_URL=https://...
 STABLE_RPC_URL=https://...
+
+# Block Explorer API Keys (for --verify)
+ETHERSCAN_API_KEY=...
+BASESCAN_API_KEY=...
+ARBISCAN_API_KEY=...
+OPTIMISM_ETHERSCAN_API_KEY=...
+BSCSCAN_API_KEY=...
 ```
+
+**Optional env vars with defaults:**
+- `DEPLOY_SALT` - CREATE3 salt (default: `aori-v1`)
+- `MAX_FILLS_PER_SETTLE` - Max orders per batch (default: `200`)
+- `INITIAL_SOLVERS` - Comma-separated solver addresses
+- `INITIAL_HOOKS` - Comma-separated hook addresses
 
 Load environment:
 
@@ -238,10 +247,7 @@ forge script script/ConfigurePeers.s.sol:ConfigurePeers \
 ### Deploy to Mainnets
 
 ```bash
-# Set MAINNET flag
-export MAINNET=true
-
-# Deploy to Ethereum
+# Deploy to Ethereum (MAINNET=true is set automatically by deploy.sh mainnet)
 forge script script/DeployMultichain.s.sol:DeployMultichain \
   --rpc-url $ETHEREUM_RPC_URL \
   --broadcast --verify
@@ -273,13 +279,13 @@ forge script script/DeployMultichain.s.sol:DeployMultichain \
 
 ```bash
 export AORI_PROXY_ADDRESS=0x...
-export MAINNET=true
 
 forge script script/ConfigurePeers.s.sol:ConfigurePeers \
   --rpc-url $ETHEREUM_RPC_URL \
   --broadcast
 
 # Repeat for all mainnet chains...
+# Or use: ./deploy/deploy.sh mainnet --configure-peers
 ```
 
 ---
