@@ -155,6 +155,10 @@ if [ -z "$OWNER_ADDRESS" ]; then
     missing_vars+=("OWNER_ADDRESS")
 fi
 
+if [ -z "$DEPLOY_SALT" ]; then
+    missing_vars+=("DEPLOY_SALT")
+fi
+
 # AORI_PROXY_ADDRESS required for configure-peers and upgrade (but not for --full, we compute it)
 if ([ "$MODE" == "configure-peers" ] || [ "$MODE" == "upgrade" ]) && [ -z "$AORI_PROXY_ADDRESS" ]; then
     missing_vars+=("AORI_PROXY_ADDRESS")

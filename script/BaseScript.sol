@@ -176,7 +176,7 @@ abstract contract BaseScript is Script {
     function _loadDeployConfig() internal view returns (address owner, uint16 maxFillsPerSettle, bytes32 implSalt, bytes32 proxySalt) {
         owner = vm.envAddress("OWNER_ADDRESS");
         maxFillsPerSettle = uint16(vm.envOr("MAX_FILLS_PER_SETTLE", uint256(200)));
-        string memory saltStr = vm.envOr("DEPLOY_SALT", string("aori-v1"));
+        string memory saltStr = vm.envString("DEPLOY_SALT");
 
         // Two salts: one for implementation, one for proxy (both via CREATE3)
         implSalt = keccak256(abi.encodePacked(saltStr, "-impl"));

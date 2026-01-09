@@ -17,7 +17,7 @@ import "./BaseScript.sol";
  *   - PRIVATE_KEY: Deployer private key
  *   - OWNER_ADDRESS: Contract owner (multisig recommended)
  *   - MAX_FILLS_PER_SETTLE: Max orders per settlement (default: 100)
- *   - DEPLOY_SALT: Salt for CREATE3 deployment (default: "aori-v1")
+ *   - DEPLOY_SALT: Salt for CREATE3 deployment (required)
  *   - INITIAL_SOLVERS: Comma-separated solver addresses (optional)
  *   - INITIAL_HOOKS: Comma-separated hook addresses (optional)
  *   - SUPPORTED_EIDS: Comma-separated supported chain EIDs (optional)
