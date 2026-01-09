@@ -462,9 +462,11 @@ library HookUtils {
 /**
  * @notice Enum for different LayerZero message payload types
  */
+// TODO: Remove Ping payload type before production deployment
 enum PayloadType {
     Settlement, // Settlement message with multiple order fills (0)
-    Cancellation // Cancellation message for a single order (1)
+    Cancellation, // Cancellation message for a single order (1)
+    Ping // Health check message (2)
 }
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -544,6 +546,18 @@ library PayloadPackUtils {
     function packCancellation(bytes32 orderHash) internal pure returns (bytes memory) {
         uint8 msgType = uint8(PayloadType.Cancellation);
         return abi.encodePacked(msgType, orderHash);
+    }
+
+    // TODO: Remove packPing before production deployment
+    /**
+     * @notice Packs a ping payload for LayerZero health check
+     * @dev Creates a minimal payload for cross-chain connectivity verification
+     * @return payload The packed ping payload (1 byte)
+     */
+    /* forgefmt: disable-next-item */
+    function packPing() internal pure returns (bytes memory) {
+        uint8 msgType = uint8(PayloadType.Ping);
+        return abi.encodePacked(msgType);
     }
 }
 
@@ -647,6 +661,17 @@ library PayloadUnpackUtils {
             orderHash := calldataload(add(add(payload.offset, 23), mul(index, 32)))
         }
     }
+
+    // TODO: Remove validatePingLen before production deployment
+    /**
+     * @notice Validates the length of a ping payload
+     * @dev Ensures the payload is exactly 1 byte (type only)
+     * @param payload The payload to validate
+     */
+    /* forgefmt: disable-next-item */
+    function validatePingLen(bytes calldata payload) internal pure {
+        if (payload.length != 1) revert InvalidPayloadLength(1, payload.length);
+    }
 }
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -664,6 +689,10 @@ function settlementPayloadSize(uint256 fillCount) pure returns (uint256) { retur
 
 // Constant size of a cancellation payload: 1 byte type + 32 bytes order hash
 uint256 constant CANCELLATION_PAYLOAD_SIZE = 33;
+
+// TODO: Remove PING_PAYLOAD_SIZE before production deployment
+// Constant size of a ping payload: 1 byte type
+uint256 constant PING_PAYLOAD_SIZE = 1;
 
 /**
  * @notice Library for payload size calculations
