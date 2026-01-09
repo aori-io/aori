@@ -136,14 +136,14 @@ Before deploying, preview the deterministic addresses that will be used across a
 ### Preview Testnet Addresses
 
 ```bash
-forge script script/DeployAori.s.sol:PreviewDeployment \
+forge script script/DeployMultichain.s.sol:PrintDeploymentInfo \
   --rpc-url $SEPOLIA_RPC_URL
 ```
 
 ### Preview Mainnet Addresses
 
 ```bash
-MAINNET=true forge script script/DeployAori.s.sol:PreviewDeployment \
+MAINNET=true forge script script/DeployMultichain.s.sol:PrintDeploymentInfo \
   --rpc-url $ETHEREUM_RPC_URL
 ```
 
@@ -152,7 +152,7 @@ MAINNET=true forge script script/DeployAori.s.sol:PreviewDeployment \
 Run without `--broadcast` to simulate:
 
 ```bash
-forge script script/DeployAori.s.sol:DeployAori \
+forge script script/DeployMultichain.s.sol:DeployMultichain \
   --rpc-url $SEPOLIA_RPC_URL
 ```
 
@@ -162,35 +162,9 @@ This executes the full deployment logic locally without sending transactions.
 
 ## Testnet Deployment
 
-### Option 1: Single Chain Deployment
+### Manual Deployment (per chain)
 
-Deploy to one chain at a time with full control:
-
-```bash
-# Deploy to Sepolia
-forge script script/DeployAori.s.sol:DeployAori \
-  --rpc-url $SEPOLIA_RPC_URL \
-  --broadcast --verify
-
-# Deploy to Base Sepolia
-forge script script/DeployAori.s.sol:DeployAori \
-  --rpc-url $BASE_SEPOLIA_RPC_URL \
-  --broadcast --verify
-
-# Deploy to Arbitrum Sepolia
-forge script script/DeployAori.s.sol:DeployAori \
-  --rpc-url $ARBITRUM_SEPOLIA_RPC_URL \
-  --broadcast --verify
-
-# Deploy to Optimism Sepolia
-forge script script/DeployAori.s.sol:DeployAori \
-  --rpc-url $OPTIMISM_SEPOLIA_RPC_URL \
-  --broadcast --verify
-```
-
-### Option 2: Multichain Deployment Script
-
-Deploy using the multichain script (automatically includes all testnet chains as supported):
+Deploy to each testnet chain (script auto-skips already-deployed chains):
 
 ```bash
 # Deploy to each testnet
@@ -473,8 +447,6 @@ forge verify-contract $ADDRESS Aori \
 
 | Script | Contract | Purpose |
 |--------|----------|---------|
-| `DeployAori.s.sol` | `DeployAori` | Single chain deployment |
-| `DeployAori.s.sol` | `PreviewDeployment` | Preview addresses (dry run) |
 | `DeployMultichain.s.sol` | `DeployMultichain` | Deploy with all chains supported |
 | `DeployMultichain.s.sol` | `PrintDeploymentInfo` | Print expected addresses |
 | `DeployMultichain.s.sol` | `VerifyDeployments` | Verify deployment state |

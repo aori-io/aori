@@ -21,10 +21,7 @@ import "./BaseScript.sol";
  */
 contract ConfigurePeers is BaseScript {
     function run() external {
-        uint256 ownerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address owner = vm.addr(ownerPrivateKey);
-        address proxyAddress = vm.envAddress("AORI_PROXY_ADDRESS");
-
+        (uint256 ownerPrivateKey, address owner, address proxyAddress) = _loadOwnerAndProxy();
         Aori aori = Aori(payable(proxyAddress));
         ChainConfig memory currentConfig = _getCurrentChainConfig();
 
@@ -33,8 +30,7 @@ contract ConfigurePeers is BaseScript {
         console.log("Aori:", proxyAddress);
         console.log("Owner:", owner);
 
-        // Verify caller is owner
-        require(aori.owner() == owner, "Caller is not owner");
+        _requireOwner(aori, owner);
 
         // Get target chains
         bool isMainnet = vm.envOr("MAINNET", false);
@@ -75,8 +71,7 @@ contract ConfigurePeers is BaseScript {
  */
 contract ConfigureSinglePeer is BaseScript {
     function run() external {
-        uint256 ownerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address proxyAddress = vm.envAddress("AORI_PROXY_ADDRESS");
+        (uint256 ownerPrivateKey,, address proxyAddress) = _loadOwnerAndProxy();
         uint32 remoteEid = uint32(vm.envUint("REMOTE_EID"));
         address remoteAori = vm.envAddress("REMOTE_AORI_ADDRESS");
 
@@ -109,8 +104,7 @@ contract ConfigureSinglePeer is BaseScript {
  */
 contract AddSolvers is BaseScript {
     function run() external {
-        uint256 ownerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address proxyAddress = vm.envAddress("AORI_PROXY_ADDRESS");
+        (uint256 ownerPrivateKey,, address proxyAddress) = _loadOwnerAndProxy();
         string memory solversStr = vm.envString("SOLVERS");
 
         Aori aori = Aori(payable(proxyAddress));
@@ -144,8 +138,7 @@ contract AddSolvers is BaseScript {
  */
 contract AddHooks is BaseScript {
     function run() external {
-        uint256 ownerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address proxyAddress = vm.envAddress("AORI_PROXY_ADDRESS");
+        (uint256 ownerPrivateKey,, address proxyAddress) = _loadOwnerAndProxy();
         string memory hooksStr = vm.envString("HOOKS");
 
         Aori aori = Aori(payable(proxyAddress));
@@ -179,8 +172,7 @@ contract AddHooks is BaseScript {
  */
 contract AddSupportedChains is BaseScript {
     function run() external {
-        uint256 ownerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address proxyAddress = vm.envAddress("AORI_PROXY_ADDRESS");
+        (uint256 ownerPrivateKey,, address proxyAddress) = _loadOwnerAndProxy();
         string memory eidsStr = vm.envString("CHAIN_EIDS");
 
         Aori aori = Aori(payable(proxyAddress));

@@ -183,6 +183,18 @@ abstract contract BaseScript is Script {
         proxySalt = keccak256(abi.encodePacked(saltStr, "-proxy"));
     }
 
+    /// @notice Load owner private key and proxy address from environment (for admin scripts)
+    function _loadOwnerAndProxy() internal view returns (uint256 privateKey, address owner, address proxy) {
+        privateKey = vm.envUint("PRIVATE_KEY");
+        owner = vm.addr(privateKey);
+        proxy = vm.envAddress("AORI_PROXY_ADDRESS");
+    }
+
+    /// @notice Verify caller is contract owner
+    function _requireOwner(Aori aori, address caller) internal view {
+        require(aori.owner() == caller, "Caller is not owner");
+    }
+
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    CREATE3 DEPLOYMENT                      */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
@@ -219,20 +231,16 @@ abstract contract BaseScript is Script {
         return abi.decode(result, (address));
     }
 
-    /// @notice Check if CREATE3 factory is deployed on this chain
-    function _isCreate3Available() internal view returns (bool) {
-        uint256 size;
-        assembly { size := extcodesize(0x2Dfcc7415D89af828cbef005F0d072D8b3F23183) }
-        return size > 0;
-    }
-
     /// @notice Check if contract is already deployed at address
-    function _isDeployed(
-        address addr
-    ) internal view returns (bool) {
+    function _isDeployed(address addr) internal view returns (bool) {
         uint256 size;
         assembly { size := extcodesize(addr) }
         return size > 0;
+    }
+
+    /// @notice Check if CREATE3 factory is deployed on this chain
+    function _isCreate3Available() internal view returns (bool) {
+        return _isDeployed(CREATE3_FACTORY);
     }
 
     /// @notice Full deployment with CREATE3 for deterministic addresses across ALL chains

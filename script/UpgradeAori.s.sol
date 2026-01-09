@@ -20,10 +20,7 @@ import "./BaseScript.sol";
  */
 contract UpgradeAori is BaseScript {
     function run() external {
-        uint256 ownerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address owner = vm.addr(ownerPrivateKey);
-        address proxyAddress = vm.envAddress("AORI_PROXY_ADDRESS");
-
+        (uint256 ownerPrivateKey, address owner, address proxyAddress) = _loadOwnerAndProxy();
         Aori aori = Aori(payable(proxyAddress));
         ChainConfig memory config = _getCurrentChainConfig();
 
@@ -33,8 +30,7 @@ contract UpgradeAori is BaseScript {
         console.log("Current Owner:", aori.owner());
         console.log("Caller:", owner);
 
-        // Verify caller is owner
-        require(aori.owner() == owner, "Caller is not owner");
+        _requireOwner(aori, owner);
 
         // Get or deploy new implementation
         address newImplementation = vm.envOr("NEW_IMPLEMENTATION", address(0));
@@ -142,10 +138,7 @@ contract VerifyUpgrade is BaseScript {
  */
 contract UpgradeMultichain is BaseScript {
     function run() external {
-        uint256 ownerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address owner = vm.addr(ownerPrivateKey);
-        address proxyAddress = vm.envAddress("AORI_PROXY_ADDRESS");
-
+        (uint256 ownerPrivateKey, address owner, address proxyAddress) = _loadOwnerAndProxy();
         Aori aori = Aori(payable(proxyAddress));
         ChainConfig memory config = _getCurrentChainConfig();
 
@@ -153,7 +146,7 @@ contract UpgradeMultichain is BaseScript {
         console.log("Chain:", config.name);
         console.log("Proxy:", proxyAddress);
 
-        require(aori.owner() == owner, "Caller is not owner");
+        _requireOwner(aori, owner);
 
         vm.startBroadcast(ownerPrivateKey);
 
