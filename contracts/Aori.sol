@@ -1066,6 +1066,47 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                       HEALTH CHECK                         */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    // TODO: Remove health check functions before production deployment
+
+    /**
+     * @notice Send a ping to a remote chain to verify cross-chain connectivity
+     * @dev Useful for deployment verification and health checks. Requires peer to be set.
+     * @param dstEid The destination endpoint ID to ping
+     * @param extraOptions LayerZero messaging options
+     */
+    function ping(uint32 dstEid, bytes calldata extraOptions) external payable nonReentrant whenNotPaused {
+        bytes memory payload = PayloadPackUtils.packPing();
+        MessagingReceipt memory receipt = _lzSend(dstEid, payload, extraOptions, MessagingFee(msg.value, 0), payable(msg.sender));
+        emit PingSent(dstEid, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
+    }
+
+    /**
+     * @notice Quote the fee for sending a ping
+     * @param dstEid The destination endpoint ID
+     * @param extraOptions LayerZero messaging options
+     * @param payInLzToken Whether to pay in LZ token
+     * @return fee The estimated messaging fee
+     */
+    function quotePing(uint32 dstEid, bytes calldata extraOptions, bool payInLzToken) external view returns (MessagingFee memory fee) {
+        bytes memory payload = PayloadPackUtils.packPing();
+        return _quote(dstEid, payload, extraOptions, payInLzToken);
+    }
+
+    /**
+     * @notice Handles ping payload from remote chain
+     * @dev Emits PingReceived event for verification
+     * @param payload The ping payload (1 byte type only)
+     * @param srcEid The source endpoint ID that sent the ping
+     */
+    function _handlePing(bytes calldata payload, uint32 srcEid) internal {
+        payload.validatePingLen();
+        emit PingReceived(srcEid);
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                          WITHDRAW                          */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
@@ -1152,6 +1193,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             _handleCancellation(payload);
         } else if (msgType == PayloadType.Settlement) {
             _handleSettlement(payload, srcEid);
+        } else if (msgType == PayloadType.Ping) {
+            _handlePing(payload, srcEid);
         } else {
             revert InvalidMessageType();
         }
