@@ -341,7 +341,15 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
 
         // Expect SrcHookExecuted event
         vm.expectEmit(true, true, false, true);
-        emit IAori.SrcHookExecuted(expectedOrderId, NATIVE_TOKEN, HOOK_OUTPUT);
+        emit IAori.SrcHookExecuted(expectedOrderId, address(inputToken), NATIVE_TOKEN, INPUT_AMOUNT, HOOK_OUTPUT);
+
+        // Expect Deposit event
+        vm.expectEmit(true, false, false, true);
+        emit IAori.Deposit(expectedOrderId, order);
+
+        // Expect Fill event
+        vm.expectEmit(true, false, false, true);
+        emit IAori.Fill(expectedOrderId, order);
 
         // Expect Settle event (for single-chain atomic settlement)
         vm.expectEmit(true, false, false, false);

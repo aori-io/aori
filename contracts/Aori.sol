@@ -447,13 +447,15 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         // Execute hook to convert input tokens to preferred/output tokens
         (uint256 amountReceived, address tokenReceived) = _executeSrcHook(order, hook);
 
-        emit SrcHookExecuted(orderId, tokenReceived, amountReceived);
+        emit SrcHookExecuted(orderId, order.inputToken, tokenReceived, order.inputAmount, amountReceived);
 
         if (order.isSingleChainSwap()) {
             // Single-chain: immediate settlement (tokens already transferred to recipient)
             AoriStorageData storage $ = _getAoriStorage();
             $.orders[orderId] = order;
             $.orderStatus[orderId] = OrderStatus.Settled;
+            emit Deposit(orderId, order);
+            emit Fill(orderId, order);
             emit Settle(orderId);
         } else {
             // Cross-chain: lock converted tokens for later settlement
@@ -590,12 +592,14 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         // Execute hook to convert native tokens to preferred/output tokens
         (uint256 amountReceived, address tokenReceived) = _executeSrcHook(order, hook);
 
-        emit SrcHookExecuted(orderId, tokenReceived, amountReceived);
+        emit SrcHookExecuted(orderId, order.inputToken, tokenReceived, order.inputAmount, amountReceived);
 
         if (order.isSingleChainSwap()) {
             // Single-chain: immediate settlement (tokens already transferred to recipient)
             $.orders[orderId] = order;
             $.orderStatus[orderId] = OrderStatus.Settled;
+            emit Deposit(orderId, order);
+            emit Fill(orderId, order);
             emit Settle(orderId);
         } else {
             // Cross-chain: lock converted tokens for later settlement
@@ -704,11 +708,13 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
                 order.outputToken.safeTransfer(hook.solver, surplus);
             }
 
-            emit SrcHookExecuted(orderId, order.outputToken, amountReceived);
+            emit SrcHookExecuted(orderId, order.inputToken, order.outputToken, order.inputAmount, amountReceived);
 
             // Single-chain: immediate settlement
             $.orders[orderId] = order;
             $.orderStatus[orderId] = OrderStatus.Settled;
+            emit Deposit(orderId, order);
+            emit Fill(orderId, order);
             emit Settle(orderId);
         } else {
             // Cross-chain: convert to preferred token for cross-chain transfer
@@ -718,7 +724,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
                 revert InsufficientSrcHookOutput(hook.minPreferredTokenAmountOut, amountReceived);
             }
 
-            emit SrcHookExecuted(orderId, hook.preferredToken, amountReceived);
+            emit SrcHookExecuted(orderId, order.inputToken, hook.preferredToken, order.inputAmount, amountReceived);
 
             // Cross-chain: lock converted tokens for later settlement
             _postDeposit(hook.preferredToken, amountReceived, order, orderId);
@@ -776,7 +782,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
 
         // Execute hook to convert preferred tokens to output tokens
         uint256 amountReceived = _executeDstHook(order, hook);
-        emit DstHookExecuted(orderId, hook.preferredToken, amountReceived);
+        emit DstHookExecuted(orderId, hook.preferredToken, order.outputToken, hook.preferredDstInputAmount, amountReceived);
 
         uint256 surplus = amountReceived - order.outputAmount;
 
@@ -974,6 +980,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         );
 
         $.orderStatus[orderId] = OrderStatus.Settled;
+        emit Fill(orderId, order);
         emit Settle(orderId);
     }
 
