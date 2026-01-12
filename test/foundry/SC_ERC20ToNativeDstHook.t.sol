@@ -584,6 +584,10 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         vm.expectEmit(true, true, false, true);
         emit IAori.DstHookExecuted(orderId, NATIVE_TOKEN, DST_HOOK_INPUT, DST_HOOK_OUTPUT);
 
+        // Expect Fill event
+        vm.expectEmit(true, false, false, true);
+        emit IAori.Fill(orderId, order);
+
         vm.expectEmit(true, false, false, false);
         emit IAori.Settle(orderId);
 

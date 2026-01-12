@@ -454,6 +454,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             AoriStorageData storage $ = _getAoriStorage();
             $.orders[orderId] = order;
             $.orderStatus[orderId] = OrderStatus.Settled;
+            emit Deposit(orderId, order);
+            emit Fill(orderId, order);
             emit Settle(orderId);
         } else {
             // Cross-chain: lock converted tokens for later settlement
@@ -596,6 +598,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             // Single-chain: immediate settlement (tokens already transferred to recipient)
             $.orders[orderId] = order;
             $.orderStatus[orderId] = OrderStatus.Settled;
+            emit Deposit(orderId, order);
+            emit Fill(orderId, order);
             emit Settle(orderId);
         } else {
             // Cross-chain: lock converted tokens for later settlement
@@ -709,6 +713,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             // Single-chain: immediate settlement
             $.orders[orderId] = order;
             $.orderStatus[orderId] = OrderStatus.Settled;
+            emit Deposit(orderId, order);
+            emit Fill(orderId, order);
             emit Settle(orderId);
         } else {
             // Cross-chain: convert to preferred token for cross-chain transfer
@@ -974,6 +980,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         );
 
         $.orderStatus[orderId] = OrderStatus.Settled;
+        emit Fill(orderId, order);
         emit Settle(orderId);
     }
 
