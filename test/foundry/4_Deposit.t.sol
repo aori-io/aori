@@ -524,6 +524,6 @@ contract DepositTests is TestUtils {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     event Deposit(bytes32 indexed orderId, Order order);
-    event SrcHookExecuted(bytes32 indexed orderId, address indexed preferredToken, uint256 amountReceived);
+    event SrcHookExecuted(bytes32 indexed orderId, address indexed preferredToken, uint256 amountIn, uint256 amountOut);
     event Settle(bytes32 indexed orderId);
 }
