@@ -119,7 +119,7 @@ contract AddSolvers is BaseScript {
 
         for (uint256 i = 0; i < parts.length; i++) {
             address solver = vm.parseAddress(parts[i]);
-            aori.addAllowedSolver(solver);
+            aori.adminSetAllowedSolver(solver, true);
             console.log("Added solver:", solver);
         }
 
@@ -153,7 +153,7 @@ contract AddHooks is BaseScript {
 
         for (uint256 i = 0; i < parts.length; i++) {
             address hook = vm.parseAddress(parts[i]);
-            aori.addAllowedHook(hook);
+            aori.adminSetAllowedHook(hook, true);
             console.log("Added hook:", hook);
         }
 
@@ -187,7 +187,7 @@ contract AddSupportedChains is BaseScript {
 
         for (uint256 i = 0; i < parts.length; i++) {
             uint32 eid = uint32(vm.parseUint(parts[i]));
-            aori.addSupportedChain(eid);
+            aori.adminSetSupportedChain(eid, true);
             console.log("Added chain:", eid);
         }
 

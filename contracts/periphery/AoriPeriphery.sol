@@ -1,22 +1,51 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.33;
 
-import { IAori } from "../interfaces/IAori.sol";
 import "../types/AoriErrors.sol";
+
+/**
+ * @title IAoriLens
+ * @notice Interface for AoriLens view functions
+ */
+interface IAoriLens {
+    function srcEidToFillerFills(
+        uint32 srcEid,
+        address filler,
+        uint256 index
+    ) external view returns (bytes32);
+    function orders(
+        bytes32 orderId
+    )
+        external
+        view
+        returns (
+            uint128 inputAmount,
+            uint128 outputAmount,
+            address inputToken,
+            address outputToken,
+            uint32 startTime,
+            uint32 endTime,
+            uint32 srcEid,
+            uint32 dstEid,
+            address offerer,
+            address recipient
+        );
+}
 
 /**
  * @title AoriPeriphery
  * @notice A periphery contract that aggregates fill statistics per endpoint ID
  * @dev Provides view functions to get order counts and input token sums for fillers
+ *      Uses AoriLens for reading Aori state
  */
 contract AoriPeriphery {
-    /// @notice The Aori contract to read from
-    IAori public immutable aori;
+    /// @notice The AoriLens contract to read from
+    IAoriLens public immutable lens;
 
     /* forgefmt: disable-next-item */
-    constructor(address _aori) {
-        if (_aori == address(0)) revert InvalidAoriAddress();
-        aori = IAori(_aori);
+    constructor(address _lens) {
+        if (_lens == address(0)) revert InvalidAoriAddress();
+        lens = IAoriLens(_lens);
     }
 
     /**
@@ -36,7 +65,7 @@ contract AoriPeriphery {
             uint256 count = 0;
 
             for (uint256 i = 0; i < 100; i++) {
-                try aori.srcEidToFillerFills(srcEids[j], filler, i) returns (bytes32 orderId) {
+                try lens.srcEidToFillerFills(srcEids[j], filler, i) returns (bytes32 orderId) {
                     temp[count++] = orderId;
                 } catch {
                     break;
@@ -63,7 +92,7 @@ contract AoriPeriphery {
         uint256 uniqueCount = 0;
 
         for (uint256 i = 0; i < orderHashes.length; i++) {
-            (uint128 inputAmount,, address inputToken,,,,,,,) = aori.orders(orderHashes[i]);
+            (uint128 inputAmount,, address inputToken,,,,,,,) = lens.orders(orderHashes[i]);
 
             bool found = false;
             for (uint256 k = 0; k < uniqueCount; k++) {
