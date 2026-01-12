@@ -315,13 +315,15 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         // Execute hook to convert input tokens to preferred/output tokens
         (uint256 amountReceived, address tokenReceived) = _executeSrcHook(order, hook);
 
-        emit SrcHookExecuted(orderId, tokenReceived, amountReceived);
+        emit SrcHookExecuted(orderId, order.inputToken, tokenReceived, order.inputAmount, amountReceived);
 
         if (order.isSingleChainSwap()) {
             // Single-chain: immediate settlement (tokens already transferred to recipient)
             AoriStorageData storage $ = _getAoriStorage();
             $.orders[orderId] = order;
             $.orderStatus[orderId] = OrderStatus.Settled;
+            emit Deposit(orderId, order);
+            emit Fill(orderId, order);
             emit Settle(orderId);
         } else {
             // Cross-chain: lock converted tokens for later settlement
@@ -458,12 +460,14 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         // Execute hook to convert native tokens to preferred/output tokens
         (uint256 amountReceived, address tokenReceived) = _executeSrcHook(order, hook);
 
-        emit SrcHookExecuted(orderId, tokenReceived, amountReceived);
+        emit SrcHookExecuted(orderId, order.inputToken, tokenReceived, order.inputAmount, amountReceived);
 
         if (order.isSingleChainSwap()) {
             // Single-chain: immediate settlement (tokens already transferred to recipient)
             $.orders[orderId] = order;
             $.orderStatus[orderId] = OrderStatus.Settled;
+            emit Deposit(orderId, order);
+            emit Fill(orderId, order);
             emit Settle(orderId);
         } else {
             // Cross-chain: lock converted tokens for later settlement
@@ -572,11 +576,13 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
                 order.outputToken.safeTransfer(hook.solver, surplus);
             }
 
-            emit SrcHookExecuted(orderId, order.outputToken, amountReceived);
+            emit SrcHookExecuted(orderId, order.inputToken, order.outputToken, order.inputAmount, amountReceived);
 
             // Single-chain: immediate settlement
             $.orders[orderId] = order;
             $.orderStatus[orderId] = OrderStatus.Settled;
+            emit Deposit(orderId, order);
+            emit Fill(orderId, order);
             emit Settle(orderId);
         } else {
             // Cross-chain: convert to preferred token for cross-chain transfer
@@ -586,7 +592,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
                 revert InsufficientSrcHookOutput(hook.minPreferredTokenAmountOut, amountReceived);
             }
 
-            emit SrcHookExecuted(orderId, hook.preferredToken, amountReceived);
+            emit SrcHookExecuted(orderId, order.inputToken, hook.preferredToken, order.inputAmount, amountReceived);
 
             // Cross-chain: lock converted tokens for later settlement
             _postDeposit(hook.preferredToken, amountReceived, order, orderId);
@@ -644,7 +650,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
 
         // Execute hook to convert preferred tokens to output tokens
         uint256 amountReceived = _executeDstHook(order, hook);
-        emit DstHookExecuted(orderId, hook.preferredToken, amountReceived);
+        emit DstHookExecuted(orderId, hook.preferredToken, order.outputToken, hook.preferredDstInputAmount, amountReceived);
 
         uint256 surplus = amountReceived - order.outputAmount;
 
@@ -842,6 +848,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         );
 
         $.orderStatus[orderId] = OrderStatus.Settled;
+        emit Fill(orderId, order);
         emit Settle(orderId);
     }
 
@@ -934,6 +941,47 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                       HEALTH CHECK                         */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    // TODO: Remove health check functions before production deployment
+
+    /**
+     * @notice Send a ping to a remote chain to verify cross-chain connectivity
+     * @dev Useful for deployment verification and health checks. Requires peer to be set.
+     * @param dstEid The destination endpoint ID to ping
+     * @param extraOptions LayerZero messaging options
+     */
+    function ping(uint32 dstEid, bytes calldata extraOptions) external payable nonReentrant whenNotPaused {
+        bytes memory payload = PayloadPackUtils.packPing();
+        MessagingReceipt memory receipt = _lzSend(dstEid, payload, extraOptions, MessagingFee(msg.value, 0), payable(msg.sender));
+        emit PingSent(dstEid, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
+    }
+
+    /**
+     * @notice Quote the fee for sending a ping
+     * @param dstEid The destination endpoint ID
+     * @param extraOptions LayerZero messaging options
+     * @param payInLzToken Whether to pay in LZ token
+     * @return fee The estimated messaging fee
+     */
+    function quotePing(uint32 dstEid, bytes calldata extraOptions, bool payInLzToken) external view returns (MessagingFee memory fee) {
+        bytes memory payload = PayloadPackUtils.packPing();
+        return _quote(dstEid, payload, extraOptions, payInLzToken);
+    }
+
+    /**
+     * @notice Handles ping payload from remote chain
+     * @dev Emits PingReceived event for verification
+     * @param payload The ping payload (1 byte type only)
+     * @param srcEid The source endpoint ID that sent the ping
+     */
+    function _handlePing(bytes calldata payload, uint32 srcEid) internal {
+        payload.validatePingLen();
+        emit PingReceived(srcEid);
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                          WITHDRAW                          */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
@@ -1020,6 +1068,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             _handleCancellation(payload);
         } else if (msgType == PayloadType.Settlement) {
             _handleSettlement(payload, srcEid);
+        } else if (msgType == PayloadType.Ping) {
+            _handlePing(payload, srcEid);
         } else {
             revert InvalidMessageType();
         }

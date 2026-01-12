@@ -170,16 +170,62 @@ interface IAori {
     /**
      * @notice Emitted when a source hook is executed during deposit
      * @param orderId The hash of the order being processed
-     * @param preferredToken The token address that was received from the hook
-     * @param amountReceived The amount of tokens received from hook execution
+     * @param tokenIn The input token sent to the hook (order.inputToken)
+     * @param tokenOut The output token received from the hook (outputToken or preferredToken)
+     * @param amountIn The input amount sent to the hook (order.inputAmount)
+     * @param amountOut The amount of tokens received from hook execution
      */
-    event SrcHookExecuted(bytes32 indexed orderId, address indexed preferredToken, uint256 amountReceived);
+    event SrcHookExecuted(bytes32 indexed orderId, address indexed tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
 
     /**
      * @notice Emitted when a destination hook is executed during fill
      * @param orderId The hash of the order being processed
-     * @param preferredToken The token address that was converted by the hook
-     * @param amountReceived The amount of output tokens received from hook execution
+     * @param tokenIn The input token sent to the hook (hook.preferredToken)
+     * @param tokenOut The output token received from the hook (order.outputToken)
+     * @param amountIn The input amount sent to the hook (hook.preferredDstInputAmount)
+     * @param amountOut The amount of output tokens received from hook execution
      */
-    event DstHookExecuted(bytes32 indexed orderId, address indexed preferredToken, uint256 amountReceived);
+    event DstHookExecuted(bytes32 indexed orderId, address indexed tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                    HEALTH CHECK EVENTS                     */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    // TODO: Remove health check events and functions before production deployment
+
+    /**
+     * @notice Emitted when a ping is sent to a remote chain
+     * @param dstEid The destination endpoint ID
+     * @param guid The unique identifier of the LayerZero message
+     * @param nonce The nonce of the LayerZero message
+     * @param fee The fee paid for the LayerZero message
+     */
+    event PingSent(uint32 indexed dstEid, bytes32 guid, uint64 nonce, uint256 fee);
+
+    /**
+     * @notice Emitted when a ping is received from a remote chain
+     * @param srcEid The source endpoint ID that sent the ping
+     */
+    event PingReceived(uint32 indexed srcEid);
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                   HEALTH CHECK FUNCTIONS                   */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /**
+     * @notice Send a ping to a remote chain to verify cross-chain connectivity
+     * @dev Useful for deployment verification and health checks
+     * @param dstEid The destination endpoint ID to ping
+     * @param extraOptions LayerZero messaging options
+     */
+    function ping(uint32 dstEid, bytes calldata extraOptions) external payable;
+
+    /**
+     * @notice Quote the fee for sending a ping
+     * @param dstEid The destination endpoint ID
+     * @param extraOptions LayerZero messaging options
+     * @param payInLzToken Whether to pay in LZ token
+     * @return fee The estimated messaging fee
+     */
+    function quotePing(uint32 dstEid, bytes calldata extraOptions, bool payInLzToken) external view returns (MessagingFee memory fee);
 }

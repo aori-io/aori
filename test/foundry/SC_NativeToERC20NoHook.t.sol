@@ -405,9 +405,13 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
         vm.prank(userSC);
         localAori.depositNative{ value: INPUT_AMOUNT }(order);
 
-        // Phase 2: Fill should emit Settle event (atomic settlement)
+        // Phase 2: Fill should emit Fill and Settle events (atomic settlement)
         vm.prank(solverSC);
         outputToken.approve(address(localAori), OUTPUT_AMOUNT);
+
+        // Expect Fill event
+        vm.expectEmit(true, false, false, true);
+        emit IAori.Fill(orderId, order);
 
         vm.expectEmit(true, false, false, false);
         emit IAori.Settle(orderId);
