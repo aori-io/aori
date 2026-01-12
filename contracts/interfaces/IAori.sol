@@ -200,17 +200,19 @@ interface IAori {
      * @notice Emitted when a source hook is executed during deposit
      * @param orderId The hash of the order being processed
      * @param preferredToken The token address that was received from the hook
-     * @param amountReceived The amount of tokens received from hook execution
+     * @param amountIn The input amount sent to the hook (order.inputAmount)
+     * @param amountOut The amount of tokens received from hook execution
      */
-    event SrcHookExecuted(bytes32 indexed orderId, address indexed preferredToken, uint256 amountReceived);
+    event SrcHookExecuted(bytes32 indexed orderId, address indexed preferredToken, uint256 amountIn, uint256 amountOut);
 
     /**
      * @notice Emitted when a destination hook is executed during fill
      * @param orderId The hash of the order being processed
      * @param preferredToken The token address that was converted by the hook
-     * @param amountReceived The amount of output tokens received from hook execution
+     * @param amountIn The input amount sent to the hook (hook.preferredDstInputAmount)
+     * @param amountOut The amount of output tokens received from hook execution
      */
-    event DstHookExecuted(bytes32 indexed orderId, address indexed preferredToken, uint256 amountReceived);
+    event DstHookExecuted(bytes32 indexed orderId, address indexed preferredToken, uint256 amountIn, uint256 amountOut);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    HEALTH CHECK EVENTS                     */
