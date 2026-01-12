@@ -84,10 +84,10 @@ contract SettlementTests is TestUtils {
         testRemoteAori.setPeer(localEid, bytes32(uint256(uint160(address(testLocalAori)))));
 
         // Whitelist the solver and hook in both test contracts
-        testLocalAori.addAllowedSolver(solver);
-        testRemoteAori.addAllowedSolver(solver);
-        testLocalAori.addAllowedHook(address(mockHook));
-        testRemoteAori.addAllowedHook(address(mockHook));
+        testLocalAori.adminSetAllowedSolver(solver, true);
+        testRemoteAori.adminSetAllowedSolver(solver, true);
+        testLocalAori.adminSetAllowedHook(address(mockHook), true);
+        testRemoteAori.adminSetAllowedHook(address(mockHook), true);
 
         // Setup chains as supported
         // Mock the quote calls
@@ -103,8 +103,8 @@ contract SettlementTests is TestUtils {
         );
 
         // Add support for chains
-        testLocalAori.addSupportedChain(remoteEid);
-        testRemoteAori.addSupportedChain(localEid);
+        testLocalAori.adminSetSupportedChain(remoteEid, true);
+        testRemoteAori.adminSetSupportedChain(localEid, true);
     }
 
     /**

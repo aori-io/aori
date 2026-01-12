@@ -47,11 +47,11 @@ contract SingleChainSwapTests is TestUtils {
 
         // Set up secondary solver for multi-solver tests
         secondarySolver = makeAddr("secondarySolver");
-        localAori.addAllowedSolver(secondarySolver);
+        localAori.adminSetAllowedSolver(secondarySolver, true);
 
         // Deploy and set up test hook
         testHook = new MockHook();
-        localAori.addAllowedHook(address(testHook));
+        localAori.adminSetAllowedHook(address(testHook), true);
 
         // Mint tokens for testing
         inputToken.mint(userA, 1000 ether);

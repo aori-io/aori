@@ -160,8 +160,6 @@ interface IAori {
     /* forgefmt: disable-next-item */
     function hash(Order calldata order) external pure returns (bytes32);
 
-    // Note: View functions (orders, getLockedBalances, getUnlockedBalances, quote, srcEidToFillerFills)
-    // have been moved to AoriLens.sol for bytecode optimization
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                        HOOK EVENTS                         */

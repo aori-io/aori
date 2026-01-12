@@ -106,7 +106,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
         vm.deal(address(localAori), 0 ether);
 
         // Add solver to allowed list
-        localAori.addAllowedSolver(solverSC);
+        localAori.adminSetAllowedSolver(solverSC, true);
     }
 
     /**
@@ -455,7 +455,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
 
         // Create a new solver with insufficient tokens
         address poorSolver = vm.addr(0xBEEF);
-        localAori.addAllowedSolver(poorSolver);
+        localAori.adminSetAllowedSolver(poorSolver, true);
         outputToken.mint(poorSolver, OUTPUT_AMOUNT - 1); // Give 1 less token than needed
 
         order = createCustomOrder(

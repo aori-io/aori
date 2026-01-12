@@ -50,7 +50,7 @@ contract SingleChainHookTest is TestUtils {
         testHook = new MockHook();
 
         // Whitelist the hook in the contract
-        localAori.addAllowedHook(address(testHook));
+        localAori.adminSetAllowedHook(address(testHook), true);
 
         // Mint tokens to the offerer and hook
         inputToken.mint(userA, 100 ether);
@@ -301,7 +301,7 @@ contract SingleChainHookTest is TestUtils {
         MockHook mockFailingHook = new MockHook();
 
         // Whitelist the hook
-        localAori.addAllowedHook(address(mockFailingHook));
+        localAori.adminSetAllowedHook(address(mockFailingHook), true);
 
         // Create hook data but we'll intentionally NOT mint any tokens to the hook
         bytes memory hookData = createHookData(address(outputToken), outputAmount);

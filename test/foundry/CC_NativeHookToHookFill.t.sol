@@ -161,12 +161,12 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
         dstPreferredToken.mint(solverDest, 50000e6); // 6 decimals
 
         // Add hooks to allowed list
-        localAori.addAllowedHook(address(srcMockHook));
-        remoteAori.addAllowedHook(address(dstMockHook));
+        localAori.adminSetAllowedHook(address(srcMockHook), true);
+        remoteAori.adminSetAllowedHook(address(dstMockHook), true);
 
         // Add solvers to allowed list
-        localAori.addAllowedSolver(solverSource);
-        remoteAori.addAllowedSolver(solverDest);
+        localAori.adminSetAllowedSolver(solverSource, true);
+        remoteAori.adminSetAllowedSolver(solverDest, true);
     }
 
     /**

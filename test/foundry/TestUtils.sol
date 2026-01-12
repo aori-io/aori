@@ -130,25 +130,11 @@ contract TestUtils is TestHelperOz5 {
         remoteAori.setPeer(localEid, bytes32(uint256(uint160(address(localAori)))));
 
         // Setup chains as supported (local already done in constructor)
-        // Mock the quote call for remote chain
-        vm.mockCall(
-            address(localAori),
-            abi.encodeWithSelector(localAori.quote.selector, remoteEid, uint8(PayloadType.Settlement), bytes(""), false, 0, address(0)),
-            abi.encode(1 ether) // Return a mock fee
-        );
-
         // Add remote chain as supported on local contract
-        localAori.addSupportedChain(remoteEid);
-
-        // Mock the quote call for local chain
-        vm.mockCall(
-            address(remoteAori),
-            abi.encodeWithSelector(remoteAori.quote.selector, localEid, uint8(PayloadType.Settlement), bytes(""), false, 0, address(0)),
-            abi.encode(1 ether) // Return a mock fee
-        );
+        localAori.adminSetSupportedChain(remoteEid, true);
 
         // Add local chain as supported on remote contract
-        remoteAori.addSupportedChain(localEid);
+        remoteAori.adminSetSupportedChain(localEid, true);
 
         // Setup test tokens
         inputToken = new MockERC20("Input", "IN");
@@ -167,12 +153,12 @@ contract TestUtils is TestHelperOz5 {
         outputToken.mint(address(mockHook), 1000e18);
 
         // Whitelist the mockHook in both contracts
-        localAori.addAllowedHook(address(mockHook));
-        remoteAori.addAllowedHook(address(mockHook));
+        localAori.adminSetAllowedHook(address(mockHook), true);
+        remoteAori.adminSetAllowedHook(address(mockHook), true);
 
         // Whitelist the solver in both contracts
-        localAori.addAllowedSolver(solver);
-        remoteAori.addAllowedSolver(solver);
+        localAori.adminSetAllowedSolver(solver, true);
+        remoteAori.adminSetAllowedSolver(solver, true);
     }
 
     /**

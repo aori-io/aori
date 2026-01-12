@@ -232,7 +232,7 @@ contract ExtremeOrderParametersTest is TestUtils {
         inputToken.approve(address(localAori), order.inputAmount);
 
         // Remove solver from whitelist temporarily to test restrictions
-        localAori.removeAllowedSolver(solver);
+        localAori.adminSetAllowedSolver(solver, false);
 
         // Non-whitelisted solver should fail to deposit
         vm.prank(solver);
@@ -240,7 +240,7 @@ contract ExtremeOrderParametersTest is TestUtils {
         localAori.deposit(order, signature);
 
         // Add solver back to whitelist
-        localAori.addAllowedSolver(solver);
+        localAori.adminSetAllowedSolver(solver, true);
 
         // Whitelisted solver should be able to deposit
         vm.prank(solver);
@@ -251,7 +251,7 @@ contract ExtremeOrderParametersTest is TestUtils {
         vm.warp(order.startTime + 10);
 
         // Remove solver from whitelist temporarily to test restrictions
-        remoteAori.removeAllowedSolver(solver);
+        remoteAori.adminSetAllowedSolver(solver, false);
 
         vm.prank(solver);
         outputToken.approve(address(remoteAori), order.outputAmount);
@@ -261,7 +261,7 @@ contract ExtremeOrderParametersTest is TestUtils {
         remoteAori.fill(order);
 
         // Add solver back to whitelist
-        remoteAori.addAllowedSolver(solver);
+        remoteAori.adminSetAllowedSolver(solver, true);
 
         // Whitelisted solver should be able to fill
         vm.prank(solver);

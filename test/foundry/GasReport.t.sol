@@ -75,8 +75,8 @@ contract GasReportTest is TestUtils {
         );
 
         // Add support for chains
-        localAori.addSupportedChain(remoteEid);
-        remoteAori.addSupportedChain(localEid);
+        localAori.adminSetSupportedChain(remoteEid, true);
+        remoteAori.adminSetSupportedChain(localEid, true);
     }
 
     function testGasDeposit() public {

@@ -33,8 +33,8 @@ contract DepositFailTest is TestUtils {
         failingHook = new FailingDepositHook();
 
         // Whitelist the failing hook in both Aori instances
-        localAori.addAllowedHook(address(failingHook));
-        remoteAori.addAllowedHook(address(failingHook));
+        localAori.adminSetAllowedHook(address(failingHook), true);
+        remoteAori.adminSetAllowedHook(address(failingHook), true);
     }
 
     //////////////////////////////////////////////////////////////

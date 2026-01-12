@@ -36,10 +36,10 @@ contract HookFailuresTest is TestUtils {
         outputToken.mint(address(partialOutputHook), 1e18); // Only give half the expected output
 
         // Whitelist both hooks in both Aori instances
-        localAori.addAllowedHook(address(failingHook));
-        remoteAori.addAllowedHook(address(failingHook));
-        localAori.addAllowedHook(address(partialOutputHook));
-        remoteAori.addAllowedHook(address(partialOutputHook));
+        localAori.adminSetAllowedHook(address(failingHook), true);
+        remoteAori.adminSetAllowedHook(address(failingHook), true);
+        localAori.adminSetAllowedHook(address(partialOutputHook), true);
+        remoteAori.adminSetAllowedHook(address(partialOutputHook), true);
     }
 
     /**

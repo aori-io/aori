@@ -126,11 +126,11 @@ contract CC_NativeToERC20DstHook is TestUtils {
         outputToken.mint(address(dstHook), 3000e18); // More than enough for conversions
 
         // Add hook to whitelist
-        remoteAori.addAllowedHook(address(dstHook));
+        remoteAori.adminSetAllowedHook(address(dstHook), true);
 
         // Add solvers to allowed list
-        localAori.addAllowedSolver(solverSource);
-        remoteAori.addAllowedSolver(solverDest);
+        localAori.adminSetAllowedSolver(solverSource, true);
+        remoteAori.adminSetAllowedSolver(solverDest, true);
     }
 
     /**

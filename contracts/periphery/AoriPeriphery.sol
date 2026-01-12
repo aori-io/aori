@@ -2,50 +2,30 @@
 pragma solidity 0.8.33;
 
 import "../types/AoriErrors.sol";
+import { Order } from "../types/AoriTypes.sol";
 
 /**
- * @title IAoriLens
- * @notice Interface for AoriLens view functions
+ * @title IAoriPeriphery
+ * @notice Minimal interface for Aori view functions used by periphery
  */
-interface IAoriLens {
-    function srcEidToFillerFills(
-        uint32 srcEid,
-        address filler,
-        uint256 index
-    ) external view returns (bytes32);
-    function orders(
-        bytes32 orderId
-    )
-        external
-        view
-        returns (
-            uint128 inputAmount,
-            uint128 outputAmount,
-            address inputToken,
-            address outputToken,
-            uint32 startTime,
-            uint32 endTime,
-            uint32 srcEid,
-            uint32 dstEid,
-            address offerer,
-            address recipient
-        );
+interface IAoriPeriphery {
+    function srcEidToFillerFills(uint32 srcEid, address filler, uint256 index) external view returns (bytes32);
+    function orders(bytes32 orderId) external view returns (Order memory);
 }
 
 /**
  * @title AoriPeriphery
  * @notice A periphery contract that aggregates fill statistics per endpoint ID
  * @dev Provides view functions to get order counts and input token sums for fillers
- *      Uses AoriLens for reading Aori state
  */
 contract AoriPeriphery {
-    /// @notice The AoriLens contract to read from
-    IAoriLens public immutable lens;
+    /// @notice The Aori contract to read from
+    IAoriPeriphery public immutable aori;
 
     /* forgefmt: disable-next-item */
-    constructor(address _lens) {
-        if (_lens == address(0)) revert InvalidAoriAddress();
-        lens = IAoriLens(_lens);
+    constructor(address _aori) {
+        if (_aori == address(0)) revert InvalidAoriAddress();
+        aori = IAoriPeriphery(_aori);
     }
 
     /**
@@ -65,7 +45,7 @@ contract AoriPeriphery {
             uint256 count = 0;
 
             for (uint256 i = 0; i < 100; i++) {
-                try lens.srcEidToFillerFills(srcEids[j], filler, i) returns (bytes32 orderId) {
+                try aori.srcEidToFillerFills(srcEids[j], filler, i) returns (bytes32 orderId) {
                     temp[count++] = orderId;
                 } catch {
                     break;
@@ -92,20 +72,20 @@ contract AoriPeriphery {
         uint256 uniqueCount = 0;
 
         for (uint256 i = 0; i < orderHashes.length; i++) {
-            (uint128 inputAmount,, address inputToken,,,,,,,) = lens.orders(orderHashes[i]);
+            Order memory order = aori.orders(orderHashes[i]);
 
             bool found = false;
             for (uint256 k = 0; k < uniqueCount; k++) {
-                if (tempTokens[k] == inputToken) {
-                    tempAmounts[k] += inputAmount;
+                if (tempTokens[k] == order.inputToken) {
+                    tempAmounts[k] += order.inputAmount;
                     found = true;
                     break;
                 }
             }
 
             if (!found && uniqueCount < 20) {
-                tempTokens[uniqueCount] = inputToken;
-                tempAmounts[uniqueCount] = inputAmount;
+                tempTokens[uniqueCount] = order.inputToken;
+                tempAmounts[uniqueCount] = order.inputAmount;
                 uniqueCount++;
             }
         }

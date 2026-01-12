@@ -70,7 +70,7 @@ contract WithdrawTests is TestUtils {
         testTokenB = new MockERC20("TestTokenB", "TTB");
 
         // Only add solver to whitelist (userA should be a regular user)
-        localAori.addAllowedSolver(solver);
+        localAori.adminSetAllowedSolver(solver, true);
 
         // Setup realistic trading scenarios where solver gets unlocked balances
         _setupSolverUnlockedBalance(address(testTokenA), INITIAL_BALANCE);

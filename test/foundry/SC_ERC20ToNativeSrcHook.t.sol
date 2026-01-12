@@ -116,10 +116,10 @@ contract SC_ERC20ToNativeSrcHook_Test is TestUtils {
         vm.deal(address(mockHook2), 5 ether); // 5 ETH for hook operations
 
         // Add MockHook2 to allowed hooks
-        localAori.addAllowedHook(address(mockHook2));
+        localAori.adminSetAllowedHook(address(mockHook2), true);
 
         // Add solver to allowed list
-        localAori.addAllowedSolver(solverSC);
+        localAori.adminSetAllowedSolver(solverSC, true);
     }
 
     /**
@@ -509,7 +509,7 @@ contract SC_ERC20ToNativeSrcHook_Test is TestUtils {
         vm.deal(address(mockHook2), 10 ether); // Ensure hook has enough
 
         // Add solver to allowed list
-        localAori.addAllowedSolver(testSolver);
+        localAori.adminSetAllowedSolver(testSolver, true);
 
         vm.chainId(localEid);
 

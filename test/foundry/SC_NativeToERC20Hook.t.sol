@@ -144,10 +144,10 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
         outputToken.mint(address(mockHook2), 20000e18); // 20,000 output tokens (increased from 10,000)
 
         // Add MockHook2 to allowed hooks
-        localAori.addAllowedHook(address(mockHook2));
+        localAori.adminSetAllowedHook(address(mockHook2), true);
 
         // Add solver to allowed list
-        localAori.addAllowedSolver(solverSC);
+        localAori.adminSetAllowedSolver(solverSC, true);
     }
 
     /**

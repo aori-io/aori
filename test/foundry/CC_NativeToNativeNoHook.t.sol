@@ -87,8 +87,8 @@ contract CC_NativeToNativeNoHook is TestUtils {
         vm.deal(address(remoteAori), 0 ether);
 
         // Add solvers to allowed list
-        localAori.addAllowedSolver(solverSource);
-        remoteAori.addAllowedSolver(solverDest);
+        localAori.adminSetAllowedSolver(solverSource, true);
+        remoteAori.adminSetAllowedSolver(solverDest, true);
     }
 
     /**

@@ -115,10 +115,10 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
         outputToken.mint(address(mockHook2), 5000e18); // 5000 output tokens for hook operations
 
         // Add MockHook2 to allowed hooks
-        localAori.addAllowedHook(address(mockHook2));
+        localAori.adminSetAllowedHook(address(mockHook2), true);
 
         // Add solver to allowed list
-        localAori.addAllowedSolver(solverSC);
+        localAori.adminSetAllowedSolver(solverSC, true);
     }
 
     /**

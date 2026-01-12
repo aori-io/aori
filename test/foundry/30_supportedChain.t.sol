@@ -35,7 +35,7 @@ contract SupportedChainTest is TestUtils {
 
         // Clear any existing chain support for clean testing
         vm.startPrank(address(this)); // TestUtils is the owner
-        localAori.removeSupportedChain(remoteEid);
+        localAori.adminSetSupportedChain(remoteEid, false);
         vm.stopPrank();
     }
 
@@ -45,7 +45,7 @@ contract SupportedChainTest is TestUtils {
     function testAddValidSupportedChain() public {
         // Add Ethereum as supported chain
         vm.prank(address(this)); // TestUtils is the owner
-        localAori.addSupportedChain(ETHEREUM_EID);
+        localAori.adminSetSupportedChain(ETHEREUM_EID, true);
 
         // Verify chain is supported
         bool isSupported = localAori.isSupportedChain(ETHEREUM_EID);
@@ -58,13 +58,13 @@ contract SupportedChainTest is TestUtils {
     function testRemoveSupportedChain() public {
         // First add a chain
         vm.startPrank(address(this)); // TestUtils is the owner
-        localAori.addSupportedChain(AVALANCHE_EID);
+        localAori.adminSetSupportedChain(AVALANCHE_EID, true);
 
         // Verify it's supported
         assertTrue(localAori.isSupportedChain(AVALANCHE_EID), "Chain should be supported");
 
         // Remove the chain
-        localAori.removeSupportedChain(AVALANCHE_EID);
+        localAori.adminSetSupportedChain(AVALANCHE_EID, false);
         vm.stopPrank();
 
         // Verify it's no longer supported
@@ -109,7 +109,7 @@ contract SupportedChainTest is TestUtils {
     function testDepositWithSupportedDestination() public {
         // Add the remote chain as supported
         vm.prank(address(this));
-        localAori.addSupportedChain(remoteEid);
+        localAori.adminSetSupportedChain(remoteEid, true);
 
         // Create a valid order using TestUtils helper
         Order memory order = createValidOrder();
@@ -136,7 +136,7 @@ contract SupportedChainTest is TestUtils {
     function testOnlyOwnerCanAddSupportedChain() public {
         vm.prank(userA);
         vm.expectRevert();
-        localAori.addSupportedChain(ETHEREUM_EID);
+        localAori.adminSetSupportedChain(ETHEREUM_EID, true);
     }
 
     /**
@@ -145,7 +145,7 @@ contract SupportedChainTest is TestUtils {
     function testOnlyOwnerCanRemoveSupportedChain() public {
         vm.prank(userA);
         vm.expectRevert();
-        localAori.removeSupportedChain(localEid);
+        localAori.adminSetSupportedChain(localEid, false);
     }
 
     /**
@@ -162,12 +162,12 @@ contract SupportedChainTest is TestUtils {
     function testCurrentChainAlwaysValid() public {
         // Create a fresh instance with local EID not supported
         vm.prank(address(this));
-        localAori.removeSupportedChain(localEid);
+        localAori.adminSetSupportedChain(localEid, false);
         assertFalse(localAori.isSupportedChain(localEid), "Chain should not be supported after removal");
 
         // Add current chain - should work
         vm.prank(address(this));
-        localAori.addSupportedChain(localEid);
+        localAori.adminSetSupportedChain(localEid, true);
 
         // Verify current chain is now supported
         assertTrue(localAori.isSupportedChain(localEid), "Current chain should be supported after adding");
@@ -177,20 +177,12 @@ contract SupportedChainTest is TestUtils {
      * @notice Tests batch adding of supported chains
      */
     function testAddSupportedChainsBatch() public {
-        // Create an array with multiple valid EIDs
-        uint32[] memory eids = new uint32[](3);
-        eids[0] = ETHEREUM_EID;
-        eids[1] = AVALANCHE_EID;
-        eids[2] = localEid;
-
-        // Call the batch function
-        vm.prank(address(this));
-        bool[] memory results = localAori.addSupportedChains(eids);
-
-        // Verify results array
-        assertTrue(results[0], "ETHEREUM_EID should be added successfully");
-        assertTrue(results[1], "AVALANCHE_EID should be added successfully");
-        assertTrue(results[2], "localEid should be added successfully");
+        // Add multiple chains one by one
+        vm.startPrank(address(this));
+        localAori.adminSetSupportedChain(ETHEREUM_EID, true);
+        localAori.adminSetSupportedChain(AVALANCHE_EID, true);
+        localAori.adminSetSupportedChain(localEid, true);
+        vm.stopPrank();
 
         // Verify mapping state reflects results
         assertTrue(localAori.isSupportedChain(ETHEREUM_EID), "ETHEREUM_EID should be supported");

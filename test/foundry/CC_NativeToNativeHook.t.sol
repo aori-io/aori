@@ -127,12 +127,12 @@ contract CC_NativeToNativeHook is TestUtils {
         dstPreferredToken.mint(solverDest, 10000e6); // Large amount for testing
 
         // Add MockHook2 to allowed hooks
-        localAori.addAllowedHook(address(mockHook2));
-        remoteAori.addAllowedHook(address(mockHook2));
+        localAori.adminSetAllowedHook(address(mockHook2), true);
+        remoteAori.adminSetAllowedHook(address(mockHook2), true);
 
         // Add solvers to allowed list
-        localAori.addAllowedSolver(solverSource);
-        remoteAori.addAllowedSolver(solverDest);
+        localAori.adminSetAllowedSolver(solverSource, true);
+        remoteAori.adminSetAllowedSolver(solverDest, true);
     }
 
     /**

@@ -117,10 +117,10 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         vm.deal(address(mockHook2), 10 ether); // 10 ETH for hook operations
 
         // Add MockHook2 to allowed hooks
-        localAori.addAllowedHook(address(mockHook2));
+        localAori.adminSetAllowedHook(address(mockHook2), true);
 
         // Add solver to allowed list
-        localAori.addAllowedSolver(solverSC);
+        localAori.adminSetAllowedSolver(solverSC, true);
     }
 
     /**
@@ -358,7 +358,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         inputToken.mint(testUser, 20000e18);
         vm.deal(testSolver, 5 ether);
         vm.deal(address(mockHook2), 10 ether);
-        localAori.addAllowedSolver(testSolver);
+        localAori.adminSetAllowedSolver(testSolver, true);
 
         vm.chainId(localEid);
 

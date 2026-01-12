@@ -114,8 +114,8 @@ contract CC_ERC20ToNativeNoHook is TestUtils {
         vm.deal(address(remoteAori), 0 ether); // For native output operations
 
         // Add solvers to allowed list
-        localAori.addAllowedSolver(solverSource);
-        remoteAori.addAllowedSolver(solverDest);
+        localAori.adminSetAllowedSolver(solverSource, true);
+        remoteAori.adminSetAllowedSolver(solverDest, true);
     }
 
     /**

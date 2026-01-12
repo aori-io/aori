@@ -126,22 +126,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     receive() external payable { }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                   STORAGE ACCESSORS                        */
+    /*                     VIEW FUNCTIONS                         */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-    /// @notice Read raw storage slot (for AoriLens)
-    function readStorage(
-        bytes32 slot
-    ) external view returns (bytes32 value) {
-        assembly { value := sload(slot) }
-    }
-
-    /// @notice Read array length from storage slot (for AoriLens)
-    function readStorageArray(
-        bytes32 slot
-    ) external view returns (uint256 length) {
-        assembly { length := sload(slot) }
-    }
 
     // These view functions are used internally via function pointers - DO NOT REMOVE
     /* forgefmt: disable-next-item */
@@ -152,6 +138,40 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     function isAllowedHook(address hook) public view returns (bool) { return _getAoriStorage().isAllowedHook[hook]; }
     /* forgefmt: disable-next-item */
     function isAllowedSolver(address solver) public view returns (bool) { return _getAoriStorage().isAllowedSolver[solver]; }
+
+    // Balance view functions
+    /* forgefmt: disable-next-item */
+    function getLockedBalances(address user, address token) public view returns (uint256) { return _getAoriStorage().balances[user][token].locked; }
+    /* forgefmt: disable-next-item */
+    function getUnlockedBalances(address user, address token) public view returns (uint256) { return _getAoriStorage().balances[user][token].unlocked; }
+
+    // Additional view functions needed for quote and periphery
+    /* forgefmt: disable-next-item */
+    function srcEidToFillerFillsLength(uint32 srcEid, address filler) public view returns (uint256) { return _getAoriStorage().srcEidToFillerFills[srcEid][filler].length; }
+    /* forgefmt: disable-next-item */
+    function srcEidToFillerFills(uint32 srcEid, address filler, uint256 index) public view returns (bytes32) { return _getAoriStorage().srcEidToFillerFills[srcEid][filler][index]; }
+    /* forgefmt: disable-next-item */
+    function MAX_FILLS_PER_SETTLE() public view returns (uint16) { return _getAoriStorage().maxFillsPerSettle; }
+
+    /// @notice Quote LayerZero messaging fee
+    function quote(
+        uint32 _dstEid,
+        uint8 _msgType,
+        bytes calldata _options,
+        bool _payInLzToken,
+        uint32 _srcEid,
+        address _filler
+    ) external view returns (MessagingFee memory) {
+        uint256 fillsLength = srcEidToFillerFillsLength(_srcEid, _filler);
+        uint16 maxFills = MAX_FILLS_PER_SETTLE();
+        uint256 payloadSize = PayloadSizeUtils.calculatePayloadSize(_msgType, fillsLength, maxFills);
+        return _quote(_dstEid, new bytes(payloadSize), _options, _payInLzToken);
+    }
+
+    /// @notice Get order details by order ID
+    function orders(bytes32 orderId) external view returns (Order memory) {
+        return _getAoriStorage().orders[orderId];
+    }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                      OWNER FUNCTIONS                       */

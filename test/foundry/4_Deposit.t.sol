@@ -25,7 +25,7 @@ contract DepositTests is TestUtils {
         nonSolver = address(0x500);
 
         // Add test hook to whitelist
-        localAori.addAllowedHook(testHook);
+        localAori.adminSetAllowedHook(testHook, true);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
