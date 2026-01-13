@@ -70,18 +70,25 @@ library ValidationUtils {
      * @notice Validates fill parameters for both single-chain and cross-chain swaps
      * @dev Performs comprehensive validation for fill operations
      * @param order The order to validate
+     * @param solver The address attempting to fill (msg.sender)
      * @param endpointId The current chain's endpoint ID
      * @param orderStatus The status mapping function to check order status
      * @return orderId The calculated order hash
      */
     function validateFill(
         Order calldata order,
+        address solver,
         uint32 endpointId,
         function(bytes32) external view returns (OrderStatus) orderStatus
     ) internal view returns (bytes32 orderId) {
         // Order parameter validation
         validateCommonOrderParams(order);
         if (order.dstEid != endpointId) revert ChainMismatch(endpointId, order.dstEid);
+
+        // Solver authorization: if order specifies a solver, only that solver can fill
+        if (order.options.solver != address(0) && solver != order.options.solver) {
+            revert UnauthorizedSolver();
+        }
 
         orderId = keccak256(abi.encode(order));
 
@@ -426,19 +433,16 @@ library ExecutionUtils {
 library HookUtils {
     /**
      * @notice Validates SrcHook struct fields
+     * @dev Solver validation removed - solver is now in Order.options
      * @param hook The SrcHook to validate
      * @param isAllowedHook Function to check hook whitelist
-     * @param isAllowedSolver Function to check solver whitelist
      */
     function validateSrcHook(
         SrcHook calldata hook,
-        function(address) external view returns (bool) isAllowedHook,
-        function(address) external view returns (bool) isAllowedSolver
+        function(address) external view returns (bool) isAllowedHook
     ) internal view {
         if (hook.hookAddress == address(0)) revert MissingHook();
         if (!isAllowedHook(hook.hookAddress)) revert InvalidHookAddress();
-        if (hook.solver == address(0)) revert SolverRequiredInHook();
-        if (!isAllowedSolver(hook.solver)) revert InvalidSolverInHook();
     }
 
     /**

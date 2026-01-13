@@ -2,18 +2,6 @@
 pragma solidity 0.8.33;
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-/*                           STATUS                           */
-/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-enum OrderStatus {
-    Unknown, // Order not found
-    Active, // Order deposited but not filled
-    Filled, // Pending settlement
-    Cancelled, // Order cancelled
-    Settled // Order settled
-}
-
-/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                            ORDER                           */
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
@@ -28,6 +16,31 @@ struct Order {
     uint32 dstEid;
     address offerer;
     address recipient;
+    Options options;       // NEW: Nested struct, signed by user
+}
+
+/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+/*                          OPTIONS                           */
+/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+// NEW
+struct Options {
+    uint16 feeMbps;        // Fee in millibasis points (1000 = 1%)
+    address feeRecipient;  // Who receives the fee (address(0) = solver)
+    address solver;        // Authorized solver (address(0) = any whitelisted)
+    uint16 slippageMbps;   // 0 = limit order, >0 = market order
+}
+
+/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+/*                           STATUS                           */
+/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+enum OrderStatus {
+    Unknown,         // Order not found
+    Active,          // Order deposited but not filled
+    Filled,          // Pending settlement
+    Cancelled,       // Order cancelled
+    Settled          // Order settled
 }
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -39,7 +52,6 @@ struct SrcHook {
     address preferredToken;
     uint256 minPreferredTokenAmountOut;
     bytes instructions;
-    address solver;
 }
 
 struct DstHook {

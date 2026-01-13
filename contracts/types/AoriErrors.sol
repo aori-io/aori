@@ -155,6 +155,9 @@ error InsufficientDstHookOutput(uint256 expected, uint256 received);
 /// @notice Thrown when caller is not a whitelisted solver
 error InvalidSolver();
 
+/// @notice Thrown when caller is not the authorized solver for the order
+error UnauthorizedSolver();
+
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                      TOKEN ERRORS                          */
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
