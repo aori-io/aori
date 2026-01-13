@@ -1217,7 +1217,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      * @dev Returns the domain name and version for EIP712.
      */
     function _domainNameAndVersion() internal pure override returns (string memory name, string memory version) {
-        return ("Aori", "0.4.0");
+        return ("Aori", "0.3.2");
     }
 
     /**
