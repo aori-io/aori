@@ -16,7 +16,7 @@ pragma solidity 0.8.33;
 import "forge-std/Test.sol";
 import { Aori } from "../../contracts/Aori.sol";
 import { IAori } from "../../contracts/interfaces/IAori.sol";
-import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance, Options } from "../../contracts/types/AoriTypes.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { TestHelperOz5 } from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
@@ -327,7 +327,8 @@ contract UpgradeTests is TestHelperOz5 {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: LOCAL_EID,
-            dstEid: REMOTE_EID
+            dstEid: REMOTE_EID,
+            options: Options({ feeMbps: 0, feeRecipient: address(0), solver: address(0), slippageMbps: 0 })
         });
 
         // Deposit native tokens as userA
@@ -356,7 +357,8 @@ contract UpgradeTests is TestHelperOz5 {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: LOCAL_EID,
-            dstEid: LOCAL_EID // Same chain for simplicity
+            dstEid: LOCAL_EID, // Same chain for simplicity
+            options: Options({ feeMbps: 0, feeRecipient: address(0), solver: address(0), slippageMbps: 0 })
         });
 
         vm.deal(userA, 10e18);
@@ -402,7 +404,8 @@ contract UpgradeTests is TestHelperOz5 {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: LOCAL_EID,
-            dstEid: REMOTE_EID
+            dstEid: REMOTE_EID,
+            options: Options({ feeMbps: 0, feeRecipient: address(0), solver: address(0), slippageMbps: 0 })
         });
 
         // Hash should work through proxy

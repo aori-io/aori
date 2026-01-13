@@ -51,7 +51,8 @@ contract ExtremeOrderParametersTest is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         bytes memory signature = signOrder(order);
@@ -96,7 +97,8 @@ contract ExtremeOrderParametersTest is TestUtils {
             startTime: uint32(uint32(block.timestamp)),
             endTime: uint32(uint32(block.timestamp) + 1 days),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         bytes memory signature = signOrder(order);
@@ -140,7 +142,8 @@ contract ExtremeOrderParametersTest is TestUtils {
             startTime: 1000, // Exactly current timestamp
             endTime: 1001, // Just 1 second duration
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         bytes memory signature = signOrder(order);
@@ -181,7 +184,8 @@ contract ExtremeOrderParametersTest is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: type(uint32).max, // Maximum possible end time
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         bytes memory signature = signOrder(order);
@@ -223,7 +227,8 @@ contract ExtremeOrderParametersTest is TestUtils {
             startTime: uint32(uint32(block.timestamp)),
             endTime: uint32(uint32(block.timestamp) + 1 days),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         bytes memory signature = signOrder(order);

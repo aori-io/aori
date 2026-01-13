@@ -83,7 +83,8 @@ contract HashVerificationTest is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 3600),
             srcEid: ARBITRUM_EID,
-            dstEid: ETHEREUM_EID
+            dstEid: ETHEREUM_EID,
+            options: defaultOrderOptions()
         });
 
         // Calculate signing hash using the Arbitrum contract address
@@ -212,10 +213,24 @@ contract HashVerificationTest is TestUtils {
         Order memory order,
         address contractAddress
     ) public pure returns (bytes32) {
+        // Hash the nested Options struct first
+        bytes32 optionsHash = keccak256(
+            abi.encode(
+                keccak256("Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"),
+                order.options.feeMbps,
+                order.options.feeRecipient,
+                order.options.solver,
+                order.options.slippageMbps
+            )
+        );
+
         bytes32 structHash = keccak256(
             abi.encode(
                 keccak256(
-                    "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient)"
+                    "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,"
+                    "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient,"
+                    "Options options)"
+                    "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
                 ),
                 order.inputAmount,
                 order.outputAmount,
@@ -226,7 +241,8 @@ contract HashVerificationTest is TestUtils {
                 order.srcEid,
                 order.dstEid,
                 order.offerer,
-                order.recipient
+                order.recipient,
+                optionsHash
             )
         );
 
@@ -234,7 +250,7 @@ contract HashVerificationTest is TestUtils {
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,address verifyingContract)"),
                 keccak256(bytes("Aori")),
-                keccak256(bytes("0.3.2")),
+                keccak256(bytes("0.4.0")),
                 contractAddress
             )
         );

@@ -41,7 +41,8 @@ contract GasReportTest is TestUtils {
             startTime: uint32(block.timestamp), // Use current time
             endTime: uint32(uint32(block.timestamp) + 1 days),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         commonSignature = signOrder(commonOrder);
@@ -49,8 +50,7 @@ contract GasReportTest is TestUtils {
             hookAddress: address(0),
             preferredToken: address(inputToken),
             minPreferredTokenAmountOut: 1000, // Arbitrary minimum amount since no conversion
-            instructions: "",
-            solver: solver
+            instructions: ""
         });
 
         commonDstData =

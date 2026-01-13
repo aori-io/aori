@@ -70,7 +70,8 @@ contract CancellationTests is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: localEid,
-            dstEid: localEid // Same chain
+            dstEid: localEid, // Same chain
+            options: defaultOrderOptions()
         });
     }
 
@@ -88,7 +89,8 @@ contract CancellationTests is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: localEid,
-            dstEid: remoteEid // Different chain
+            dstEid: remoteEid, // Different chain
+            options: defaultOrderOptions()
         });
     }
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.33;
 
-import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance, Options } from "../../contracts/types/AoriTypes.sol";
 import "./TestUtils.sol";
 import { ISignatureTransfer } from "@permit2/src/interfaces/ISignatureTransfer.sol";
 import { Permit2Lib } from "../../contracts/libraries/Permit2Lib.sol";
@@ -15,9 +15,14 @@ import "../../contracts/types/AoriErrors.sol";
 contract Permit2DepositTest is TestUtils, DeployPermit2 {
     ISignatureTransfer public permit2;
 
-    // Full typehash for PermitWitnessTransferFrom with Order witness
+    // Full typehash for PermitWitnessTransferFrom with Order witness (includes nested Options)
     bytes32 constant FULL_PERMIT_WITNESS_TYPEHASH = keccak256(
-        "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,Order witness)Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient)TokenPermissions(address token,uint256 amount)"
+        "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,Order witness)"
+        "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
+        "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,"
+        "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient,"
+        "Options options)"
+        "TokenPermissions(address token,uint256 amount)"
     );
 
     bytes32 constant TOKEN_PERMISSIONS_TYPEHASH = keccak256("TokenPermissions(address token,uint256 amount)");
@@ -47,6 +52,17 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
         uint256 nonce,
         uint256 deadline
     ) internal view returns (bytes memory signature) {
+        // Hash options first
+        bytes32 optionsHash = keccak256(
+            abi.encode(
+                Permit2Lib.OPTIONS_TYPEHASH,
+                order.options.feeMbps,
+                order.options.feeRecipient,
+                order.options.solver,
+                order.options.slippageMbps
+            )
+        );
+
         // Hash order inline (same as Permit2Lib.hashOrder but for memory)
         bytes32 witness = keccak256(
             abi.encode(
@@ -60,7 +76,8 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
                 order.srcEid,
                 order.dstEid,
                 order.offerer,
-                order.recipient
+                order.recipient,
+                optionsHash
             )
         );
 

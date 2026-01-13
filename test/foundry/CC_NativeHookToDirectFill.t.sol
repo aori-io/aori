@@ -168,8 +168,7 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
                 MockHook2.handleHook.selector,
                 address(convertedToken), // Output converted token
                 HOOK_CONVERTED_AMOUNT // Amount of tokens to output
-            ),
-            solver: solverSource
+            )
         });
     }
 
@@ -465,8 +464,7 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
                 MockHook2.handleHook.selector,
                 address(convertedToken),
                 MIN_PREFERRED_OUT - 1 // Less than minimum
-            ),
-            solver: solverSource
+            )
         });
 
         vm.prank(userSource);

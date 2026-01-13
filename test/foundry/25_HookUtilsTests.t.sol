@@ -78,8 +78,7 @@ contract HookUtilsTest is Test {
             hookAddress: ZERO_ADDRESS,
             preferredToken: address(0),
             minPreferredTokenAmountOut: 0,
-            instructions: bytes(""),
-            solver: address(0)
+            instructions: bytes("")
         });
 
         // Act
@@ -97,8 +96,7 @@ contract HookUtilsTest is Test {
             hookAddress: TEST_ADDRESS,
             preferredToken: address(0),
             minPreferredTokenAmountOut: 0,
-            instructions: bytes(""),
-            solver: address(0)
+            instructions: bytes("")
         });
 
         // Act
@@ -162,8 +160,7 @@ contract HookUtilsTest is Test {
                 hookAddress: addresses[i],
                 preferredToken: address(0),
                 minPreferredTokenAmountOut: 0,
-                instructions: bytes(""),
-                solver: address(0)
+                instructions: bytes("")
             });
 
             bool result = wrapper.isSomeSrcHook(hook);

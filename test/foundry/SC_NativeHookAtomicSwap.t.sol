@@ -17,7 +17,7 @@ pragma solidity 0.8.33;
  */
 import { Aori, IAori } from "../../contracts/Aori.sol";
 import { TestUtils } from "./TestUtils.sol";
-import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance, Options } from "../../contracts/types/AoriTypes.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Test } from "forge-std/Test.sol";
 import { console } from "forge-std/console.sol";
@@ -127,18 +127,24 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
     function _createOrder() internal {
         vm.chainId(localEid);
 
-        order = createCustomOrder(
-            userSC, // offerer
-            userSC, // recipient (same as offerer for single-chain)
-            NATIVE_TOKEN, // inputToken (native ETH)
-            address(outputToken), // outputToken (ERC20)
-            INPUT_AMOUNT, // inputAmount
-            OUTPUT_AMOUNT, // outputAmount
-            block.timestamp, // startTime
-            block.timestamp + 1 hours, // endTime
-            localEid, // srcEid
-            localEid // dstEid (same chain)
-        );
+        order = Order({
+            offerer: userSC,
+            recipient: userSC, // same as offerer for single-chain
+            inputToken: NATIVE_TOKEN,
+            outputToken: address(outputToken),
+            inputAmount: INPUT_AMOUNT,
+            outputAmount: OUTPUT_AMOUNT,
+            startTime: uint32(block.timestamp),
+            endTime: uint32(block.timestamp + 1 hours),
+            srcEid: localEid,
+            dstEid: localEid, // same chain
+            options: Options({
+                feeMbps: 0,
+                feeRecipient: address(0),
+                solver: solverSC, // Solver gets surplus
+                slippageMbps: 0
+            })
+        });
     }
 
     /**
@@ -153,8 +159,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
                 MockHook2.handleHook.selector,
                 address(outputToken), // Output ERC20 tokens
                 HOOK_OUTPUT // Amount of tokens to output
-            ),
-            solver: solverSC
+            )
         });
     }
 
@@ -238,8 +243,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
                 MockHook2.handleHook.selector,
                 address(outputToken),
                 OUTPUT_AMOUNT - 1 // Less than required
-            ),
-            solver: solverSC
+            )
         });
 
         vm.prank(userSC);
@@ -339,24 +343,44 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
     /**
      * @notice Test revert with non-whitelisted solver in hook
      */
-    function testRevertNonWhitelistedSolver() public {
+    /**
+     * @notice Test that surplus goes to specified solver in order.options
+     * @dev Solver validation is now done via order.options.solver, not srcHook.solver
+     */
+    function testSurplusGoesToSpecifiedSolver() public {
         vm.chainId(localEid);
 
-        _createOrder();
+        address specifiedSolver = makeAddr("specifiedSolver");
 
-        address nonWhitelistedSolver = makeAddr("nonWhitelistedSolver");
-
-        SrcHook memory srcHook = SrcHook({
-            hookAddress: address(mockHook2),
-            preferredToken: address(outputToken),
-            minPreferredTokenAmountOut: OUTPUT_AMOUNT,
-            instructions: abi.encodeWithSelector(MockHook2.handleHook.selector, address(outputToken), HOOK_OUTPUT),
-            solver: nonWhitelistedSolver // Not whitelisted
+        // Create order with specific solver in options
+        order = Order({
+            offerer: userSC,
+            recipient: userSC,
+            inputToken: NATIVE_TOKEN,
+            outputToken: address(outputToken),
+            inputAmount: INPUT_AMOUNT,
+            outputAmount: OUTPUT_AMOUNT,
+            startTime: uint32(block.timestamp),
+            endTime: uint32(block.timestamp + 1 hours),
+            srcEid: localEid,
+            dstEid: localEid,
+            options: Options({
+                feeMbps: 0,
+                feeRecipient: address(0),
+                solver: specifiedSolver, // Surplus should go here
+                slippageMbps: 0
+            })
         });
 
+        SrcHook memory srcHook = _createSrcHook();
+
+        uint256 solverBalBefore = outputToken.balanceOf(specifiedSolver);
+
         vm.prank(userSC);
-        vm.expectRevert(InvalidSolverInHook.selector);
         localAori.depositNative{ value: INPUT_AMOUNT }(order, srcHook);
+
+        // Surplus should go to specified solver
+        assertEq(outputToken.balanceOf(specifiedSolver) - solverBalBefore, EXPECTED_SURPLUS, "Surplus should go to specified solver");
     }
 
     /**

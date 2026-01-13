@@ -51,7 +51,8 @@ contract QuoteTest is TestUtils {
             startTime: uint32(block.timestamp), // Current time
             endTime: uint32(block.timestamp + 100 + index), // Unique end time per order
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         // Generate signature
@@ -191,7 +192,8 @@ contract QuoteTest is TestUtils {
                     startTime: uint32(block.timestamp - 50 + i + (testCase * 10)),
                     endTime: uint32(block.timestamp + 1 days),
                     srcEid: localEid,
-                    dstEid: remoteEid
+                    dstEid: remoteEid,
+            options: defaultOrderOptions()
                 });
 
                 // Approve tokens for fill

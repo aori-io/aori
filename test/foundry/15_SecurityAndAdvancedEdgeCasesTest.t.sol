@@ -131,7 +131,8 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         bytes memory signature = signOrder(order);
@@ -197,7 +198,8 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         bytes32 orderId = hash(order);
@@ -251,7 +253,8 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         bytes memory signature = signOrder(order);
@@ -326,7 +329,8 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         bytes memory signature = signOrder(order);
@@ -340,8 +344,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
             hookAddress: nonWhitelistedHook,
             preferredToken: address(inputToken),
             minPreferredTokenAmountOut: 1000,
-            instructions: "",
-            solver: solver
+            instructions: ""
         });
 
         vm.prank(solver);
@@ -419,7 +422,8 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         // Sign the order with the testLocalAori contract address
@@ -455,7 +459,8 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         // Sign with the remote contract as the verifying address
@@ -524,10 +529,24 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         uint256 privKey,
         address contractAddress
     ) internal pure returns (bytes memory) {
+        // Hash the nested Options struct first
+        bytes32 optionsHash = keccak256(
+            abi.encode(
+                keccak256("Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"),
+                order.options.feeMbps,
+                order.options.feeRecipient,
+                order.options.solver,
+                order.options.slippageMbps
+            )
+        );
+
         bytes32 structHash = keccak256(
             abi.encode(
                 keccak256(
-                    "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient)"
+                    "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,"
+                    "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient,"
+                    "Options options)"
+                    "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
                 ),
                 order.inputAmount,
                 order.outputAmount,
@@ -538,7 +557,8 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
                 order.srcEid,
                 order.dstEid,
                 order.offerer,
-                order.recipient
+                order.recipient,
+                optionsHash
             )
         );
 
@@ -546,7 +566,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,address verifyingContract)"),
                 keccak256(bytes("Aori")),
-                keccak256(bytes("0.3.2")),
+                keccak256(bytes("0.4.0")),
                 contractAddress
             )
         );
