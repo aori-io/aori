@@ -16,14 +16,13 @@ struct Order {
     uint32 dstEid;
     address offerer;
     address recipient;
-    Options options;       // NEW: Nested struct, signed by user
+    Options options;
 }
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                          OPTIONS                           */
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-// NEW
 struct Options {
     uint16 feeMbps;        // Fee in millibasis points (1000 = 1%)
     address feeRecipient;  // Who receives the fee (address(0) = solver)
