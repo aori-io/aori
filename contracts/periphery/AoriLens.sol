@@ -8,8 +8,12 @@ import { Order } from "../types/AoriTypes.sol";
  * @notice Minimal interface for Aori storage reading
  */
 interface IAoriLensTarget {
-    function readStorage(bytes32 slot) external view returns (bytes32);
-    function readStorageArray(bytes32 slot) external view returns (uint256);
+    function readStorage(
+        bytes32 slot
+    ) external view returns (bytes32);
+    function readStorageArray(
+        bytes32 slot
+    ) external view returns (uint256);
 }
 
 /**
@@ -34,14 +38,18 @@ contract AoriLens {
 
     IAoriLensTarget public immutable aori;
 
-    constructor(address _aori) {
+    constructor(
+        address _aori
+    ) {
         aori = IAoriLensTarget(_aori);
     }
 
     /**
      * @notice Get order details by order ID
      */
-    function orders(bytes32 orderId) external view returns (Order memory order) {
+    function orders(
+        bytes32 orderId
+    ) external view returns (Order memory order) {
         bytes32 baseSlot = keccak256(abi.encode(orderId, uint256(AORI_STORAGE_SLOT) + ORDERS_OFFSET));
 
         bytes32 slot0 = aori.readStorage(baseSlot);
@@ -69,7 +77,10 @@ contract AoriLens {
     /**
      * @notice Get locked balance for a user and token
      */
-    function getLockedBalances(address user, address token) external view returns (uint256) {
+    function getLockedBalances(
+        address user,
+        address token
+    ) external view returns (uint256) {
         bytes32 firstLevel = keccak256(abi.encode(user, uint256(AORI_STORAGE_SLOT) + BALANCES_OFFSET));
         bytes32 balanceSlot = keccak256(abi.encode(token, firstLevel));
         bytes32 value = aori.readStorage(balanceSlot);
@@ -79,7 +90,10 @@ contract AoriLens {
     /**
      * @notice Get unlocked balance for a user and token
      */
-    function getUnlockedBalances(address user, address token) external view returns (uint256) {
+    function getUnlockedBalances(
+        address user,
+        address token
+    ) external view returns (uint256) {
         bytes32 firstLevel = keccak256(abi.encode(user, uint256(AORI_STORAGE_SLOT) + BALANCES_OFFSET));
         bytes32 balanceSlot = keccak256(abi.encode(token, firstLevel));
         bytes32 value = aori.readStorage(balanceSlot);
@@ -97,7 +111,11 @@ contract AoriLens {
     /**
      * @notice Get filler fills array element
      */
-    function srcEidToFillerFills(uint32 srcEid, address filler, uint256 index) external view returns (bytes32) {
+    function srcEidToFillerFills(
+        uint32 srcEid,
+        address filler,
+        uint256 index
+    ) external view returns (bytes32) {
         bytes32 firstLevel = keccak256(abi.encode(srcEid, uint256(AORI_STORAGE_SLOT) + SRC_EID_TO_FILLER_FILLS_OFFSET));
         bytes32 arraySlot = keccak256(abi.encode(filler, firstLevel));
         bytes32 elementSlot = bytes32(uint256(keccak256(abi.encode(arraySlot))) + index);
@@ -107,7 +125,10 @@ contract AoriLens {
     /**
      * @notice Get filler fills array length
      */
-    function srcEidToFillerFillsLength(uint32 srcEid, address filler) external view returns (uint256) {
+    function srcEidToFillerFillsLength(
+        uint32 srcEid,
+        address filler
+    ) external view returns (uint256) {
         bytes32 firstLevel = keccak256(abi.encode(srcEid, uint256(AORI_STORAGE_SLOT) + SRC_EID_TO_FILLER_FILLS_OFFSET));
         bytes32 arraySlot = keccak256(abi.encode(filler, firstLevel));
         return aori.readStorageArray(arraySlot);
