@@ -23,7 +23,7 @@ import { ValidationUtils } from "./libraries/internal/ValidationUtils.sol";
 import { BalanceUtils } from "./libraries/internal/BalanceUtils.sol";
 import { ExecutionUtils } from "./libraries/internal/ExecutionUtils.sol";
 import { HookUtils } from "./libraries/internal/HookUtils.sol";
-import { NativeTokenUtils } from "./libraries/internal/NativeTokenUtils.sol";
+import { TokenUtils } from "./libraries/internal/TokenUtils.sol";
 import { AoriStorage, AoriStorageData } from "./storage/AoriStorage.sol";
 import { ISignatureTransfer } from "@permit2/src/interfaces/ISignatureTransfer.sol";
 import { Permit2Lib } from "./libraries/internal/Permit2Lib.sol";
@@ -66,7 +66,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     using SafeERC20 for IERC20;
     using BalanceUtils for Balance;
     using ValidationUtils for Order;
-    using NativeTokenUtils for address;
+    using TokenUtils for address;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    IMMUTABLE STATE                         */

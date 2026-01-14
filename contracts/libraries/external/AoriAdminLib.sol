@@ -6,7 +6,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { Order, OrderStatus, Balance } from "../../types/AoriTypes.sol";
 import "../../types/AoriErrors.sol";
 import { AoriStorageData } from "../../storage/AoriStorage.sol";
-import { NativeTokenUtils } from "../internal/NativeTokenUtils.sol";
+import { TokenUtils } from "../internal/TokenUtils.sol";
 
 /**
  * @title AoriAdminLib
@@ -16,7 +16,7 @@ import { NativeTokenUtils } from "../internal/NativeTokenUtils.sol";
  */
 library AoriAdminLib {
     using SafeERC20 for IERC20;
-    using NativeTokenUtils for address;
+    using TokenUtils for address;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                         CONSTANTS                          */

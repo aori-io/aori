@@ -9,10 +9,10 @@ import "../../types/AoriErrors.sol";
 address constant NATIVE_TOKEN = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
 /**
- * @notice Library for native token operations
+ * @notice Library for token operations (native ETH and ERC20)
  * @dev Provides utilities for handling native ETH alongside ERC20 tokens
  */
-library NativeTokenUtils {
+library TokenUtils {
     using SafeERC20 for IERC20;
 
     /**

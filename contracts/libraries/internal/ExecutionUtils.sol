@@ -2,7 +2,7 @@
 pragma solidity 0.8.33;
 
 import "../../types/AoriErrors.sol";
-import { NativeTokenUtils } from "./NativeTokenUtils.sol";
+import { TokenUtils } from "./TokenUtils.sol";
 
 /**
  * @notice Library for executing external calls and observing token balance changes
@@ -22,10 +22,10 @@ library ExecutionUtils {
         bytes calldata data,
         address observedToken
     ) internal returns (uint256) {
-        uint256 balBefore = NativeTokenUtils.balanceOf(observedToken, address(this));
+        uint256 balBefore = TokenUtils.balanceOf(observedToken, address(this));
         (bool success,) = target.call(data);
         if (!success) revert HookCallFailed();
-        uint256 balAfter = NativeTokenUtils.balanceOf(observedToken, address(this));
+        uint256 balAfter = TokenUtils.balanceOf(observedToken, address(this));
 
         // Prevent underflow and provide clear error message
         if (balAfter < balBefore) revert HookDecreasedContractBalance();
