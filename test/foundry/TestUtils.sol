@@ -40,6 +40,7 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { PayloadType } from "../../contracts/libraries/internal/PayloadUtils.sol";
 import { MockERC20 } from "../Mock/MockERC20.sol";
 import { MockHook } from "../Mock/MockHook.sol";
+import { AoriLens } from "../../contracts/periphery/AoriLens.sol";
 
 /**
  * @title TestUtils
@@ -51,6 +52,8 @@ contract TestUtils is TestHelperOz5 {
     // Common state
     Aori public localAori;
     Aori public remoteAori;
+    AoriLens public localLens;
+    AoriLens public remoteLens;
 
     /**
      * @notice Deploys an ERC1967 proxy for any Aori-derived implementation
@@ -118,6 +121,10 @@ contract TestUtils is TestHelperOz5 {
         // Deploy local and remote Aori instances
         localAori = deployAori(address(endpoints[localEid]), localEid, address(this), MAX_FILLS_PER_SETTLE);
         remoteAori = deployAori(address(endpoints[remoteEid]), remoteEid, address(this), MAX_FILLS_PER_SETTLE);
+
+        // Deploy lens contracts for view functions
+        localLens = new AoriLens(address(localAori));
+        remoteLens = new AoriLens(address(remoteAori));
 
         // Wire the OApps together
         address[] memory aoriInstances = new address[](2);

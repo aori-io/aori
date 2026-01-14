@@ -138,7 +138,7 @@ contract EdgeCasesTest is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        uint256 lockedBalance = localAori.getLockedBalances(maker, address(feeToken));
+        uint256 lockedBalance = localLens.getLockedBalances(maker, address(feeToken));
         assertEq(lockedBalance, 10 ether, "Locked balance should match input amount");
     }
 

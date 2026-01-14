@@ -243,7 +243,7 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
 
         // Verify converted tokens are locked
         assertEq(
-            localAori.getLockedBalances(userSource, address(convertedToken)),
+            localLens.getLockedBalances(userSource, address(convertedToken)),
             HOOK_CONVERTED_AMOUNT,
             "Converted tokens should be locked for user"
         );
@@ -287,11 +287,11 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
         assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
 
         // Verify locked balance is cleared
-        assertEq(localAori.getLockedBalances(userSource, address(convertedToken)), 0, "User should have no locked balance after settlement");
+        assertEq(localLens.getLockedBalances(userSource, address(convertedToken)), 0, "User should have no locked balance after settlement");
 
         // Verify solver has unlocked balance
         assertEq(
-            localAori.getUnlockedBalances(solverSource, address(convertedToken)),
+            localLens.getUnlockedBalances(solverSource, address(convertedToken)),
             HOOK_CONVERTED_AMOUNT,
             "Solver should have unlocked converted tokens"
         );
@@ -321,7 +321,7 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
         );
 
         assertEq(
-            localAori.getUnlockedBalances(solverSource, address(convertedToken)), 0, "Solver should have no remaining unlocked balance"
+            localLens.getUnlockedBalances(solverSource, address(convertedToken)), 0, "Solver should have no remaining unlocked balance"
         );
     }
 
@@ -360,7 +360,7 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
 
         vm.chainId(localEid);
         uint256 afterDepositUserNative = userSource.balance;
-        uint256 afterDepositLockedTokens = localAori.getLockedBalances(userSource, address(convertedToken));
+        uint256 afterDepositLockedTokens = localLens.getLockedBalances(userSource, address(convertedToken));
         uint256 afterDepositContractTokens = convertedToken.balanceOf(address(localAori));
 
         console.log("After Deposit:");
@@ -399,8 +399,8 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
         _simulateLzMessageDelivery();
 
         vm.chainId(localEid);
-        uint256 afterSettleLockedTokens = localAori.getLockedBalances(userSource, address(convertedToken));
-        uint256 afterSettleUnlockedTokens = localAori.getUnlockedBalances(solverSource, address(convertedToken));
+        uint256 afterSettleLockedTokens = localLens.getLockedBalances(userSource, address(convertedToken));
+        uint256 afterSettleUnlockedTokens = localLens.getUnlockedBalances(solverSource, address(convertedToken));
 
         console.log("After Settlement:");
         console.log("  User locked tokens:", afterSettleLockedTokens / 1e18, "tokens (should be 0)");
@@ -418,7 +418,7 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
         localAori.withdraw(address(convertedToken), HOOK_CONVERTED_AMOUNT);
 
         uint256 afterWithdrawSolverTokens = convertedToken.balanceOf(solverSource);
-        uint256 afterWithdrawUnlockedTokens = localAori.getUnlockedBalances(solverSource, address(convertedToken));
+        uint256 afterWithdrawUnlockedTokens = localLens.getUnlockedBalances(solverSource, address(convertedToken));
 
         console.log("After Withdrawal:");
         console.log("  Solver converted token balance:", afterWithdrawSolverTokens / 1e18, "tokens");

@@ -161,7 +161,7 @@ contract PausedTests is TestUtils {
         assertEq(finalUserBalance, initialUserBalance, "User should have received their tokens back directly");
 
         // Verify unlocked balance is still 0 (since tokens were transferred directly)
-        uint256 unlockedBalance = localAori.getUnlockedBalances(userA, address(inputToken));
+        uint256 unlockedBalance = localLens.getUnlockedBalances(userA, address(inputToken));
         assertEq(unlockedBalance, 0, "Unlocked balance should remain 0 with direct transfer");
 
         // Now pause the contract
@@ -239,7 +239,7 @@ contract PausedTests is TestUtils {
         localAori.deposit(order, signature);
 
         // Verify locked balance was created
-        uint256 lockedBefore = localAori.getLockedBalances(userA, address(inputToken));
+        uint256 lockedBefore = localLens.getLockedBalances(userA, address(inputToken));
         assertEq(lockedBefore, order.inputAmount, "User should have locked tokens");
 
         // Test emergency withdraw from locked balance
@@ -258,7 +258,7 @@ contract PausedTests is TestUtils {
         );
 
         // Verify balances updated correctly
-        uint256 lockedAfter = localAori.getLockedBalances(userA, address(inputToken));
+        uint256 lockedAfter = localLens.getLockedBalances(userA, address(inputToken));
         uint256 recipientBalanceAfter = inputToken.balanceOf(recipient);
 
         assertEq(lockedAfter, lockedBefore - withdrawAmount, "User's locked balance should decrease");
@@ -289,7 +289,7 @@ contract PausedTests is TestUtils {
         localAori.fill(swapOrder);
 
         // Verify solver has unlocked balance
-        uint256 unlockedBefore = localAori.getUnlockedBalances(solver, address(inputToken));
+        uint256 unlockedBefore = localLens.getUnlockedBalances(solver, address(inputToken));
         assertEq(unlockedBefore, swapOrder.inputAmount, "Solver should have unlocked tokens");
 
         // Test emergency withdraw from unlocked balance
@@ -308,7 +308,7 @@ contract PausedTests is TestUtils {
         );
 
         // Verify balances updated correctly
-        uint256 unlockedAfter = localAori.getUnlockedBalances(solver, address(inputToken));
+        uint256 unlockedAfter = localLens.getUnlockedBalances(solver, address(inputToken));
         uint256 recipientBalanceAfter = inputToken.balanceOf(recipient);
 
         assertEq(unlockedAfter, unlockedBefore - withdrawAmount, "Solver's unlocked balance should decrease");

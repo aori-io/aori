@@ -229,7 +229,7 @@ contract CC_ERC20ToNativeSrcHook is TestUtils {
      * @notice Test Phase 1: Deposit ERC20 tokens with source hook on source chain
      */
     function testPhase1_DepositERC20WithSrcHook() public {
-        uint256 initialLocked = localAori.getLockedBalances(userSource, address(convertedToken));
+        uint256 initialLocked = localLens.getLockedBalances(userSource, address(convertedToken));
         uint256 initialContractBalance = convertedToken.balanceOf(address(localAori));
         uint256 initialUserBalance = inputToken.balanceOf(userSource);
 
@@ -237,7 +237,7 @@ contract CC_ERC20ToNativeSrcHook is TestUtils {
 
         // Verify locked balance increased (for the converted token)
         assertEq(
-            localAori.getLockedBalances(userSource, address(convertedToken)),
+            localLens.getLockedBalances(userSource, address(convertedToken)),
             initialLocked + HOOK_CONVERTED_AMOUNT,
             "Locked balance not increased for user"
         );
@@ -300,7 +300,7 @@ contract CC_ERC20ToNativeSrcHook is TestUtils {
         // Verify final state (check source chain balances)
         vm.chainId(localEid);
         assertEq(
-            localAori.getUnlockedBalances(solverSource, address(convertedToken)),
+            localLens.getUnlockedBalances(solverSource, address(convertedToken)),
             HOOK_CONVERTED_AMOUNT,
             "Solver unlocked converted token balance incorrect after settlement"
         );
@@ -310,7 +310,7 @@ contract CC_ERC20ToNativeSrcHook is TestUtils {
 
         // Verify locked balance is cleared
         assertEq(
-            localAori.getLockedBalances(userSource, address(convertedToken)), 0, "Offerer should have no locked balance after settlement"
+            localLens.getLockedBalances(userSource, address(convertedToken)), 0, "Offerer should have no locked balance after settlement"
         );
     }
 
@@ -343,7 +343,7 @@ contract CC_ERC20ToNativeSrcHook is TestUtils {
             contractBalanceBeforeWithdraw - HOOK_CONVERTED_AMOUNT,
             "Contract should send converted tokens"
         );
-        assertEq(localAori.getUnlockedBalances(solverSource, address(convertedToken)), 0, "Solver should have no remaining balance");
+        assertEq(localLens.getUnlockedBalances(solverSource, address(convertedToken)), 0, "Solver should have no remaining balance");
     }
 
     /**
@@ -383,7 +383,7 @@ contract CC_ERC20ToNativeSrcHook is TestUtils {
         vm.chainId(localEid);
         uint256 afterDepositUserSourceTokens = inputToken.balanceOf(userSource);
         uint256 afterDepositContractSourceTokens = convertedToken.balanceOf(address(localAori));
-        uint256 afterDepositUserSourceLocked = localAori.getLockedBalances(userSource, address(convertedToken));
+        uint256 afterDepositUserSourceLocked = localLens.getLockedBalances(userSource, address(convertedToken));
 
         console.log("Source Chain After Deposit:");
         console.log("  User ERC20 balance:", afterDepositUserSourceTokens / 1e18, "tokens");
@@ -442,8 +442,8 @@ contract CC_ERC20ToNativeSrcHook is TestUtils {
         _simulateLzMessageDelivery();
 
         vm.chainId(localEid);
-        uint256 afterSettlementUserSourceLocked = localAori.getLockedBalances(userSource, address(convertedToken));
-        uint256 afterSettlementSolverSourceUnlocked = localAori.getUnlockedBalances(solverSource, address(convertedToken));
+        uint256 afterSettlementUserSourceLocked = localLens.getLockedBalances(userSource, address(convertedToken));
+        uint256 afterSettlementSolverSourceUnlocked = localLens.getUnlockedBalances(solverSource, address(convertedToken));
 
         console.log("Source Chain After Settlement:");
         console.log("  User locked balance (converted tokens):", afterSettlementUserSourceLocked / 1e18, "converted");
@@ -469,7 +469,7 @@ contract CC_ERC20ToNativeSrcHook is TestUtils {
 
         uint256 afterWithdrawSolverSourceTokens = convertedToken.balanceOf(solverSource);
         uint256 afterWithdrawContractSourceTokens = convertedToken.balanceOf(address(localAori));
-        uint256 afterWithdrawSolverSourceUnlocked = localAori.getUnlockedBalances(solverSource, address(convertedToken));
+        uint256 afterWithdrawSolverSourceUnlocked = localLens.getUnlockedBalances(solverSource, address(convertedToken));
 
         console.log("Source Chain After Withdrawal:");
         console.log("  Solver converted token balance:", afterWithdrawSolverSourceTokens / 1e18, "converted");

@@ -114,7 +114,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
         assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Active));
 
         // Check locked balance
-        assertEq(localAori.getLockedBalances(userA, address(inputToken)), order.inputAmount);
+        assertEq(localLens.getLockedBalances(userA, address(inputToken)), order.inputAmount);
     }
 
     function testDepositWithPermit2_DifferentNonces() public {
@@ -291,7 +291,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
         assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Active));
 
         // Check converted token is locked (hook converts input to convertedToken)
-        assertGt(localAori.getLockedBalances(userA, address(convertedToken)), 0);
+        assertGt(localLens.getLockedBalances(userA, address(convertedToken)), 0);
     }
 
     function testDepositWithPermit2_WithHook_UnallowedHook() public {

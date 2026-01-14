@@ -106,7 +106,7 @@ contract HookWhitelistTest is TestUtils {
         localAori.deposit(order, signature, srcData);
 
         // Verify the locked balance is updated
-        assertEq(localAori.getLockedBalances(userA, address(convertedToken)), order.inputAmount, "Locked balance not increased for user");
+        assertEq(localLens.getLockedBalances(userA, address(convertedToken)), order.inputAmount, "Locked balance not increased for user");
     }
 
     /**

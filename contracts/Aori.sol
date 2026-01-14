@@ -145,21 +145,13 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     /* forgefmt: disable-next-item */
     function isAllowedSolver(address solver) public view returns (bool) { return _getAoriStorage().isAllowedSolver[solver]; }
 
-    // Balance view functions
+    // Storage read helpers for AoriLens - enables external view contract without adding bytecode
     /* forgefmt: disable-next-item */
-    function getLockedBalances(address user, address token) public view returns (uint256) { return _getAoriStorage().balances[user][token].locked; }
+    function readStorage(bytes32 slot) external view returns (bytes32 value) { assembly { value := sload(slot) } }
     /* forgefmt: disable-next-item */
-    function getUnlockedBalances(address user, address token) public view returns (uint256) { return _getAoriStorage().balances[user][token].unlocked; }
+    function readStorageArray(bytes32 slot) external view returns (uint256 length) { assembly { length := sload(slot) } }
 
-    // Additional view functions needed for quote and periphery
-    /* forgefmt: disable-next-item */
-    function srcEidToFillerFillsLength(uint32 srcEid, address filler) public view returns (uint256) { return _getAoriStorage().srcEidToFillerFills[srcEid][filler].length; }
-    /* forgefmt: disable-next-item */
-    function srcEidToFillerFills(uint32 srcEid, address filler, uint256 index) public view returns (bytes32) { return _getAoriStorage().srcEidToFillerFills[srcEid][filler][index]; }
-    /* forgefmt: disable-next-item */
-    function MAX_FILLS_PER_SETTLE() public view returns (uint16) { return _getAoriStorage().maxFillsPerSettle; }
-
-    /// @notice Quote LayerZero messaging fee
+    /// @notice Quote LayerZero messaging fee (kept in Aori.sol because it needs OApp's _quote)
     function quote(
         uint32 _dstEid,
         uint8 _msgType,
@@ -168,15 +160,11 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         uint32 _srcEid,
         address _filler
     ) external view returns (MessagingFee memory) {
-        uint256 fillsLength = srcEidToFillerFillsLength(_srcEid, _filler);
-        uint16 maxFills = MAX_FILLS_PER_SETTLE();
-        uint256 payloadSize = PayloadSizeUtils.calculatePayloadSize(_msgType, fillsLength, maxFills);
+        AoriStorageData storage $ = _getAoriStorage();
+        uint256 fillsLength = $.srcEidToFillerFills[_srcEid][_filler].length;
+        uint256 payloadSize = PayloadSizeUtils.calculatePayloadSize(_msgType, fillsLength, $.maxFillsPerSettle);
         return _quote(_dstEid, new bytes(payloadSize), _options, _payInLzToken);
     }
-
-    /// @notice Get order details by order ID
-    /* forgefmt: disable-next-item */
-    function orders(bytes32 orderId) external view returns (Order memory) { return _getAoriStorage().orders[orderId]; }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                      OWNER FUNCTIONS                       */

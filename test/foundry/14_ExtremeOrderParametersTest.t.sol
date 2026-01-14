@@ -64,7 +64,7 @@ contract ExtremeOrderParametersTest is TestUtils {
         localAori.deposit(order, signature);
 
         // Verify that the locked balance increased correctly
-        assertEq(localAori.getLockedBalances(userA, address(inputToken)), order.inputAmount, "Locked balance incorrect after deposit");
+        assertEq(localLens.getLockedBalances(userA, address(inputToken)), order.inputAmount, "Locked balance incorrect after deposit");
 
         // Test fill with max values
         vm.chainId(remoteEid);

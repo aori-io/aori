@@ -287,7 +287,7 @@ contract CC_ERC20ToNativeHook is TestUtils {
     function testPhase1_DepositERC20WithSrcHook() public {
         uint256 initialUserInputTokens = inputToken.balanceOf(userSource);
         uint256 initialContractSrcPreferred = srcHookPreferredToken.balanceOf(address(localAori));
-        uint256 initialUserSourceLocked = localAori.getLockedBalances(userSource, address(srcHookPreferredToken));
+        uint256 initialUserSourceLocked = localLens.getLockedBalances(userSource, address(srcHookPreferredToken));
 
         _createAndDepositERC20OrderWithSrcHook();
 
@@ -303,7 +303,7 @@ contract CC_ERC20ToNativeHook is TestUtils {
 
         // Verify locked balance increased with srcPreferred tokens
         assertEq(
-            localAori.getLockedBalances(userSource, address(srcHookPreferredToken)),
+            localLens.getLockedBalances(userSource, address(srcHookPreferredToken)),
             initialUserSourceLocked + SRC_PREFERRED_OUTPUT,
             "Locked balance should increase with srcPreferred tokens"
         );
@@ -366,7 +366,7 @@ contract CC_ERC20ToNativeHook is TestUtils {
         // Verify final state (check source chain balances)
         vm.chainId(localEid);
         assertEq(
-            localAori.getUnlockedBalances(solverSource, address(srcHookPreferredToken)),
+            localLens.getUnlockedBalances(solverSource, address(srcHookPreferredToken)),
             SRC_PREFERRED_OUTPUT,
             "Solver unlocked srcPreferred balance incorrect after settlement"
         );
@@ -376,7 +376,7 @@ contract CC_ERC20ToNativeHook is TestUtils {
 
         // Verify locked balance is cleared
         assertEq(
-            localAori.getLockedBalances(userSource, address(srcHookPreferredToken)),
+            localLens.getLockedBalances(userSource, address(srcHookPreferredToken)),
             0,
             "Offerer should have no locked balance after settlement"
         );
@@ -411,7 +411,7 @@ contract CC_ERC20ToNativeHook is TestUtils {
             contractBalanceBeforeWithdraw - SRC_PREFERRED_OUTPUT,
             "Contract should send srcPreferred tokens"
         );
-        assertEq(localAori.getUnlockedBalances(solverSource, address(srcHookPreferredToken)), 0, "Solver should have no remaining balance");
+        assertEq(localLens.getUnlockedBalances(solverSource, address(srcHookPreferredToken)), 0, "Solver should have no remaining balance");
     }
 
     /**
@@ -454,7 +454,7 @@ contract CC_ERC20ToNativeHook is TestUtils {
         vm.chainId(localEid);
         uint256 afterDepositUserSourceInputTokens = inputToken.balanceOf(userSource);
         uint256 afterDepositContractSourceSrcPreferred = srcHookPreferredToken.balanceOf(address(localAori));
-        uint256 afterDepositUserSourceLocked = localAori.getLockedBalances(userSource, address(srcHookPreferredToken));
+        uint256 afterDepositUserSourceLocked = localLens.getLockedBalances(userSource, address(srcHookPreferredToken));
 
         console.log("Source Chain After Deposit:");
         console.log("  User input tokens (18 dec):", afterDepositUserSourceInputTokens / 1e18, "tokens");
@@ -496,8 +496,8 @@ contract CC_ERC20ToNativeHook is TestUtils {
         _simulateLzMessageDelivery();
 
         vm.chainId(localEid);
-        uint256 afterSettlementUserSourceLocked = localAori.getLockedBalances(userSource, address(srcHookPreferredToken));
-        uint256 afterSettlementSolverSourceUnlocked = localAori.getUnlockedBalances(solverSource, address(srcHookPreferredToken));
+        uint256 afterSettlementUserSourceLocked = localLens.getLockedBalances(userSource, address(srcHookPreferredToken));
+        uint256 afterSettlementSolverSourceUnlocked = localLens.getUnlockedBalances(solverSource, address(srcHookPreferredToken));
 
         console.log("Source Chain After Settlement:");
         console.log("  User locked srcPreferred balance:", afterSettlementUserSourceLocked / 1e18, "tokens");
@@ -517,7 +517,7 @@ contract CC_ERC20ToNativeHook is TestUtils {
 
         uint256 afterWithdrawSolverSourceSrcPreferred = srcHookPreferredToken.balanceOf(solverSource);
         uint256 afterWithdrawContractSourceSrcPreferred = srcHookPreferredToken.balanceOf(address(localAori));
-        uint256 afterWithdrawSolverSourceUnlocked = localAori.getUnlockedBalances(solverSource, address(srcHookPreferredToken));
+        uint256 afterWithdrawSolverSourceUnlocked = localLens.getUnlockedBalances(solverSource, address(srcHookPreferredToken));
 
         console.log("Source Chain After Withdrawal:");
         console.log("  Solver srcPreferred tokens (18 dec):", afterWithdrawSolverSourceSrcPreferred / 1e18, "tokens");

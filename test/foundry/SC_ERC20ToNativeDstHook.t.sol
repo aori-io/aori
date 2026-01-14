@@ -207,7 +207,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         console.log("After Deposit:");
         console.log("User:");
         console.log("  Input tokens:", inputToken.balanceOf(userSC) / 1e18, "tokens");
-        console.log("  Locked balance:", localAori.getLockedBalances(userSC, address(inputToken)) / 1e18, "tokens");
+        console.log("  Locked balance:", localLens.getLockedBalances(userSC, address(inputToken)) / 1e18, "tokens");
         console.log("Contract:");
         console.log("  Input tokens:", inputToken.balanceOf(address(localAori)) / 1e18, "tokens");
         console.log("Order Status:", uint256(localAori.orderStatus(orderId)));
@@ -215,7 +215,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
 
         // Verify deposit worked correctly
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active after deposit");
-        assertEq(localAori.getLockedBalances(userSC, address(inputToken)), INPUT_AMOUNT, "User should have locked balance");
+        assertEq(localLens.getLockedBalances(userSC, address(inputToken)), INPUT_AMOUNT, "User should have locked balance");
     }
 
     /**
@@ -241,10 +241,10 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         console.log("Before Fill:");
         console.log("User:");
         console.log("  Native balance:", userSC.balance / 1e18, "ETH");
-        console.log("  Locked tokens:", localAori.getLockedBalances(userSC, address(inputToken)) / 1e18, "tokens");
+        console.log("  Locked tokens:", localLens.getLockedBalances(userSC, address(inputToken)) / 1e18, "tokens");
         console.log("Solver:");
         console.log("  Native balance:", solverSC.balance / 1e18, "ETH");
-        console.log("  Unlocked tokens:", localAori.getUnlockedBalances(solverSC, address(inputToken)) / 1e18, "tokens");
+        console.log("  Unlocked tokens:", localLens.getUnlockedBalances(solverSC, address(inputToken)) / 1e18, "tokens");
         console.log("");
 
         // Solver fills with dstHook (sends native tokens to hook)
@@ -264,11 +264,11 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         console.log("User:");
         console.log("  Input tokens:", inputToken.balanceOf(userSC) / 1e18, "tokens");
         console.log("  Native balance:", userSC.balance / 1e18, "ETH");
-        console.log("  Locked tokens:", localAori.getLockedBalances(userSC, address(inputToken)) / 1e18, "tokens");
+        console.log("  Locked tokens:", localLens.getLockedBalances(userSC, address(inputToken)) / 1e18, "tokens");
         console.log("Solver:");
         console.log("  Input tokens:", inputToken.balanceOf(solverSC) / 1e18, "tokens");
         console.log("  Native balance:", solverSC.balance / 1e18, "ETH");
-        console.log("  Unlocked tokens:", localAori.getUnlockedBalances(solverSC, address(inputToken)) / 1e18, "tokens");
+        console.log("  Unlocked tokens:", localLens.getUnlockedBalances(solverSC, address(inputToken)) / 1e18, "tokens");
         console.log("Contract:");
         console.log("  Input tokens:", inputToken.balanceOf(address(localAori)) / 1e18, "tokens");
         console.log("  Native balance:", address(localAori).balance / 1e18, "ETH");
@@ -301,13 +301,13 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
 
         // Solver should have unlocked tokens in the contract (not direct transfer)
         assertEq(
-            localAori.getUnlockedBalances(solverSC, address(inputToken)),
+            localLens.getUnlockedBalances(solverSC, address(inputToken)),
             INPUT_AMOUNT,
             "Solver should have unlocked balance equal to input amount"
         );
 
         // All locked balances should be cleared
-        assertEq(localAori.getLockedBalances(userSC, address(inputToken)), 0, "User should have no locked balance after settlement");
+        assertEq(localLens.getLockedBalances(userSC, address(inputToken)), 0, "User should have no locked balance after settlement");
 
         // Contract should still hold the tokens (they're in solver's unlocked balance)
         assertEq(inputToken.balanceOf(address(localAori)), INPUT_AMOUNT, "Contract should hold tokens in solver's unlocked balance");
@@ -424,7 +424,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
 
         // Check that solver has unlocked tokens in the contract (should be exactly INPUT_AMOUNT)
         assertEq(
-            localAori.getUnlockedBalances(testSolver, address(inputToken)),
+            localLens.getUnlockedBalances(testSolver, address(inputToken)),
             INPUT_AMOUNT,
             string(abi.encodePacked(scenarioName, ": Solver should have unlocked tokens"))
         );
@@ -465,7 +465,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
 
         // Verify deposit state
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active after deposit");
-        assertEq(localAori.getLockedBalances(userSC, address(inputToken)), INPUT_AMOUNT, "User should have locked balance");
+        assertEq(localLens.getLockedBalances(userSC, address(inputToken)), INPUT_AMOUNT, "User should have locked balance");
 
         // Phase 2: Solver fills with exact amount (no surplus)
         DstHook memory dstHook = DstHook({
@@ -489,8 +489,8 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Settled, "Order should be Settled");
         assertEq(userSC.balance, initialUserNative + OUTPUT_AMOUNT, "User should receive native tokens");
         assertEq(solverSC.balance, initialSolverNative - OUTPUT_AMOUNT, "Solver should pay for hook input");
-        assertEq(localAori.getLockedBalances(userSC, address(inputToken)), 0, "User locked balance should be cleared");
-        assertEq(localAori.getUnlockedBalances(solverSC, address(inputToken)), INPUT_AMOUNT, "Solver should get unlocked tokens");
+        assertEq(localLens.getLockedBalances(userSC, address(inputToken)), 0, "User locked balance should be cleared");
+        assertEq(localLens.getUnlockedBalances(solverSC, address(inputToken)), INPUT_AMOUNT, "Solver should get unlocked tokens");
     }
 
     /**

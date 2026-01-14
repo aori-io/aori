@@ -267,7 +267,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
 
         // Verify no locked balances remain (atomic settlement)
-        assertEq(localAori.getLockedBalances(userSC, address(inputToken)), 0, "User should have no locked balance after atomic settlement");
+        assertEq(localLens.getLockedBalances(userSC, address(inputToken)), 0, "User should have no locked balance after atomic settlement");
     }
 
     /**
@@ -275,13 +275,13 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
      */
     function testSingleChainBalanceAccountingIntegrity() public {
         // Initial state - no locked balances
-        assertEq(localAori.getLockedBalances(userSC, address(inputToken)), 0);
+        assertEq(localLens.getLockedBalances(userSC, address(inputToken)), 0);
 
         // After deposit with hook (atomic settlement)
         _createAndExecuteDepositWithHook();
 
         // After atomic settlement, no locked balances should remain
-        assertEq(localAori.getLockedBalances(userSC, address(inputToken)), 0);
+        assertEq(localLens.getLockedBalances(userSC, address(inputToken)), 0);
 
         // Order should be immediately settled
         assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
@@ -461,8 +461,8 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
 
         // Verify no locked balances remain (atomic settlement)
         // For single-chain swaps with deposit hooks, no balance accounting is used
-        assertEq(localAori.getLockedBalances(userSC, address(inputToken)), 0, "User should have no locked balance after atomic settlement");
-        assertEq(localAori.getUnlockedBalances(solverSC, NATIVE_TOKEN), 0, "Solver should have no unlocked balance for deposit hook swaps");
+        assertEq(localLens.getLockedBalances(userSC, address(inputToken)), 0, "User should have no locked balance after atomic settlement");
+        assertEq(localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN), 0, "Solver should have no unlocked balance for deposit hook swaps");
 
         // Verify tokens were transferred directly (not through balance accounting)
         // User should have received native tokens directly
@@ -520,6 +520,6 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         assertTrue(localAori.orderStatus(localAori.hash(order2)) == OrderStatus.Settled, "Second order should be settled");
 
         // Verify no locked balances remain for either order
-        assertEq(localAori.getLockedBalances(userSC, address(inputToken)), 0, "User should have no locked balance after both swaps");
+        assertEq(localLens.getLockedBalances(userSC, address(inputToken)), 0, "User should have no locked balance after both swaps");
     }
 }

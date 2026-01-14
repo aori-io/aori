@@ -9,15 +9,16 @@ import { IAoriPeriphery } from "../interfaces/IAoriPeriphery.sol";
  * @title AoriPeriphery
  * @notice A periphery contract that aggregates fill statistics per endpoint ID
  * @dev Provides view functions to get order counts and input token sums for fillers
+ *      Now reads from AoriLens instead of Aori directly to reduce Aori bytecode
  */
 contract AoriPeriphery {
-    /// @notice The Aori contract to read from
-    IAoriPeriphery public immutable aori;
+    /// @notice The AoriLens contract to read from
+    IAoriPeriphery public immutable lens;
 
     /* forgefmt: disable-next-item */
-    constructor(address _aori) {
-        if (_aori == address(0)) revert InvalidAoriAddress();
-        aori = IAoriPeriphery(_aori);
+    constructor(address _lens) {
+        if (_lens == address(0)) revert InvalidAoriAddress();
+        lens = IAoriPeriphery(_lens);
     }
 
     /**
@@ -37,7 +38,7 @@ contract AoriPeriphery {
             uint256 count = 0;
 
             for (uint256 i = 0; i < 100; i++) {
-                try aori.srcEidToFillerFills(srcEids[j], filler, i) returns (bytes32 orderId) {
+                try lens.srcEidToFillerFills(srcEids[j], filler, i) returns (bytes32 orderId) {
                     temp[count++] = orderId;
                 } catch {
                     break;
@@ -64,7 +65,7 @@ contract AoriPeriphery {
         uint256 uniqueCount = 0;
 
         for (uint256 i = 0; i < orderHashes.length; i++) {
-            Order memory order = aori.orders(orderHashes[i]);
+            Order memory order = lens.orders(orderHashes[i]);
 
             bool found = false;
             for (uint256 k = 0; k < uniqueCount; k++) {

@@ -264,9 +264,9 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
         _executeDepositNativeWithHook();
 
         // No locked balances should remain for atomic settlement
-        assertEq(localAori.getLockedBalances(userSC, NATIVE_TOKEN), 0, "User should have no locked native balance");
-        assertEq(localAori.getLockedBalances(userSC, address(outputToken)), 0, "User should have no locked output token balance");
-        assertEq(localAori.getUnlockedBalances(solverSC, address(outputToken)), 0, "Solver should have no unlocked balance in contract");
+        assertEq(localLens.getLockedBalances(userSC, NATIVE_TOKEN), 0, "User should have no locked native balance");
+        assertEq(localLens.getLockedBalances(userSC, address(outputToken)), 0, "User should have no locked output token balance");
+        assertEq(localLens.getUnlockedBalances(solverSC, address(outputToken)), 0, "Solver should have no unlocked balance in contract");
     }
 
     /**

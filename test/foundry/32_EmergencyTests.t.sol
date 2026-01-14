@@ -103,7 +103,7 @@ contract EmergencyTests is TestUtils {
 
         // Verify results
         assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Cancelled), "Order should be cancelled");
-        assertEq(localAori.getLockedBalances(userA, address(inputToken)), 0, "Locked balance should be zero");
+        assertEq(localLens.getLockedBalances(userA, address(inputToken)), 0, "Locked balance should be zero");
         assertEq(inputToken.balanceOf(userA), userBalanceBefore + order.inputAmount, "User should receive tokens");
     }
 
@@ -398,7 +398,7 @@ contract EmergencyTests is TestUtils {
         );
 
         assertEq(
-            localAori.getLockedBalances(userA, address(inputToken)), order.inputAmount - withdrawAmount, "Locked balance should decrease"
+            localLens.getLockedBalances(userA, address(inputToken)), order.inputAmount - withdrawAmount, "Locked balance should decrease"
         );
         assertEq(inputToken.balanceOf(customRecipient), recipientBalanceBefore + withdrawAmount, "Recipient should receive tokens");
 
@@ -446,7 +446,7 @@ contract EmergencyTests is TestUtils {
         );
 
         assertEq(
-            localAori.getUnlockedBalances(solver, address(inputToken)),
+            localLens.getUnlockedBalances(solver, address(inputToken)),
             order.inputAmount - withdrawAmount,
             "Unlocked balance should decrease"
         );
@@ -515,12 +515,12 @@ contract EmergencyTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order2, sig2);
 
-        uint256 totalLockedBefore = localAori.getLockedBalances(userA, address(inputToken));
+        uint256 totalLockedBefore = localLens.getLockedBalances(userA, address(inputToken));
         uint256 withdrawAmount = order1.inputAmount;
 
         localAori.emergencyWithdrawFromUser(address(inputToken), withdrawAmount, userA, true, customRecipient);
 
-        uint256 totalLockedAfter = localAori.getLockedBalances(userA, address(inputToken));
+        uint256 totalLockedAfter = localLens.getLockedBalances(userA, address(inputToken));
 
         assertEq(totalLockedAfter, totalLockedBefore - withdrawAmount, "Locked balance should decrease correctly");
         assertEq(totalLockedAfter, order2.inputAmount, "Remaining should equal second order");
@@ -561,7 +561,7 @@ contract EmergencyTests is TestUtils {
 
         // Verify order is still active but balance is gone
         assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Active), "Order should still be active");
-        assertEq(localAori.getLockedBalances(userA, address(inputToken)), 0, "Locked balance should be zero");
+        assertEq(localLens.getLockedBalances(userA, address(inputToken)), 0, "Locked balance should be zero");
     }
 
     /**
@@ -617,7 +617,7 @@ contract EmergencyTests is TestUtils {
         assertEq(uint8(localAori.orderStatus(swapOrderId)), uint8(OrderStatus.Settled), "Swap should be settled");
 
         // 3. Can withdraw unlocked balances
-        uint256 unlockedBalance = localAori.getUnlockedBalances(solver, address(inputToken));
+        uint256 unlockedBalance = localLens.getUnlockedBalances(solver, address(inputToken));
         if (unlockedBalance > 0) {
             vm.prank(solver);
             localAori.withdraw(address(inputToken), unlockedBalance);
