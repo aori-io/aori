@@ -24,7 +24,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Test } from "forge-std/Test.sol";
 import { console } from "forge-std/console.sol";
 import { MockHook2 } from "../Mock/MockHook2.sol";
-import "../../contracts/libraries/AoriUtils.sol";
+import { NativeTokenUtils, NATIVE_TOKEN } from "../../contracts/libraries/internal/NativeTokenUtils.sol";
 
 contract CC_NativeHookToHookFill_Test is TestUtils {
     using NativeTokenUtils for address;
@@ -161,12 +161,12 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
         dstPreferredToken.mint(solverDest, 50000e6); // 6 decimals
 
         // Add hooks to allowed list
-        localAori.adminSetAllowedHook(address(srcMockHook), true);
-        remoteAori.adminSetAllowedHook(address(dstMockHook), true);
+        localAori.addAllowedHook(address(srcMockHook));
+        remoteAori.addAllowedHook(address(dstMockHook));
 
         // Add solvers to allowed list
-        localAori.adminSetAllowedSolver(solverSource, true);
-        remoteAori.adminSetAllowedSolver(solverDest, true);
+        localAori.addAllowedSolver(solverSource);
+        remoteAori.addAllowedSolver(solverDest);
     }
 
     /**

@@ -162,7 +162,7 @@ contract HashVerificationTest is TestUtils {
             abi.encodeWithSelector(Aori(ARBITRUM_CONTRACT_ADDRESS).quote.selector, ETHEREUM_EID, 0, bytes(""), false, 0, address(0)),
             abi.encode(1 ether)
         );
-        Aori(ARBITRUM_CONTRACT_ADDRESS).adminSetSupportedChain(ETHEREUM_EID, true);
+        Aori(ARBITRUM_CONTRACT_ADDRESS).addSupportedChain(ETHEREUM_EID);
         vm.stopPrank();
 
         console.log("Test contract: %s", ARBITRUM_CONTRACT_ADDRESS);
@@ -179,7 +179,7 @@ contract HashVerificationTest is TestUtils {
         inputToken.approve(ARBITRUM_CONTRACT_ADDRESS, order.inputAmount);
 
         // Whitelist solver as an allowed solver
-        Aori(ARBITRUM_CONTRACT_ADDRESS).adminSetAllowedSolver(solverAddress, true);
+        Aori(ARBITRUM_CONTRACT_ADDRESS).addAllowedSolver(solverAddress);
 
         // Use the original signature that we created for the Arbitrum contract
         console.log("Using signature: 0x%s", toHexString(signature));

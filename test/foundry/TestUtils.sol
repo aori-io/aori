@@ -37,7 +37,7 @@ import { OAppUpgradeable, Origin, MessagingFee } from "@layerzerolabs/oapp-evm-u
 import { TestHelperOz5 } from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
 import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { PayloadType } from "../../contracts/libraries/AoriUtils.sol";
+import { PayloadType } from "../../contracts/libraries/internal/PayloadUtils.sol";
 import { MockERC20 } from "../Mock/MockERC20.sol";
 import { MockHook } from "../Mock/MockHook.sol";
 
@@ -131,10 +131,10 @@ contract TestUtils is TestHelperOz5 {
 
         // Setup chains as supported (local already done in constructor)
         // Add remote chain as supported on local contract
-        localAori.adminSetSupportedChain(remoteEid, true);
+        localAori.addSupportedChain(remoteEid);
 
         // Add local chain as supported on remote contract
-        remoteAori.adminSetSupportedChain(localEid, true);
+        remoteAori.addSupportedChain(localEid);
 
         // Setup test tokens
         inputToken = new MockERC20("Input", "IN");
@@ -153,12 +153,12 @@ contract TestUtils is TestHelperOz5 {
         outputToken.mint(address(mockHook), 1000e18);
 
         // Whitelist the mockHook in both contracts
-        localAori.adminSetAllowedHook(address(mockHook), true);
-        remoteAori.adminSetAllowedHook(address(mockHook), true);
+        localAori.addAllowedHook(address(mockHook));
+        remoteAori.addAllowedHook(address(mockHook));
 
         // Whitelist the solver in both contracts
-        localAori.adminSetAllowedSolver(solver, true);
-        remoteAori.adminSetAllowedSolver(solver, true);
+        localAori.addAllowedSolver(solver);
+        remoteAori.addAllowedSolver(solver);
     }
 
     /**

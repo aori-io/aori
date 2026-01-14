@@ -309,7 +309,7 @@ abstract contract BaseScript is Script {
         Aori aori,
         uint32 eid
     ) internal {
-        aori.adminSetSupportedChain(eid, true);
+        aori.addSupportedChain(eid);
         console.log("Added supported chain:", eid);
     }
 }

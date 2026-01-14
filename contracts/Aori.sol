@@ -18,10 +18,16 @@ import { ECDSA } from "solady/src/utils/ECDSA.sol";
 import { IAori } from "./interfaces/IAori.sol";
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "./types/AoriTypes.sol";
 import "./types/AoriErrors.sol";
-import "./libraries/AoriUtils.sol";
+import { PayloadType, PayloadPackUtils, PayloadUnpackUtils, PayloadSizeUtils } from "./libraries/internal/PayloadUtils.sol";
+import { ValidationUtils } from "./libraries/internal/ValidationUtils.sol";
+import { BalanceUtils } from "./libraries/internal/BalanceUtils.sol";
+import { ExecutionUtils } from "./libraries/internal/ExecutionUtils.sol";
+import { HookUtils } from "./libraries/internal/HookUtils.sol";
+import { NativeTokenUtils } from "./libraries/internal/NativeTokenUtils.sol";
 import { AoriStorage, AoriStorageData } from "./storage/AoriStorage.sol";
 import { ISignatureTransfer } from "@permit2/src/interfaces/ISignatureTransfer.sol";
-import { Permit2Lib } from "./libraries/Permit2Lib.sol";
+import { Permit2Lib } from "./libraries/internal/Permit2Lib.sol";
+import { AoriAdminLib } from "./libraries/external/AoriAdminLib.sol";
 
 /**
  *                                @@@@@@@@@@@
@@ -194,91 +200,23 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                    ADMIN LOW-LEVEL SETTERS                  */
+    /*                    ADMIN FUNCTIONS                          */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    /// @notice Set hook whitelist status. Only callable by owner (AoriAdmin).
-    function adminSetAllowedHook(
-        address hook,
-        bool allowed
-    ) external onlyOwner {
-        _getAoriStorage().isAllowedHook[hook] = allowed;
-        if (allowed) emit HookAdded(hook);
-        else emit HookRemoved(hook);
-    }
+    // NOTE: Simple management functions are kept inline rather than delegating to AoriAdminLib.
+    // This is intentional: the DELEGATECALL overhead for these one-liners exceeds the inline bytecode,
+    // so keeping them here actually saves contract size. Complex functions use the library.
+    function addAllowedHook(address hook) external onlyOwner { _getAoriStorage().isAllowedHook[hook] = true; emit HookAdded(hook); }
+    function removeAllowedHook(address hook) external onlyOwner { _getAoriStorage().isAllowedHook[hook] = false; emit HookRemoved(hook); }
+    function addAllowedSolver(address solver) external onlyOwner { _getAoriStorage().isAllowedSolver[solver] = true; emit SolverAdded(solver); }
+    function removeAllowedSolver(address solver) external onlyOwner { _getAoriStorage().isAllowedSolver[solver] = false; emit SolverRemoved(solver); }
+    function addSupportedChain(uint32 eid) external onlyOwner { _getAoriStorage().isSupportedChain[eid] = true; emit ChainSupported(eid); }
+    function removeSupportedChain(uint32 eid) external onlyOwner { _getAoriStorage().isSupportedChain[eid] = false; emit ChainRemoved(eid); }
 
-    /// @notice Set solver whitelist status. Only callable by owner (AoriAdmin).
-    function adminSetAllowedSolver(
-        address solver,
-        bool allowed
-    ) external onlyOwner {
-        _getAoriStorage().isAllowedSolver[solver] = allowed;
-        if (allowed) emit SolverAdded(solver);
-        else emit SolverRemoved(solver);
-    }
-
-    /// @notice Set chain support status. Only callable by owner (AoriAdmin).
-    function adminSetSupportedChain(
-        uint32 eid,
-        bool supported
-    ) external onlyOwner {
-        _getAoriStorage().isSupportedChain[eid] = supported;
-        if (supported) emit ChainSupported(eid);
-        else emit ChainRemoved(eid);
-    }
-
-    /// @notice Set max fills per settle. Only callable by owner (AoriAdmin).
-    function adminSetMaxFillsPerSettle(
-        uint16 maxFills
-    ) external onlyOwner {
-        if (maxFills == 0) revert InvalidMaxFillsPerSettle();
-        AoriStorageData storage $ = _getAoriStorage();
-        emit MaxFillsPerSettleUpdated($.maxFillsPerSettle, maxFills);
-        $.maxFillsPerSettle = maxFills;
-    }
-
-    /// @notice Set order status to cancelled. Only callable by owner (AoriAdmin) for emergency operations.
-    function adminSetOrderCancelled(
-        bytes32 orderId
-    ) external onlyOwner {
-        _getAoriStorage().orderStatus[orderId] = OrderStatus.Cancelled;
-        emit Cancel(orderId);
-    }
-
-    /// @notice Decrease locked balance. Only callable by owner (AoriAdmin) for emergency operations.
-    function adminDecreaseLockedBalance(
-        address user,
-        address token,
-        uint128 amount
-    ) external onlyOwner {
-        AoriStorageData storage $ = _getAoriStorage();
-        $.balances[user][token].locked -= amount;
-    }
-
-    /// @notice Decrease unlocked balance. Only callable by owner (AoriAdmin) for emergency operations.
-    function adminDecreaseUnlockedBalance(
-        address user,
-        address token,
-        uint128 amount
-    ) external onlyOwner {
-        AoriStorageData storage $ = _getAoriStorage();
-        $.balances[user][token].unlocked -= amount;
-    }
-
-    /// @notice Transfer tokens out. Only callable by owner (AoriAdmin) for emergency operations.
-    function adminTransfer(
-        address token,
-        address to,
-        uint256 amount
-    ) external onlyOwner {
-        if (token == NATIVE_TOKEN) {
-            (bool success,) = payable(to).call{ value: amount }("");
-            if (!success) revert NativeTransferFailed();
-        } else {
-            token.safeTransfer(to, amount);
-        }
-        emit Withdraw(to, token, amount);
-    }
+    // Complex emergency functions delegated to AoriAdminLib to save bytecode
+    function emergencyCancel(bytes32 orderId, address recipient) external onlyOwner { AoriAdminLib.emergencyCancel(orderId, recipient, ENDPOINT_ID); }
+    function emergencyWithdraw(address token, uint256 amount, address recipient) external onlyOwner { AoriAdminLib.emergencyWithdraw(token, amount, recipient); }
+    function emergencyWithdrawFromUser(address token, uint256 amount, address user, bool isLocked, address recipient) external onlyOwner { AoriAdminLib.emergencyWithdrawFromUser(token, amount, user, isLocked, recipient); }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                         MODIFIERS                          */
@@ -821,7 +759,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             Order memory order = $.orders[orderId];
 
             if (order.dstEid != senderEid) {
-                emit SettlementFailed(orderId, order.dstEid, senderEid, "Eid mismatch");
+                emit SettlementFailed(orderId, order.dstEid, senderEid, "");
                 continue;
             }
 
@@ -961,47 +899,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                       HEALTH CHECK                         */
-    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-    // TODO: Remove health check functions before production deployment
-
-    /**
-     * @notice Send a ping to a remote chain to verify cross-chain connectivity
-     * @dev Useful for deployment verification and health checks. Requires peer to be set.
-     * @param dstEid The destination endpoint ID to ping
-     * @param extraOptions LayerZero messaging options
-     */
-    function ping(uint32 dstEid, bytes calldata extraOptions) external payable nonReentrant whenNotPaused {
-        bytes memory payload = PayloadPackUtils.packPing();
-        MessagingReceipt memory receipt = _lzSend(dstEid, payload, extraOptions, MessagingFee(msg.value, 0), payable(msg.sender));
-        emit PingSent(dstEid, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
-    }
-
-    /**
-     * @notice Quote the fee for sending a ping
-     * @param dstEid The destination endpoint ID
-     * @param extraOptions LayerZero messaging options
-     * @param payInLzToken Whether to pay in LZ token
-     * @return fee The estimated messaging fee
-     */
-    function quotePing(uint32 dstEid, bytes calldata extraOptions, bool payInLzToken) external view returns (MessagingFee memory fee) {
-        bytes memory payload = PayloadPackUtils.packPing();
-        return _quote(dstEid, payload, extraOptions, payInLzToken);
-    }
-
-    /**
-     * @notice Handles ping payload from remote chain
-     * @dev Emits PingReceived event for verification
-     * @param payload The ping payload (1 byte type only)
-     * @param srcEid The source endpoint ID that sent the ping
-     */
-    function _handlePing(bytes calldata payload, uint32 srcEid) internal {
-        payload.validatePingLen();
-        emit PingReceived(srcEid);
-    }
-
-    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                          WITHDRAW                          */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
@@ -1088,8 +985,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             _handleCancellation(payload);
         } else if (msgType == PayloadType.Settlement) {
             _handleSettlement(payload, srcEid);
-        } else if (msgType == PayloadType.Ping) {
-            _handlePing(payload, srcEid);
         } else {
             revert InvalidMessageType();
         }

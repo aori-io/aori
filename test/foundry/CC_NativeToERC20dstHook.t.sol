@@ -21,7 +21,7 @@ import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/t
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Test } from "forge-std/Test.sol";
 import { console } from "forge-std/console.sol";
-import "../../contracts/libraries/AoriUtils.sol";
+import { NativeTokenUtils, NATIVE_TOKEN } from "../../contracts/libraries/internal/NativeTokenUtils.sol";
 import { MockHook2 } from "../Mock/MockHook2.sol";
 
 contract CC_NativeToERC20DstHook is TestUtils {
@@ -126,11 +126,11 @@ contract CC_NativeToERC20DstHook is TestUtils {
         outputToken.mint(address(dstHook), 3000e18); // More than enough for conversions
 
         // Add hook to whitelist
-        remoteAori.adminSetAllowedHook(address(dstHook), true);
+        remoteAori.addAllowedHook(address(dstHook));
 
         // Add solvers to allowed list
-        localAori.adminSetAllowedSolver(solverSource, true);
-        remoteAori.adminSetAllowedSolver(solverDest, true);
+        localAori.addAllowedSolver(solverSource);
+        remoteAori.addAllowedSolver(solverDest);
     }
 
     /**

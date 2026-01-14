@@ -18,7 +18,7 @@ pragma solidity 0.8.33;
  */
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import "./TestUtils.sol";
-import "../../contracts/libraries/AoriUtils.sol";
+import { NativeTokenUtils, NATIVE_TOKEN } from "../../contracts/libraries/internal/NativeTokenUtils.sol";
 import { Aori, IAori } from "../../contracts/Aori.sol";
 import "../../contracts/types/AoriErrors.sol";
 
@@ -81,8 +81,8 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         testRemoteAori.setPeer(localEid, bytes32(uint256(uint160(address(testLocalAori)))));
 
         // Whitelist the solver in both contracts
-        testLocalAori.adminSetAllowedSolver(solver, true);
-        testRemoteAori.adminSetAllowedSolver(solver, true);
+        testLocalAori.addAllowedSolver(solver);
+        testRemoteAori.addAllowedSolver(solver);
 
         // Additional setup for extreme testing scenarios
         inputToken.mint(userA, type(uint128).max);
@@ -103,8 +103,8 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         );
 
         // Add support for chains
-        testLocalAori.adminSetSupportedChain(remoteEid, true);
-        testRemoteAori.adminSetSupportedChain(localEid, true);
+        testLocalAori.addSupportedChain(remoteEid);
+        testRemoteAori.addSupportedChain(localEid);
     }
 
     /**
@@ -140,7 +140,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         inputToken.approve(address(localAori), order.inputAmount);
 
         // Remove solver from whitelist temporarily
-        localAori.adminSetAllowedSolver(solver, false);
+        localAori.removeAllowedSolver(solver);
 
         // Non-whitelisted solver should fail to deposit
         vm.prank(solver);
@@ -148,7 +148,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         localAori.deposit(order, signature);
 
         // Add solver back to whitelist
-        localAori.adminSetAllowedSolver(solver, true);
+        localAori.addAllowedSolver(solver);
 
         // Whitelisted solver should be able to deposit
         vm.prank(solver);
@@ -159,7 +159,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         vm.warp(order.startTime + 10);
 
         // Remove solver from whitelist temporarily
-        remoteAori.adminSetAllowedSolver(solver, false);
+        remoteAori.removeAllowedSolver(solver);
 
         vm.prank(solver);
         outputToken.approve(address(remoteAori), order.outputAmount);
@@ -169,7 +169,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         remoteAori.fill(order);
 
         // Add solver back to whitelist
-        remoteAori.adminSetAllowedSolver(solver, true);
+        remoteAori.addAllowedSolver(solver);
 
         // Whitelisted solver should be able to fill
         vm.prank(solver);

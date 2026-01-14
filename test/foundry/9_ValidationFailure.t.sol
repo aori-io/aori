@@ -37,8 +37,8 @@ contract ValidationFailuresTest is TestUtils {
         failingHook = new FailingHook();
 
         // Whitelist the failing hook in both Aori instances
-        localAori.adminSetAllowedHook(address(failingHook), true);
-        remoteAori.adminSetAllowedHook(address(failingHook), true);
+        localAori.addAllowedHook(address(failingHook));
+        remoteAori.addAllowedHook(address(failingHook));
     }
 
     /**
@@ -106,7 +106,7 @@ contract ValidationFailuresTest is TestUtils {
 
         // Create order and remove solver from whitelist
         Order memory order = createValidOrder();
-        remoteAori.adminSetAllowedSolver(solver, false);
+        remoteAori.removeAllowedSolver(solver);
 
         // Set time to after order start
         vm.warp(order.startTime + 100);
@@ -119,7 +119,7 @@ contract ValidationFailuresTest is TestUtils {
         remoteAori.fill(order);
 
         // Restore solver to whitelist for other tests
-        remoteAori.adminSetAllowedSolver(solver, true);
+        remoteAori.addAllowedSolver(solver);
     }
 
     /**

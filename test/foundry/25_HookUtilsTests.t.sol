@@ -18,7 +18,7 @@ pragma solidity 0.8.33;
  */
 import "forge-std/Test.sol";
 import "./TestUtils.sol";
-import "../../contracts/libraries/AoriUtils.sol";
+import { HookUtils } from "../../contracts/libraries/internal/HookUtils.sol";
 import "../../contracts/interfaces/IAori.sol";
 
 /**

@@ -20,7 +20,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Test } from "forge-std/Test.sol";
 import { console } from "forge-std/console.sol";
 import { MockHook2 } from "../Mock/MockHook2.sol";
-import "../../contracts/libraries/AoriUtils.sol";
+import { NativeTokenUtils, NATIVE_TOKEN } from "../../contracts/libraries/internal/NativeTokenUtils.sol";
 import "../../contracts/types/AoriErrors.sol";
 
 contract SC_ERC20ToNativeHook_Test is TestUtils {
@@ -115,10 +115,10 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         vm.deal(address(mockHook2), 5 ether); // 5 ETH for hook operations
 
         // Add MockHook2 to allowed hooks
-        localAori.adminSetAllowedHook(address(mockHook2), true);
+        localAori.addAllowedHook(address(mockHook2));
 
         // Add solver to allowed list
-        localAori.adminSetAllowedSolver(solverSC, true);
+        localAori.addAllowedSolver(solverSC);
     }
 
     /**

@@ -98,7 +98,7 @@ contract ManagementTests is TestUtils {
 
         // Owner adds the hook
         vm.prank(address(this));
-        localAori.adminSetAllowedHook(TEST_HOOK, true);
+        localAori.addAllowedHook(TEST_HOOK);
 
         // Verify hook is now allowed
         assertTrue(localAori.isAllowedHook(TEST_HOOK));
@@ -111,7 +111,7 @@ contract ManagementTests is TestUtils {
         // Non-owner attempts to add hook
         vm.prank(NON_OWNER);
         vm.expectRevert();
-        localAori.adminSetAllowedHook(TEST_HOOK, true);
+        localAori.addAllowedHook(TEST_HOOK);
 
         // Verify hook is still not allowed
         assertFalse(localAori.isAllowedHook(TEST_HOOK));
@@ -123,7 +123,7 @@ contract ManagementTests is TestUtils {
     function testAddAllowedHook_ZeroAddress() public {
         // Owner adds zero address as hook
         vm.prank(address(this));
-        localAori.adminSetAllowedHook(address(0), true);
+        localAori.addAllowedHook(address(0));
 
         // Verify zero address is now allowed (this is valid behavior)
         assertTrue(localAori.isAllowedHook(address(0)));
@@ -135,12 +135,12 @@ contract ManagementTests is TestUtils {
     function testAddAllowedHook_AlreadyAllowed() public {
         // First add the hook
         vm.prank(address(this));
-        localAori.adminSetAllowedHook(TEST_HOOK, true);
+        localAori.addAllowedHook(TEST_HOOK);
         assertTrue(localAori.isAllowedHook(TEST_HOOK));
 
         // Add the same hook again
         vm.prank(address(this));
-        localAori.adminSetAllowedHook(TEST_HOOK, true);
+        localAori.addAllowedHook(TEST_HOOK);
 
         // Verify hook is still allowed
         assertTrue(localAori.isAllowedHook(TEST_HOOK));
@@ -152,12 +152,12 @@ contract ManagementTests is TestUtils {
     function testRemoveAllowedHook_Success() public {
         // First add the hook
         vm.prank(address(this));
-        localAori.adminSetAllowedHook(TEST_HOOK, true);
+        localAori.addAllowedHook(TEST_HOOK);
         assertTrue(localAori.isAllowedHook(TEST_HOOK));
 
         // Owner removes the hook
         vm.prank(address(this));
-        localAori.adminSetAllowedHook(TEST_HOOK, false);
+        localAori.removeAllowedHook(TEST_HOOK);
 
         // Verify hook is no longer allowed
         assertFalse(localAori.isAllowedHook(TEST_HOOK));
@@ -169,13 +169,13 @@ contract ManagementTests is TestUtils {
     function testRemoveAllowedHook_OnlyOwner() public {
         // First add the hook
         vm.prank(address(this));
-        localAori.adminSetAllowedHook(TEST_HOOK, true);
+        localAori.addAllowedHook(TEST_HOOK);
         assertTrue(localAori.isAllowedHook(TEST_HOOK));
 
         // Non-owner attempts to remove hook
         vm.prank(NON_OWNER);
         vm.expectRevert();
-        localAori.adminSetAllowedHook(TEST_HOOK, false);
+        localAori.removeAllowedHook(TEST_HOOK);
 
         // Verify hook is still allowed
         assertTrue(localAori.isAllowedHook(TEST_HOOK));
@@ -190,7 +190,7 @@ contract ManagementTests is TestUtils {
 
         // Owner removes non-existent hook
         vm.prank(address(this));
-        localAori.adminSetAllowedHook(TEST_HOOK, false);
+        localAori.removeAllowedHook(TEST_HOOK);
 
         // Verify hook is still not allowed
         assertFalse(localAori.isAllowedHook(TEST_HOOK));
@@ -209,7 +209,7 @@ contract ManagementTests is TestUtils {
 
         // Owner adds the solver
         vm.prank(address(this));
-        localAori.adminSetAllowedSolver(TEST_SOLVER, true);
+        localAori.addAllowedSolver(TEST_SOLVER);
 
         // Verify solver is now allowed
         assertTrue(localAori.isAllowedSolver(TEST_SOLVER));
@@ -222,7 +222,7 @@ contract ManagementTests is TestUtils {
         // Non-owner attempts to add solver
         vm.prank(NON_OWNER);
         vm.expectRevert();
-        localAori.adminSetAllowedSolver(TEST_SOLVER, true);
+        localAori.addAllowedSolver(TEST_SOLVER);
 
         // Verify solver is still not allowed
         assertFalse(localAori.isAllowedSolver(TEST_SOLVER));
@@ -234,7 +234,7 @@ contract ManagementTests is TestUtils {
     function testAddAllowedSolver_ZeroAddress() public {
         // Owner adds zero address as solver
         vm.prank(address(this));
-        localAori.adminSetAllowedSolver(address(0), true);
+        localAori.addAllowedSolver(address(0));
 
         // Verify zero address is now allowed (this is valid behavior)
         assertTrue(localAori.isAllowedSolver(address(0)));
@@ -246,12 +246,12 @@ contract ManagementTests is TestUtils {
     function testAddAllowedSolver_AlreadyAllowed() public {
         // First add the solver
         vm.prank(address(this));
-        localAori.adminSetAllowedSolver(TEST_SOLVER, true);
+        localAori.addAllowedSolver(TEST_SOLVER);
         assertTrue(localAori.isAllowedSolver(TEST_SOLVER));
 
         // Add the same solver again
         vm.prank(address(this));
-        localAori.adminSetAllowedSolver(TEST_SOLVER, true);
+        localAori.addAllowedSolver(TEST_SOLVER);
 
         // Verify solver is still allowed
         assertTrue(localAori.isAllowedSolver(TEST_SOLVER));
@@ -263,12 +263,12 @@ contract ManagementTests is TestUtils {
     function testRemoveAllowedSolver_Success() public {
         // First add the solver
         vm.prank(address(this));
-        localAori.adminSetAllowedSolver(TEST_SOLVER, true);
+        localAori.addAllowedSolver(TEST_SOLVER);
         assertTrue(localAori.isAllowedSolver(TEST_SOLVER));
 
         // Owner removes the solver
         vm.prank(address(this));
-        localAori.adminSetAllowedSolver(TEST_SOLVER, false);
+        localAori.removeAllowedSolver(TEST_SOLVER);
 
         // Verify solver is no longer allowed
         assertFalse(localAori.isAllowedSolver(TEST_SOLVER));
@@ -280,13 +280,13 @@ contract ManagementTests is TestUtils {
     function testRemoveAllowedSolver_OnlyOwner() public {
         // First add the solver
         vm.prank(address(this));
-        localAori.adminSetAllowedSolver(TEST_SOLVER, true);
+        localAori.addAllowedSolver(TEST_SOLVER);
         assertTrue(localAori.isAllowedSolver(TEST_SOLVER));
 
         // Non-owner attempts to remove solver
         vm.prank(NON_OWNER);
         vm.expectRevert();
-        localAori.adminSetAllowedSolver(TEST_SOLVER, false);
+        localAori.removeAllowedSolver(TEST_SOLVER);
 
         // Verify solver is still allowed
         assertTrue(localAori.isAllowedSolver(TEST_SOLVER));
@@ -301,7 +301,7 @@ contract ManagementTests is TestUtils {
 
         // Owner removes non-existent solver
         vm.prank(address(this));
-        localAori.adminSetAllowedSolver(TEST_SOLVER, false);
+        localAori.removeAllowedSolver(TEST_SOLVER);
 
         // Verify solver is still not allowed
         assertFalse(localAori.isAllowedSolver(TEST_SOLVER));
@@ -322,7 +322,7 @@ contract ManagementTests is TestUtils {
         vm.prank(address(this));
         vm.expectEmit(true, false, false, false);
         emit ChainSupported(TEST_EID);
-        localAori.adminSetSupportedChain(TEST_EID, true);
+        localAori.addSupportedChain(TEST_EID);
 
         // Verify chain is now supported
         assertTrue(localAori.isSupportedChain(TEST_EID));
@@ -335,7 +335,7 @@ contract ManagementTests is TestUtils {
         // Non-owner attempts to add chain
         vm.prank(NON_OWNER);
         vm.expectRevert();
-        localAori.adminSetSupportedChain(TEST_EID, true);
+        localAori.addSupportedChain(TEST_EID);
 
         // Verify chain is still not supported
         assertFalse(localAori.isSupportedChain(TEST_EID));
@@ -347,14 +347,14 @@ contract ManagementTests is TestUtils {
     function testAddSupportedChain_AlreadySupported() public {
         // First add the chain
         vm.prank(address(this));
-        localAori.adminSetSupportedChain(TEST_EID, true);
+        localAori.addSupportedChain(TEST_EID);
         assertTrue(localAori.isSupportedChain(TEST_EID));
 
         // Add the same chain again
         vm.prank(address(this));
         vm.expectEmit(true, false, false, false);
         emit ChainSupported(TEST_EID);
-        localAori.adminSetSupportedChain(TEST_EID, true);
+        localAori.addSupportedChain(TEST_EID);
 
         // Verify chain is still supported
         assertTrue(localAori.isSupportedChain(TEST_EID));
@@ -368,101 +368,10 @@ contract ManagementTests is TestUtils {
         vm.prank(address(this));
         vm.expectEmit(true, false, false, false);
         emit ChainSupported(0);
-        localAori.adminSetSupportedChain(0, true);
+        localAori.addSupportedChain(0);
 
         // Verify zero EID is now supported
         assertTrue(localAori.isSupportedChain(0));
-    }
-
-    /**
-     * @notice Test successful batch addition of supported chains
-     */
-    function testAddSupportedChains_Success() public {
-        uint32[] memory eids = new uint32[](3);
-        eids[0] = 111;
-        eids[1] = 222;
-        eids[2] = 333;
-
-        // Verify chains are not supported initially
-        assertFalse(localAori.isSupportedChain(111));
-        assertFalse(localAori.isSupportedChain(222));
-        assertFalse(localAori.isSupportedChain(333));
-
-        // Owner adds multiple chains
-        vm.prank(address(this));
-        vm.expectEmit(true, false, false, false);
-        emit ChainSupported(111);
-        vm.expectEmit(true, false, false, false);
-        emit ChainSupported(222);
-        vm.expectEmit(true, false, false, false);
-        emit ChainSupported(333);
-
-        bool[] memory results = localAori.addSupportedChains(eids);
-
-        // Verify all chains are now supported
-        assertTrue(localAori.isSupportedChain(111));
-        assertTrue(localAori.isSupportedChain(222));
-        assertTrue(localAori.isSupportedChain(333));
-
-        // Verify all results are true
-        assertEq(results.length, 3);
-        assertTrue(results[0]);
-        assertTrue(results[1]);
-        assertTrue(results[2]);
-    }
-
-    /**
-     * @notice Test batch addition fails when called by non-owner
-     */
-    function testAddSupportedChains_OnlyOwner() public {
-        uint32[] memory eids = new uint32[](2);
-        eids[0] = 111;
-        eids[1] = 222;
-
-        // Non-owner attempts to add chains
-        vm.prank(NON_OWNER);
-        vm.expectRevert();
-        localAori.addSupportedChains(eids);
-
-        // Verify chains are still not supported
-        assertFalse(localAori.isSupportedChain(111));
-        assertFalse(localAori.isSupportedChain(222));
-    }
-
-    /**
-     * @notice Test batch addition with empty array
-     */
-    function testAddSupportedChains_EmptyArray() public {
-        uint32[] memory eids = new uint32[](0);
-
-        // Owner adds empty array
-        vm.prank(address(this));
-        bool[] memory results = localAori.addSupportedChains(eids);
-
-        // Verify empty results array
-        assertEq(results.length, 0);
-    }
-
-    /**
-     * @notice Test batch addition with single element
-     */
-    function testAddSupportedChains_SingleElement() public {
-        uint32[] memory eids = new uint32[](1);
-        eids[0] = TEST_EID;
-
-        // Verify chain is not supported initially
-        assertFalse(localAori.isSupportedChain(TEST_EID));
-
-        // Owner adds single chain
-        vm.prank(address(this));
-        vm.expectEmit(true, false, false, false);
-        emit ChainSupported(TEST_EID);
-        bool[] memory results = localAori.addSupportedChains(eids);
-
-        // Verify chain is now supported
-        assertTrue(localAori.isSupportedChain(TEST_EID));
-        assertEq(results.length, 1);
-        assertTrue(results[0]);
     }
 
     /**
@@ -471,14 +380,14 @@ contract ManagementTests is TestUtils {
     function testRemoveSupportedChain_Success() public {
         // First add the chain
         vm.prank(address(this));
-        localAori.adminSetSupportedChain(TEST_EID, true);
+        localAori.addSupportedChain(TEST_EID);
         assertTrue(localAori.isSupportedChain(TEST_EID));
 
         // Owner removes the chain
         vm.prank(address(this));
         vm.expectEmit(true, false, false, false);
         emit ChainRemoved(TEST_EID);
-        localAori.adminSetSupportedChain(TEST_EID, false);
+        localAori.removeSupportedChain(TEST_EID);
 
         // Verify chain is no longer supported
         assertFalse(localAori.isSupportedChain(TEST_EID));
@@ -490,13 +399,13 @@ contract ManagementTests is TestUtils {
     function testRemoveSupportedChain_OnlyOwner() public {
         // First add the chain
         vm.prank(address(this));
-        localAori.adminSetSupportedChain(TEST_EID, true);
+        localAori.addSupportedChain(TEST_EID);
         assertTrue(localAori.isSupportedChain(TEST_EID));
 
         // Non-owner attempts to remove chain
         vm.prank(NON_OWNER);
         vm.expectRevert();
-        localAori.adminSetSupportedChain(TEST_EID, false);
+        localAori.removeSupportedChain(TEST_EID);
 
         // Verify chain is still supported
         assertTrue(localAori.isSupportedChain(TEST_EID));
@@ -513,7 +422,7 @@ contract ManagementTests is TestUtils {
         vm.prank(address(this));
         vm.expectEmit(true, false, false, false);
         emit ChainRemoved(TEST_EID);
-        localAori.adminSetSupportedChain(TEST_EID, false);
+        localAori.removeSupportedChain(TEST_EID);
 
         // Verify chain is still not supported
         assertFalse(localAori.isSupportedChain(TEST_EID));
@@ -530,7 +439,7 @@ contract ManagementTests is TestUtils {
         vm.prank(address(this));
         vm.expectEmit(true, false, false, false);
         emit ChainRemoved(localEid);
-        localAori.adminSetSupportedChain(localEid, false);
+        localAori.removeSupportedChain(localEid);
 
         // Verify local chain is no longer supported
         assertFalse(localAori.isSupportedChain(localEid));
@@ -547,9 +456,9 @@ contract ManagementTests is TestUtils {
         vm.startPrank(address(this));
 
         // Add hook and solver
-        localAori.adminSetAllowedHook(TEST_HOOK, true);
-        localAori.adminSetAllowedSolver(TEST_SOLVER, true);
-        localAori.adminSetSupportedChain(TEST_EID, true);
+        localAori.addAllowedHook(TEST_HOOK);
+        localAori.addAllowedSolver(TEST_SOLVER);
+        localAori.addSupportedChain(TEST_EID);
 
         // Verify all are added
         assertTrue(localAori.isAllowedHook(TEST_HOOK));
@@ -561,9 +470,9 @@ contract ManagementTests is TestUtils {
         assertTrue(localAori.paused());
 
         // Management operations should still work when paused
-        localAori.adminSetAllowedHook(TEST_HOOK, false);
-        localAori.adminSetAllowedSolver(TEST_SOLVER, false);
-        localAori.adminSetSupportedChain(TEST_EID, false);
+        localAori.removeAllowedHook(TEST_HOOK);
+        localAori.removeAllowedSolver(TEST_SOLVER);
+        localAori.removeSupportedChain(TEST_EID);
 
         // Verify all are removed
         assertFalse(localAori.isAllowedHook(TEST_HOOK));
@@ -589,20 +498,20 @@ contract ManagementTests is TestUtils {
         address solver1 = address(0x2001);
         address solver2 = address(0x2002);
 
-        localAori.adminSetAllowedHook(hook1, true);
-        localAori.adminSetAllowedHook(hook2, true);
-        localAori.adminSetAllowedSolver(solver1, true);
-        localAori.adminSetAllowedSolver(solver2, true);
+        localAori.addAllowedHook(hook1);
+        localAori.addAllowedHook(hook2);
+        localAori.addAllowedSolver(solver1);
+        localAori.addAllowedSolver(solver2);
 
         // Remove one hook, verify others remain
-        localAori.adminSetAllowedHook(hook1, false);
+        localAori.removeAllowedHook(hook1);
         assertFalse(localAori.isAllowedHook(hook1));
         assertTrue(localAori.isAllowedHook(hook2));
         assertTrue(localAori.isAllowedSolver(solver1));
         assertTrue(localAori.isAllowedSolver(solver2));
 
         // Remove one solver, verify others remain
-        localAori.adminSetAllowedSolver(solver1, false);
+        localAori.removeAllowedSolver(solver1);
         assertFalse(localAori.isAllowedHook(hook1));
         assertTrue(localAori.isAllowedHook(hook2));
         assertFalse(localAori.isAllowedSolver(solver1));

@@ -106,7 +106,7 @@ contract UpgradeTests is TestHelperOz5 {
 
         // Setup mock hook
         mockHook = new MockHook();
-        aori.adminSetAllowedHook(address(mockHook), true);
+        aori.addAllowedHook(address(mockHook));
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -210,9 +210,9 @@ contract UpgradeTests is TestHelperOz5 {
         assertFalse(aori.isSupportedChain(3), "Chain 3 should be supported before upgrade");
 
         // Add some state before upgrade
-        aori.adminSetAllowedSolver(newSolver, true);
-        aori.adminSetAllowedHook(newHook, true);
-        aori.adminSetSupportedChain(3, true);
+        aori.addAllowedSolver(newSolver);
+        aori.addAllowedHook(newHook);
+        aori.addSupportedChain(3);
 
         // Verify state before upgrade
         assertTrue(aori.isAllowedSolver(newSolver), "Solver should be allowed before upgrade");
@@ -254,7 +254,7 @@ contract UpgradeTests is TestHelperOz5 {
 
         // Test state-changing function through proxy
         address testHook = address(0x600);
-        aori.adminSetAllowedHook(testHook, true);
+        aori.addAllowedHook(testHook);
         assertTrue(aori.isAllowedHook(testHook), "State change should work through proxy");
     }
 

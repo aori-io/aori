@@ -20,7 +20,7 @@ import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/t
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Test } from "forge-std/Test.sol";
 import { console } from "forge-std/console.sol";
-import "../../contracts/libraries/AoriUtils.sol";
+import { NativeTokenUtils, NATIVE_TOKEN } from "../../contracts/libraries/internal/NativeTokenUtils.sol";
 import "../../contracts/types/AoriErrors.sol";
 
 contract SC_NativeToERC20NoHook_Test is TestUtils {
@@ -106,7 +106,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
         vm.deal(address(localAori), 0 ether);
 
         // Add solver to allowed list
-        localAori.adminSetAllowedSolver(solverSC, true);
+        localAori.addAllowedSolver(solverSC);
     }
 
     /**
@@ -455,7 +455,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
 
         // Create a new solver with insufficient tokens
         address poorSolver = vm.addr(0xBEEF);
-        localAori.adminSetAllowedSolver(poorSolver, true);
+        localAori.addAllowedSolver(poorSolver);
         outputToken.mint(poorSolver, OUTPUT_AMOUNT - 1); // Give 1 less token than needed
 
         order = createCustomOrder(

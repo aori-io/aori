@@ -45,8 +45,8 @@ contract FillFailTest is TestUtils {
         failingHook = new FailingHook();
 
         // Whitelist the failing hook in both Aori instances
-        localAori.adminSetAllowedHook(address(failingHook), true);
-        remoteAori.adminSetAllowedHook(address(failingHook), true);
+        localAori.addAllowedHook(address(failingHook));
+        remoteAori.addAllowedHook(address(failingHook));
     }
 
     /// @notice Returns a default DstSolverData for a direct fill (no hook conversion).

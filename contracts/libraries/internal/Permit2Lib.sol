@@ -2,7 +2,7 @@
 pragma solidity 0.8.33;
 
 import { ISignatureTransfer } from "@permit2/src/interfaces/ISignatureTransfer.sol";
-import { Order } from "../types/AoriTypes.sol";
+import { Order } from "../../types/AoriTypes.sol";
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                          PERMIT2                            */

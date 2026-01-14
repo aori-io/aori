@@ -213,7 +213,7 @@ contract HookWhitelistTest is TestUtils {
         assertEq(localAori.isAllowedHook(address(nonWhitelistedHook)), false, "Hook should not be whitelisted initially");
 
         // Add the hook to the whitelist
-        localAori.adminSetAllowedHook(address(nonWhitelistedHook), true);
+        localAori.addAllowedHook(address(nonWhitelistedHook));
 
         // Now it should be whitelisted
         assertEq(localAori.isAllowedHook(address(nonWhitelistedHook)), true, "Hook should be whitelisted after adding");
@@ -238,7 +238,7 @@ contract HookWhitelistTest is TestUtils {
         localAori.deposit(order, signature, srcData);
 
         // Remove the hook from the whitelist
-        localAori.adminSetAllowedHook(address(nonWhitelistedHook), false);
+        localAori.removeAllowedHook(address(nonWhitelistedHook));
 
         // Now it should no longer be whitelisted
         assertEq(localAori.isAllowedHook(address(nonWhitelistedHook)), false, "Hook should not be whitelisted after removing");
