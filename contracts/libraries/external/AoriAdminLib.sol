@@ -141,7 +141,11 @@ library AoriAdminLib {
     /*                    INTERNAL HELPERS                        */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    function _transfer(address token, address to, uint256 amount) private {
+    function _transfer(
+        address token,
+        address to,
+        uint256 amount
+    ) private {
         if (token == NATIVE_TOKEN) {
             (bool success,) = payable(to).call{ value: amount }("");
             if (!success) revert NativeTransferFailed();

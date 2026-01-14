@@ -334,5 +334,4 @@ contract PausedTests is TestUtils {
         vm.expectRevert();
         localAori.emergencyWithdrawFromUser(address(inputToken), order.inputAmount, userA, true, nonAdmin);
     }
-
 }

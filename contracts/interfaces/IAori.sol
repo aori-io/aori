@@ -160,7 +160,6 @@ interface IAori {
     /* forgefmt: disable-next-item */
     function hash(Order calldata order) external pure returns (bytes32);
 
-
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                        HOOK EVENTS                         */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
@@ -184,5 +183,4 @@ interface IAori {
      * @param amountOut The amount of output tokens received from hook execution
      */
     event DstHookExecuted(bytes32 indexed orderId, address indexed tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
-
 }
