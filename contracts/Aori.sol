@@ -175,11 +175,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     }
 
     /// @notice Get order details by order ID
-    function orders(
-        bytes32 orderId
-    ) external view returns (Order memory) {
-        return _getAoriStorage().orders[orderId];
-    }
+    /* forgefmt: disable-next-item */
+    function orders(bytes32 orderId) external view returns (Order memory) { return _getAoriStorage().orders[orderId]; }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                      OWNER FUNCTIONS                       */
@@ -208,73 +205,37 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     // NOTE: Simple management functions are kept inline rather than delegating to AoriAdminLib.
     // This is intentional: the DELEGATECALL overhead for these one-liners exceeds the inline bytecode,
     // so keeping them here actually saves contract size. Complex functions use the library.
-    function addAllowedHook(
-        address hook
-    ) external onlyOwner {
-        _getAoriStorage().isAllowedHook[hook] = true;
-        emit HookAdded(hook);
-    }
 
-    function removeAllowedHook(
-        address hook
-    ) external onlyOwner {
-        _getAoriStorage().isAllowedHook[hook] = false;
-        emit HookRemoved(hook);
-    }
-
-    function addAllowedSolver(
-        address solver
-    ) external onlyOwner {
-        _getAoriStorage().isAllowedSolver[solver] = true;
-        emit SolverAdded(solver);
-    }
-
-    function removeAllowedSolver(
-        address solver
-    ) external onlyOwner {
-        _getAoriStorage().isAllowedSolver[solver] = false;
-        emit SolverRemoved(solver);
-    }
-
-    function addSupportedChain(
-        uint32 eid
-    ) external onlyOwner {
-        _getAoriStorage().isSupportedChain[eid] = true;
-        emit ChainSupported(eid);
-    }
-
-    function removeSupportedChain(
-        uint32 eid
-    ) external onlyOwner {
-        _getAoriStorage().isSupportedChain[eid] = false;
-        emit ChainRemoved(eid);
-    }
+    /// @notice Add a hook to the whitelist
+    /* forgefmt: disable-next-item */
+    function addAllowedHook(address hook) external onlyOwner { _getAoriStorage().isAllowedHook[hook] = true; emit HookAdded(hook); }
+    /// @notice Remove a hook from the whitelist
+    /* forgefmt: disable-next-item */
+    function removeAllowedHook(address hook) external onlyOwner { _getAoriStorage().isAllowedHook[hook] = false; emit HookRemoved(hook); }
+    /// @notice Add a solver to the whitelist
+    /* forgefmt: disable-next-item */
+    function addAllowedSolver(address solver) external onlyOwner { _getAoriStorage().isAllowedSolver[solver] = true; emit SolverAdded(solver); }
+    /// @notice Remove a solver from the whitelist
+    /* forgefmt: disable-next-item */
+    function removeAllowedSolver(address solver) external onlyOwner { _getAoriStorage().isAllowedSolver[solver] = false; emit SolverRemoved(solver); }
+    /// @notice Add a chain to the supported chains list
+    /* forgefmt: disable-next-item */
+    function addSupportedChain(uint32 eid) external onlyOwner { _getAoriStorage().isSupportedChain[eid] = true; emit ChainSupported(eid); }
+    /// @notice Remove a chain from the supported chains list
+    /* forgefmt: disable-next-item */
+    function removeSupportedChain(uint32 eid) external onlyOwner { _getAoriStorage().isSupportedChain[eid] = false; emit ChainRemoved(eid); }
 
     // Complex emergency functions delegated to AoriAdminLib to save bytecode
-    function emergencyCancel(
-        bytes32 orderId,
-        address recipient
-    ) external onlyOwner {
-        AoriAdminLib.emergencyCancel(orderId, recipient, ENDPOINT_ID);
-    }
 
-    function emergencyWithdraw(
-        address token,
-        uint256 amount,
-        address recipient
-    ) external onlyOwner {
-        AoriAdminLib.emergencyWithdraw(token, amount, recipient);
-    }
-
-    function emergencyWithdrawFromUser(
-        address token,
-        uint256 amount,
-        address user,
-        bool isLocked,
-        address recipient
-    ) external onlyOwner {
-        AoriAdminLib.emergencyWithdrawFromUser(token, amount, user, isLocked, recipient);
-    }
+    /// @notice Emergency function to cancel an order and return funds to recipient
+    /* forgefmt: disable-next-item */
+    function emergencyCancel(bytes32 orderId, address recipient) external onlyOwner { AoriAdminLib.emergencyCancel(orderId, recipient, ENDPOINT_ID); }
+    /// @notice Emergency function to withdraw tokens from the contract
+    /* forgefmt: disable-next-item */
+    function emergencyWithdraw(address token, uint256 amount, address recipient) external onlyOwner { AoriAdminLib.emergencyWithdraw(token, amount, recipient); }
+    /// @notice Emergency function to withdraw tokens from a user's balance
+    /* forgefmt: disable-next-item */
+    function emergencyWithdrawFromUser(address token, uint256 amount, address user, bool isLocked, address recipient) external onlyOwner { AoriAdminLib.emergencyWithdrawFromUser(token, amount, user, isLocked, recipient); }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                         MODIFIERS                          */
