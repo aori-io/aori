@@ -766,7 +766,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             Order memory order = $.orders[orderId];
 
             if (order.dstEid != senderEid) {
-                emit SettlementFailed(orderId, order.dstEid, senderEid, "");
+                emit SettlementFailed(orderId, order.dstEid, senderEid);
                 continue;
             }
 

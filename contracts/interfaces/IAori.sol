@@ -127,7 +127,7 @@ interface IAori {
     /* forgefmt: disable-next-item */
     function cancel(bytes32 orderId) external;
 
-    event SettlementFailed(bytes32 indexed orderId, uint32 expectedEid, uint32 submittedEid, string reason);
+    event SettlementFailed(bytes32 indexed orderId, uint32 expectedEid, uint32 submittedEid);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                        DST FUNCTIONS                       */
