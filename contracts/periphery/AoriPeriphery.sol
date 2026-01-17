@@ -34,21 +34,14 @@ contract AoriPeriphery {
         orderHashesPerEid = new bytes32[][](srcEids.length);
 
         for (uint256 j = 0; j < srcEids.length; j++) {
-            bytes32[] memory temp = new bytes32[](100);
-            uint256 count = 0;
+            uint256 length = lens.srcEidToFillerFillsLength(srcEids[j], filler);
+            bytes32[] memory fills = new bytes32[](length);
 
-            for (uint256 i = 0; i < 100; i++) {
-                try lens.srcEidToFillerFills(srcEids[j], filler, i) returns (bytes32 orderId) {
-                    temp[count++] = orderId;
-                } catch {
-                    break;
-                }
+            for (uint256 i = 0; i < length; i++) {
+                fills[i] = lens.srcEidToFillerFills(srcEids[j], filler, i);
             }
 
-            assembly {
-                mstore(temp, count)
-            }
-            orderHashesPerEid[j] = temp;
+            orderHashesPerEid[j] = fills;
         }
     }
 

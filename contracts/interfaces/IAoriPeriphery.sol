@@ -13,6 +13,10 @@ interface IAoriPeriphery {
         address filler,
         uint256 index
     ) external view returns (bytes32);
+    function srcEidToFillerFillsLength(
+        uint32 srcEid,
+        address filler
+    ) external view returns (uint256);
     function orders(
         bytes32 orderId
     ) external view returns (Order memory);
