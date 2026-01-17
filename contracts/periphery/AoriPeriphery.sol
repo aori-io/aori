@@ -1,22 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.33;
 
-import { IAori } from "../interfaces/IAori.sol";
 import "../types/AoriErrors.sol";
+import { Order } from "../types/AoriTypes.sol";
+import { IAoriPeriphery } from "../interfaces/IAoriPeriphery.sol";
 
 /**
  * @title AoriPeriphery
  * @notice A periphery contract that aggregates fill statistics per endpoint ID
  * @dev Provides view functions to get order counts and input token sums for fillers
+ *      Now reads from AoriLens instead of Aori directly to reduce Aori bytecode
  */
 contract AoriPeriphery {
-    /// @notice The Aori contract to read from
-    IAori public immutable aori;
+    /// @notice The AoriLens contract to read from
+    IAoriPeriphery public immutable lens;
 
     /* forgefmt: disable-next-item */
-    constructor(address _aori) {
-        if (_aori == address(0)) revert InvalidAoriAddress();
-        aori = IAori(_aori);
+    constructor(address _lens) {
+        if (_lens == address(0)) revert InvalidAoriAddress();
+        lens = IAoriPeriphery(_lens);
     }
 
     /**
@@ -32,21 +34,14 @@ contract AoriPeriphery {
         orderHashesPerEid = new bytes32[][](srcEids.length);
 
         for (uint256 j = 0; j < srcEids.length; j++) {
-            bytes32[] memory temp = new bytes32[](100);
-            uint256 count = 0;
+            uint256 length = lens.srcEidToFillerFillsLength(srcEids[j], filler);
+            bytes32[] memory fills = new bytes32[](length);
 
-            for (uint256 i = 0; i < 100; i++) {
-                try aori.srcEidToFillerFills(srcEids[j], filler, i) returns (bytes32 orderId) {
-                    temp[count++] = orderId;
-                } catch {
-                    break;
-                }
+            for (uint256 i = 0; i < length; i++) {
+                fills[i] = lens.srcEidToFillerFills(srcEids[j], filler, i);
             }
 
-            assembly {
-                mstore(temp, count)
-            }
-            orderHashesPerEid[j] = temp;
+            orderHashesPerEid[j] = fills;
         }
     }
 
@@ -63,20 +58,20 @@ contract AoriPeriphery {
         uint256 uniqueCount = 0;
 
         for (uint256 i = 0; i < orderHashes.length; i++) {
-            (uint128 inputAmount,, address inputToken,,,,,,,) = aori.orders(orderHashes[i]);
+            Order memory order = lens.orders(orderHashes[i]);
 
             bool found = false;
             for (uint256 k = 0; k < uniqueCount; k++) {
-                if (tempTokens[k] == inputToken) {
-                    tempAmounts[k] += inputAmount;
+                if (tempTokens[k] == order.inputToken) {
+                    tempAmounts[k] += order.inputAmount;
                     found = true;
                     break;
                 }
             }
 
             if (!found && uniqueCount < 20) {
-                tempTokens[uniqueCount] = inputToken;
-                tempAmounts[uniqueCount] = inputAmount;
+                tempTokens[uniqueCount] = order.inputToken;
+                tempAmounts[uniqueCount] = order.inputAmount;
                 uniqueCount++;
             }
         }

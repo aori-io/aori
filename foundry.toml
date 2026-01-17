@@ -6,6 +6,8 @@ test = 'test/foundry'
 cache_path = 'cache/foundry'
 verbosity = 3
 via_ir = true
+optimizer = true
+optimizer_runs = 100  # Low runs optimizes for deployment gas (smaller bytecode)
 libs = [
     # We provide a set of useful contract utilities
     # in the lib directory of @layerzerolabs/toolbox-foundry:
@@ -45,3 +47,9 @@ single_line_statement_blocks = "preserve"
 override_spacing = false
 wrap_comments = false
 ignore = []
+# Extra size optimizations
+[profile.default.optimizer_details]
+yul = true
+constantOptimizer = true
+[profile.default.optimizer_details.yulDetails]
+stackAllocation = true

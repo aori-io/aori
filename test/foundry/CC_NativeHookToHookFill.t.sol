@@ -24,10 +24,10 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Test } from "forge-std/Test.sol";
 import { console } from "forge-std/console.sol";
 import { MockHook2 } from "../Mock/MockHook2.sol";
-import "../../contracts/libraries/AoriUtils.sol";
+import { TokenUtils, NATIVE_TOKEN } from "../../contracts/libraries/internal/TokenUtils.sol";
 
 contract CC_NativeHookToHookFill_Test is TestUtils {
-    using NativeTokenUtils for address;
+    using TokenUtils for address;
 
     // Test amounts
     uint128 public constant INPUT_AMOUNT = 1 ether; // Native ETH input (user deposits)
@@ -294,7 +294,7 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
 
         // Verify converted tokens are locked
         assertEq(
-            localAori.getLockedBalances(userSource, address(convertedToken)), SRC_HOOK_OUTPUT, "Converted tokens should be locked for user"
+            localLens.getLockedBalances(userSource, address(convertedToken)), SRC_HOOK_OUTPUT, "Converted tokens should be locked for user"
         );
 
         // Verify order status
@@ -343,11 +343,11 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
         assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
 
         // Verify locked balance is cleared
-        assertEq(localAori.getLockedBalances(userSource, address(convertedToken)), 0, "User should have no locked balance after settlement");
+        assertEq(localLens.getLockedBalances(userSource, address(convertedToken)), 0, "User should have no locked balance after settlement");
 
         // Verify solver has unlocked balance
         assertEq(
-            localAori.getUnlockedBalances(solverSource, address(convertedToken)),
+            localLens.getUnlockedBalances(solverSource, address(convertedToken)),
             SRC_HOOK_OUTPUT,
             "Solver should have unlocked converted tokens"
         );
@@ -372,7 +372,7 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
         assertEq(convertedToken.balanceOf(solverSource), solverBalanceBefore + SRC_HOOK_OUTPUT, "Solver should receive withdrawn tokens");
 
         assertEq(
-            localAori.getUnlockedBalances(solverSource, address(convertedToken)), 0, "Solver should have no remaining unlocked balance"
+            localLens.getUnlockedBalances(solverSource, address(convertedToken)), 0, "Solver should have no remaining unlocked balance"
         );
     }
 
@@ -414,7 +414,7 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
 
         vm.chainId(localEid);
         uint256 afterDepositUserNative = userSource.balance;
-        uint256 afterDepositLockedTokens = localAori.getLockedBalances(userSource, address(convertedToken));
+        uint256 afterDepositLockedTokens = localLens.getLockedBalances(userSource, address(convertedToken));
 
         console.log("After Deposit:");
         console.log("  User native balance:", afterDepositUserNative / 1e18, "ETH");
@@ -450,8 +450,8 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
         _simulateLzMessageDelivery();
 
         vm.chainId(localEid);
-        uint256 afterSettleLockedTokens = localAori.getLockedBalances(userSource, address(convertedToken));
-        uint256 afterSettleUnlockedTokens = localAori.getUnlockedBalances(solverSource, address(convertedToken));
+        uint256 afterSettleLockedTokens = localLens.getLockedBalances(userSource, address(convertedToken));
+        uint256 afterSettleUnlockedTokens = localLens.getUnlockedBalances(solverSource, address(convertedToken));
 
         console.log("After Settlement:");
         console.log("  User locked tokens:", afterSettleLockedTokens / 1e18, "tokens (should be 0)");
