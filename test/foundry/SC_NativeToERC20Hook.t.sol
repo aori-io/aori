@@ -20,11 +20,11 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Test } from "forge-std/Test.sol";
 import { console } from "forge-std/console.sol";
 import { MockHook2 } from "../Mock/MockHook2.sol";
-import "../../contracts/libraries/AoriUtils.sol";
+import { TokenUtils, NATIVE_TOKEN } from "../../contracts/libraries/internal/TokenUtils.sol";
 import "../../contracts/types/AoriErrors.sol";
 
 contract SC_NativeToERC20Hook_Test is TestUtils {
-    using NativeTokenUtils for address;
+    using TokenUtils for address;
 
     // Test amounts
     uint128 public constant INPUT_AMOUNT = 1 ether; // Native ETH input (user deposits)
@@ -291,7 +291,7 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
         console.log("    Change:", formatETH(int256(userSC.balance) - int256(initialUserNative)));
         console.log("  Contract native balance:", address(localAori).balance / 1e18, "ETH");
         console.log("    Change:", formatETH(int256(address(localAori).balance) - int256(initialContractNative)));
-        console.log("  User locked balance:", localAori.getLockedBalances(userSC, NATIVE_TOKEN) / 1e18, "ETH");
+        console.log("  User locked balance:", localLens.getLockedBalances(userSC, NATIVE_TOKEN) / 1e18, "ETH");
         console.log("");
 
         // === PHASE 2: FILL WITH HOOK (ATOMIC SETTLEMENT) ===
@@ -310,7 +310,7 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
         console.log("  Native balance:", userSC.balance / 1e18, "ETH");
         console.log("  Output tokens:", outputToken.balanceOf(userSC) / 1e18, "tokens");
         console.log("    Change:", formatTokens(int256(outputToken.balanceOf(userSC)) - int256(initialUserOutputTokens)));
-        console.log("  Locked balance:", localAori.getLockedBalances(userSC, NATIVE_TOKEN) / 1e18, "ETH");
+        console.log("  Locked balance:", localLens.getLockedBalances(userSC, NATIVE_TOKEN) / 1e18, "ETH");
 
         console.log("Solver:");
         console.log("  Native balance:", solverSC.balance / 1e18, "ETH");
@@ -319,7 +319,7 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
         console.log("    Change:", formatPreferredTokens(int256(dstPreferredToken.balanceOf(solverSC)) - int256(preFillSolverPreferred)));
         console.log("  Output tokens:", outputToken.balanceOf(solverSC) / 1e18, "tokens");
         console.log("    Change:", formatTokens(int256(outputToken.balanceOf(solverSC)) - int256(preFillSolverOutput)));
-        console.log("  Unlocked native balance:", localAori.getUnlockedBalances(solverSC, NATIVE_TOKEN) / 1e18, "ETH");
+        console.log("  Unlocked native balance:", localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN) / 1e18, "ETH");
 
         console.log("Contract:");
         console.log("  Native balance:", address(localAori).balance / 1e18, "ETH");
@@ -357,27 +357,27 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
         console.log("");
         console.log("=== FINAL CONTRACT BALANCE ACCOUNTING ===");
         console.log("User Contract Balances:");
-        console.log("  Locked Native:", localAori.getLockedBalances(userSC, NATIVE_TOKEN) / 1e18, "ETH");
-        console.log("  Unlocked Native:", localAori.getUnlockedBalances(userSC, NATIVE_TOKEN) / 1e18, "ETH");
-        console.log("  Locked Output Tokens:", localAori.getLockedBalances(userSC, address(outputToken)) / 1e18, "tokens");
-        console.log("  Unlocked Output Tokens:", localAori.getUnlockedBalances(userSC, address(outputToken)) / 1e18, "tokens");
+        console.log("  Locked Native:", localLens.getLockedBalances(userSC, NATIVE_TOKEN) / 1e18, "ETH");
+        console.log("  Unlocked Native:", localLens.getUnlockedBalances(userSC, NATIVE_TOKEN) / 1e18, "ETH");
+        console.log("  Locked Output Tokens:", localLens.getLockedBalances(userSC, address(outputToken)) / 1e18, "tokens");
+        console.log("  Unlocked Output Tokens:", localLens.getUnlockedBalances(userSC, address(outputToken)) / 1e18, "tokens");
 
         console.log("Solver Contract Balances:");
-        console.log("  Locked Native:", localAori.getLockedBalances(solverSC, NATIVE_TOKEN) / 1e18, "ETH");
-        console.log("  Unlocked Native:", localAori.getUnlockedBalances(solverSC, NATIVE_TOKEN) / 1e18, "ETH");
+        console.log("  Locked Native:", localLens.getLockedBalances(solverSC, NATIVE_TOKEN) / 1e18, "ETH");
+        console.log("  Unlocked Native:", localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN) / 1e18, "ETH");
         console.log(
-            "  Locked Preferred Tokens:", localAori.getLockedBalances(solverSC, address(dstPreferredToken)) / 1e6, "preferred tokens"
+            "  Locked Preferred Tokens:", localLens.getLockedBalances(solverSC, address(dstPreferredToken)) / 1e6, "preferred tokens"
         );
         console.log(
-            "  Unlocked Preferred Tokens:", localAori.getUnlockedBalances(solverSC, address(dstPreferredToken)) / 1e6, "preferred tokens"
+            "  Unlocked Preferred Tokens:", localLens.getUnlockedBalances(solverSC, address(dstPreferredToken)) / 1e6, "preferred tokens"
         );
-        console.log("  Locked Output Tokens:", localAori.getLockedBalances(solverSC, address(outputToken)) / 1e18, "tokens");
-        console.log("  Unlocked Output Tokens:", localAori.getUnlockedBalances(solverSC, address(outputToken)) / 1e18, "tokens");
+        console.log("  Locked Output Tokens:", localLens.getLockedBalances(solverSC, address(outputToken)) / 1e18, "tokens");
+        console.log("  Unlocked Output Tokens:", localLens.getUnlockedBalances(solverSC, address(outputToken)) / 1e18, "tokens");
         console.log("");
 
         // Verify final state
-        assertEq(localAori.getLockedBalances(userSC, NATIVE_TOKEN), 0, "User should have no locked balance after atomic settlement");
-        assertEq(localAori.getUnlockedBalances(solverSC, NATIVE_TOKEN), INPUT_AMOUNT, "Solver should have unlocked native balance");
+        assertEq(localLens.getLockedBalances(userSC, NATIVE_TOKEN), 0, "User should have no locked balance after atomic settlement");
+        assertEq(localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN), INPUT_AMOUNT, "Solver should have unlocked native balance");
         assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
     }
 
@@ -389,7 +389,7 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
         _fillOrderWithHook();
 
         // Check solver has unlocked balance
-        uint256 unlockedBalance = localAori.getUnlockedBalances(solverSC, NATIVE_TOKEN);
+        uint256 unlockedBalance = localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN);
         assertEq(unlockedBalance, INPUT_AMOUNT, "Solver should have unlocked native balance");
 
         uint256 solverBalanceBefore = solverSC.balance;
@@ -402,7 +402,7 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
         // Verify withdrawal
         assertEq(solverSC.balance, solverBalanceBefore + INPUT_AMOUNT, "Solver should receive withdrawn native tokens");
         assertEq(address(localAori).balance, contractBalanceBefore - INPUT_AMOUNT, "Contract should send native tokens");
-        assertEq(localAori.getUnlockedBalances(solverSC, NATIVE_TOKEN), 0, "Solver should have no remaining unlocked balance");
+        assertEq(localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN), 0, "Solver should have no remaining unlocked balance");
     }
 
     /**
@@ -410,22 +410,22 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
      */
     function testSingleChainBalanceAccountingIntegrity() public {
         // Initial state
-        assertEq(localAori.getLockedBalances(userSC, NATIVE_TOKEN), 0);
-        assertEq(localAori.getUnlockedBalances(solverSC, NATIVE_TOKEN), 0);
+        assertEq(localLens.getLockedBalances(userSC, NATIVE_TOKEN), 0);
+        assertEq(localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN), 0);
 
         // After deposit
         _createAndDepositNativeOrder();
-        assertEq(localAori.getLockedBalances(userSC, NATIVE_TOKEN), INPUT_AMOUNT);
-        assertEq(localAori.getUnlockedBalances(solverSC, NATIVE_TOKEN), 0);
+        assertEq(localLens.getLockedBalances(userSC, NATIVE_TOKEN), INPUT_AMOUNT);
+        assertEq(localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN), 0);
 
         // After fill (atomic settlement)
         _fillOrderWithHook();
-        assertEq(localAori.getLockedBalances(userSC, NATIVE_TOKEN), 0);
-        assertEq(localAori.getUnlockedBalances(solverSC, NATIVE_TOKEN), INPUT_AMOUNT);
+        assertEq(localLens.getLockedBalances(userSC, NATIVE_TOKEN), 0);
+        assertEq(localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN), INPUT_AMOUNT);
 
         // Total balance conservation
-        uint256 totalLocked = localAori.getLockedBalances(userSC, NATIVE_TOKEN);
-        uint256 totalUnlocked = localAori.getUnlockedBalances(solverSC, NATIVE_TOKEN);
+        uint256 totalLocked = localLens.getLockedBalances(userSC, NATIVE_TOKEN);
+        uint256 totalUnlocked = localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN);
         assertEq(totalLocked + totalUnlocked, INPUT_AMOUNT, "Total internal balance should equal deposited amount");
     }
 
@@ -462,10 +462,10 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
         assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Single-chain swap should be immediately settled");
 
         // Verify no locked balances remain (atomic settlement)
-        assertEq(localAori.getLockedBalances(userSC, NATIVE_TOKEN), 0, "User should have no locked balance after atomic settlement");
+        assertEq(localLens.getLockedBalances(userSC, NATIVE_TOKEN), 0, "User should have no locked balance after atomic settlement");
 
         // Verify solver has unlocked balance (from atomic settlement)
-        assertEq(localAori.getUnlockedBalances(solverSC, NATIVE_TOKEN), INPUT_AMOUNT, "Solver should have unlocked native balance");
+        assertEq(localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN), INPUT_AMOUNT, "Solver should have unlocked native balance");
     }
 
     /**
@@ -480,10 +480,10 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
         );
 
         // Verify no locked balances remain for first order
-        assertEq(localAori.getLockedBalances(userSC, NATIVE_TOKEN), 0, "User should have no locked balance after first swap");
+        assertEq(localLens.getLockedBalances(userSC, NATIVE_TOKEN), 0, "User should have no locked balance after first swap");
 
         // Verify solver has unlocked balance from first swap
-        assertEq(localAori.getUnlockedBalances(solverSC, NATIVE_TOKEN), INPUT_AMOUNT, "Solver should have unlocked balance from first swap");
+        assertEq(localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN), INPUT_AMOUNT, "Solver should have unlocked balance from first swap");
 
         // Test demonstrates that single-chain swaps:
         // 1. Are immediately settled (OrderStatus.Settled)

@@ -22,11 +22,11 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Test } from "forge-std/Test.sol";
 import { console } from "forge-std/console.sol";
 import { MockHook2 } from "../Mock/MockHook2.sol";
-import "../../contracts/libraries/AoriUtils.sol";
+import { TokenUtils, NATIVE_TOKEN } from "../../contracts/libraries/internal/TokenUtils.sol";
 import "../../contracts/types/AoriErrors.sol";
 
 contract SC_NativeHookAtomicSwap_Test is TestUtils {
-    using NativeTokenUtils for address;
+    using TokenUtils for address;
 
     // Test amounts
     uint128 public constant INPUT_AMOUNT = 1 ether; // Native ETH input (user deposits)
@@ -264,9 +264,9 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
         _executeDepositNativeWithHook();
 
         // No locked balances should remain for atomic settlement
-        assertEq(localAori.getLockedBalances(userSC, NATIVE_TOKEN), 0, "User should have no locked native balance");
-        assertEq(localAori.getLockedBalances(userSC, address(outputToken)), 0, "User should have no locked output token balance");
-        assertEq(localAori.getUnlockedBalances(solverSC, address(outputToken)), 0, "Solver should have no unlocked balance in contract");
+        assertEq(localLens.getLockedBalances(userSC, NATIVE_TOKEN), 0, "User should have no locked native balance");
+        assertEq(localLens.getLockedBalances(userSC, address(outputToken)), 0, "User should have no locked output token balance");
+        assertEq(localLens.getUnlockedBalances(solverSC, address(outputToken)), 0, "Solver should have no unlocked balance in contract");
     }
 
     /**

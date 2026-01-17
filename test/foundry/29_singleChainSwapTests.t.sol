@@ -133,7 +133,7 @@ contract SingleChainSwapTests is TestUtils {
 
         // Verify input tokens have been locked
         assertEq(inputToken.balanceOf(userA), initialInputTokenUserA - INPUT_AMOUNT, "UserA input token balance should decrease");
-        assertEq(localAori.getLockedBalances(userA, address(inputToken)), INPUT_AMOUNT, "Input tokens should be locked");
+        assertEq(localLens.getLockedBalances(userA, address(inputToken)), INPUT_AMOUNT, "Input tokens should be locked");
 
         // Step 2: Simulate solver sourcing the output tokens from a liquidity source
         vm.startPrank(liquiditySource);
@@ -163,7 +163,7 @@ contract SingleChainSwapTests is TestUtils {
         );
 
         // Verify contract balances - solver should receive input tokens
-        uint256 solverUnlocked = localAori.getUnlockedBalances(solver, address(inputToken));
+        uint256 solverUnlocked = localLens.getUnlockedBalances(solver, address(inputToken));
         assertEq(solverUnlocked, INPUT_AMOUNT, "Solver should receive unlocked input tokens");
     }
 
@@ -192,7 +192,7 @@ contract SingleChainSwapTests is TestUtils {
 
         // Verify order status after deposit
         assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Active), "Order should be active after deposit");
-        assertEq(localAori.getLockedBalances(userA, address(inputToken)), INPUT_AMOUNT, "Input tokens should be locked");
+        assertEq(localLens.getLockedBalances(userA, address(inputToken)), INPUT_AMOUNT, "Input tokens should be locked");
 
         // Step 2: Simulate secondary solver sourcing the output tokens from a liquidity source
         vm.startPrank(liquiditySource);
@@ -227,7 +227,7 @@ contract SingleChainSwapTests is TestUtils {
         );
 
         // Verify contract balances - secondary solver should receive the unlocked input tokens
-        uint256 secondarySolverUnlocked = localAori.getUnlockedBalances(secondarySolver, address(inputToken));
+        uint256 secondarySolverUnlocked = localLens.getUnlockedBalances(secondarySolver, address(inputToken));
         assertEq(secondarySolverUnlocked, INPUT_AMOUNT, "Secondary solver should receive unlocked input tokens");
     }
 
@@ -268,7 +268,7 @@ contract SingleChainSwapTests is TestUtils {
         assertEq(finalUserBalance, initialUserBalance, "Input tokens should be returned directly to user after cancel");
 
         // Verify no unlocked balance exists
-        assertEq(localAori.getUnlockedBalances(userA, address(inputToken)), 0, "No unlocked balance should exist with direct transfer");
+        assertEq(localLens.getUnlockedBalances(userA, address(inputToken)), 0, "No unlocked balance should exist with direct transfer");
 
         // Step 3: Simulate solver sourcing the output tokens
         vm.startPrank(liquiditySource);
@@ -429,7 +429,7 @@ contract SingleChainSwapTests is TestUtils {
 
         // Verify order status after deposit
         assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Active), "Order should be active after deposit");
-        assertEq(localAori.getLockedBalances(userA, address(inputToken)), INPUT_AMOUNT, "Input tokens should be locked");
+        assertEq(localLens.getLockedBalances(userA, address(inputToken)), INPUT_AMOUNT, "Input tokens should be locked");
 
         // Warp time past expiration
         vm.warp(block.timestamp + 2 hours);
@@ -442,8 +442,8 @@ contract SingleChainSwapTests is TestUtils {
         assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Cancelled), "Order should be cancelled");
 
         // Verify tokens are transferred directly back to the user
-        assertEq(localAori.getLockedBalances(userA, address(inputToken)), 0, "No tokens should remain locked");
-        assertEq(localAori.getUnlockedBalances(userA, address(inputToken)), 0, "No unlocked balance should exist with direct transfer");
+        assertEq(localLens.getLockedBalances(userA, address(inputToken)), 0, "No tokens should remain locked");
+        assertEq(localLens.getUnlockedBalances(userA, address(inputToken)), 0, "No unlocked balance should exist with direct transfer");
 
         // Verify tokens returned to the user - check against initial balance
         assertEq(inputToken.balanceOf(userA), initialUserBalance, "User should receive their tokens back directly");
@@ -624,7 +624,7 @@ contract SingleChainSwapTests is TestUtils {
 
         // In the hook path, solver does NOT receive credit for input tokens
         // since they went directly to the hook, not through the contract
-        assertEq(localAori.getUnlockedBalances(solver, address(inputToken)), 0, "Solver should NOT have unlocked balance in hook path");
+        assertEq(localLens.getUnlockedBalances(solver, address(inputToken)), 0, "Solver should NOT have unlocked balance in hook path");
     }
 
     /**
@@ -798,7 +798,7 @@ contract SingleChainSwapTests is TestUtils {
         vm.stopPrank();
 
         // Get solver unlocked balances for all paths
-        uint256 balance1 = localAori.getUnlockedBalances(solver, address(inputToken));
+        uint256 balance1 = localLens.getUnlockedBalances(solver, address(inputToken));
 
         // Verify only deposit+fill path credits solver, but hook path doesn't
         assertEq(balance1, expectedTotal, "Only deposit+fill path should credit solver with input tokens");

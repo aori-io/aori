@@ -181,7 +181,6 @@ contract VerifyDeployments is BaseScript {
         console.log("Proxy Address:", proxyAddress);
         console.log("Owner:", aori.owner());
         console.log("ENDPOINT_ID:", aori.ENDPOINT_ID());
-        console.log("Max Fills:", aori.MAX_FILLS_PER_SETTLE());
 
         // Check supported chains
         bool isMainnet = vm.envOr("MAINNET", false);

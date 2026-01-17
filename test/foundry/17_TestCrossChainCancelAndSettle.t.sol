@@ -60,7 +60,7 @@ contract CrossChainCancelAndSettleTest is TestUtils {
 
         // Set up the order on the destination chain
         bytes32 orderHash = remoteAori.hash(order);
-        remoteAori.orders(orderHash); // This will create the order in storage
+        remoteLens.orders(orderHash); // This will create the order in storage
 
         // Calculate LZ message fee
         bytes memory options = defaultOptions();
@@ -100,7 +100,7 @@ contract CrossChainCancelAndSettleTest is TestUtils {
         localAori.deposit(order, signature);
 
         // Verify the order is locked
-        uint256 lockedBalance = localAori.getLockedBalances(userA, address(inputToken));
+        uint256 lockedBalance = localLens.getLockedBalances(userA, address(inputToken));
         assertEq(lockedBalance, order.inputAmount, "Locked balance not increased correctly");
 
         // PHASE 2: Cancel on Destination Chain
@@ -108,7 +108,7 @@ contract CrossChainCancelAndSettleTest is TestUtils {
 
         // Set up the order on the destination chain
         bytes32 orderHash = remoteAori.hash(order);
-        remoteAori.orders(orderHash); // This will create the order in storage
+        remoteLens.orders(orderHash); // This will create the order in storage
 
         // Warp past endTime
         vm.warp(order.endTime + 1);
@@ -143,8 +143,8 @@ contract CrossChainCancelAndSettleTest is TestUtils {
 
         // PHASE 4: Verification
         // The order should now be cancelled on the source chain, with tokens transferred directly back to user
-        uint256 lockedAfter = localAori.getLockedBalances(userA, address(inputToken));
-        uint256 unlockedAfter = localAori.getUnlockedBalances(userA, address(inputToken));
+        uint256 lockedAfter = localLens.getLockedBalances(userA, address(inputToken));
+        uint256 unlockedAfter = localLens.getUnlockedBalances(userA, address(inputToken));
         uint256 finalUserBalance = inputToken.balanceOf(userA);
 
         assertEq(lockedAfter, 0, "Order should be unlocked after remote cancellation");

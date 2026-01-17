@@ -92,7 +92,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         localAori.deposit(order, signature);
 
         // Check locked balance
-        uint256 lockedBalance = localAori.getLockedBalances(userA, address(inputToken));
+        uint256 lockedBalance = localLens.getLockedBalances(userA, address(inputToken));
         assertEq(lockedBalance, order.inputAmount);
 
         // Switch to destination chain
@@ -147,7 +147,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         );
 
         // Verify that funds were unlocked for the solver
-        uint256 unlockedBalance = localAori.getUnlockedBalances(solver, address(inputToken));
+        uint256 unlockedBalance = localLens.getUnlockedBalances(solver, address(inputToken));
         assertEq(unlockedBalance, order.inputAmount);
     }
 
@@ -175,7 +175,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         localAori.deposit(order, signature);
 
         // Check locked balance
-        uint256 lockedBalance = localAori.getLockedBalances(userA, address(inputToken));
+        uint256 lockedBalance = localLens.getLockedBalances(userA, address(inputToken));
         assertEq(lockedBalance, order.inputAmount);
 
         // Advance time past order expiry
@@ -191,11 +191,11 @@ contract CrossChainAndWhitelistTests is TestUtils {
         assertEq(finalUserBalance, initialUserBalance, "User should have received their tokens back directly");
 
         // Verify locked balance is now 0
-        uint256 lockedAfter = localAori.getLockedBalances(userA, address(inputToken));
+        uint256 lockedAfter = localLens.getLockedBalances(userA, address(inputToken));
         assertEq(lockedAfter, 0, "Locked balance should be zero after cancellation");
 
         // Verify unlocked balance remains 0 (since tokens were transferred directly)
-        uint256 unlockedBalance = localAori.getUnlockedBalances(userA, address(inputToken));
+        uint256 unlockedBalance = localLens.getUnlockedBalances(userA, address(inputToken));
         assertEq(unlockedBalance, 0, "Unlocked balance should remain 0 with direct transfer");
     }
 

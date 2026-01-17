@@ -3,7 +3,7 @@ pragma solidity 0.8.33;
 
 import "forge-std/Test.sol";
 import "./TestUtils.sol";
-import "../../contracts/libraries/AoriUtils.sol";
+import { BalanceUtils } from "../../contracts/libraries/internal/BalanceUtils.sol";
 import "../../contracts/types/AoriErrors.sol";
 
 // Test contract to expose internal functions from BalanceUtils library

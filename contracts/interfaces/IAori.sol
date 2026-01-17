@@ -127,7 +127,7 @@ interface IAori {
     /* forgefmt: disable-next-item */
     function cancel(bytes32 orderId) external;
 
-    event SettlementFailed(bytes32 indexed orderId, uint32 expectedEid, uint32 submittedEid, string reason);
+    event SettlementFailed(bytes32 indexed orderId, uint32 expectedEid, uint32 submittedEid);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                        DST FUNCTIONS                       */
@@ -161,38 +161,6 @@ interface IAori {
     function hash(Order calldata order) external pure returns (bytes32);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                       VIEW FUNCTIONS                       */
-    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-    function srcEidToFillerFills(
-        uint32 srcEid,
-        address filler,
-        uint256 index
-    ) external view returns (bytes32);
-
-    /* forgefmt: disable-next-item */
-    function orders(bytes32 orderId) external view returns (uint128, uint128, address, address, uint32, uint32, uint32, uint32, address, address);
-
-    function getLockedBalances(
-        address offerer,
-        address token
-    ) external view returns (uint256);
-
-    function getUnlockedBalances(
-        address offerer,
-        address token
-    ) external view returns (uint256);
-
-    function quote(
-        uint32 _dstEid,
-        uint8 _msgType,
-        bytes calldata _options,
-        bool _payInLzToken,
-        uint32 _srcEid,
-        address _filler
-    ) external view returns (MessagingFee memory);
-
-    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                        HOOK EVENTS                         */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
@@ -215,46 +183,4 @@ interface IAori {
      * @param amountOut The amount of output tokens received from hook execution
      */
     event DstHookExecuted(bytes32 indexed orderId, address indexed tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
-
-    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                    HEALTH CHECK EVENTS                     */
-    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-    // TODO: Remove health check events and functions before production deployment
-
-    /**
-     * @notice Emitted when a ping is sent to a remote chain
-     * @param dstEid The destination endpoint ID
-     * @param guid The unique identifier of the LayerZero message
-     * @param nonce The nonce of the LayerZero message
-     * @param fee The fee paid for the LayerZero message
-     */
-    event PingSent(uint32 indexed dstEid, bytes32 guid, uint64 nonce, uint256 fee);
-
-    /**
-     * @notice Emitted when a ping is received from a remote chain
-     * @param srcEid The source endpoint ID that sent the ping
-     */
-    event PingReceived(uint32 indexed srcEid);
-
-    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                   HEALTH CHECK FUNCTIONS                   */
-    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-    /**
-     * @notice Send a ping to a remote chain to verify cross-chain connectivity
-     * @dev Useful for deployment verification and health checks
-     * @param dstEid The destination endpoint ID to ping
-     * @param extraOptions LayerZero messaging options
-     */
-    function ping(uint32 dstEid, bytes calldata extraOptions) external payable;
-
-    /**
-     * @notice Quote the fee for sending a ping
-     * @param dstEid The destination endpoint ID
-     * @param extraOptions LayerZero messaging options
-     * @param payInLzToken Whether to pay in LZ token
-     * @return fee The estimated messaging fee
-     */
-    function quotePing(uint32 dstEid, bytes calldata extraOptions, bool payInLzToken) external view returns (MessagingFee memory fee);
 }

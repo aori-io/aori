@@ -58,6 +58,9 @@ import "./TestUtils.sol";
 import "../../contracts/types/AoriErrors.sol";
 
 contract EmergencyTests is TestUtils {
+    // Native token constant (same as in Aori)
+    address constant NATIVE_TOKEN = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
     // Test addresses
     address public nonOwner = makeAddr("nonOwner");
     address public customRecipient = makeAddr("customRecipient");
@@ -100,7 +103,7 @@ contract EmergencyTests is TestUtils {
 
         // Verify results
         assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Cancelled), "Order should be cancelled");
-        assertEq(localAori.getLockedBalances(userA, address(inputToken)), 0, "Locked balance should be zero");
+        assertEq(localLens.getLockedBalances(userA, address(inputToken)), 0, "Locked balance should be zero");
         assertEq(inputToken.balanceOf(userA), userBalanceBefore + order.inputAmount, "User should receive tokens");
     }
 
@@ -216,10 +219,10 @@ contract EmergencyTests is TestUtils {
 
         // Drain contract balance
         uint256 contractBalance = inputToken.balanceOf(payable(address(localAori)));
-        localAori.emergencyWithdraw(address(inputToken), contractBalance);
+        localAori.emergencyWithdraw(address(inputToken), contractBalance, address(this));
 
-        // Should fail due to insufficient contract balance
-        vm.expectRevert(abi.encodeWithSelector(InsufficientContractBalance.selector, address(inputToken)));
+        // Should fail due to insufficient contract balance (safeTransfer will fail)
+        vm.expectRevert(); // ERC20 transfer failure
         localAori.emergencyCancel(orderId, userA);
     }
 
@@ -263,7 +266,7 @@ contract EmergencyTests is TestUtils {
         uint256 ownerBalanceBefore = inputToken.balanceOf(address(this));
         uint256 contractBalanceBefore = inputToken.balanceOf(payable(address(localAori)));
 
-        localAori.emergencyWithdraw(address(inputToken), withdrawAmount);
+        localAori.emergencyWithdraw(address(inputToken), withdrawAmount, address(this));
 
         assertEq(inputToken.balanceOf(address(this)), ownerBalanceBefore + withdrawAmount, "Owner should receive tokens");
         assertEq(
@@ -280,26 +283,25 @@ contract EmergencyTests is TestUtils {
 
         uint256 ownerBalanceBefore = address(this).balance;
 
-        localAori.emergencyWithdraw(address(0), 0);
+        localAori.emergencyWithdraw(NATIVE_TOKEN, ethAmount, address(this));
 
         assertEq(address(this).balance, ownerBalanceBefore + ethAmount, "Owner should receive ETH");
         assertEq(address(localAori).balance, 0, "Contract should have no ETH");
     }
 
     /**
-     * @notice Tests withdrawal with zero amount (ETH only)
+     * @notice Tests ETH withdrawal with specific amount
      */
-    function testEmergencyWithdrawZeroAmount() public {
+    function testEmergencyWithdrawETHAmount() public {
         uint256 ethAmount = 0.5 ether;
         vm.deal(address(localAori), ethAmount);
 
         uint256 ownerEthBefore = address(this).balance;
-        uint256 ownerTokenBefore = inputToken.balanceOf(address(this));
 
-        localAori.emergencyWithdraw(address(inputToken), 0);
+        localAori.emergencyWithdraw(NATIVE_TOKEN, ethAmount, address(this));
 
         assertEq(address(this).balance, ownerEthBefore + ethAmount, "Should receive ETH");
-        assertEq(inputToken.balanceOf(address(this)), ownerTokenBefore, "Token balance unchanged");
+        assertEq(address(localAori).balance, 0, "Contract should have no ETH");
     }
 
     /**
@@ -308,7 +310,7 @@ contract EmergencyTests is TestUtils {
     function testEmergencyWithdrawBasicAccessControl() public {
         vm.prank(nonOwner);
         vm.expectRevert();
-        localAori.emergencyWithdraw(address(inputToken), 100e18);
+        localAori.emergencyWithdraw(address(inputToken), 100e18, nonOwner);
     }
 
     // /**
@@ -331,7 +333,7 @@ contract EmergencyTests is TestUtils {
     // }
 
     /**
-     * @notice Tests both ETH and token withdrawal in same call
+     * @notice Tests both ETH and token withdrawal with separate calls
      */
     function testEmergencyWithdrawBothETHAndTokens() public {
         uint256 ethAmount = 0.5 ether;
@@ -342,7 +344,10 @@ contract EmergencyTests is TestUtils {
         uint256 ownerEthBefore = address(this).balance;
         uint256 ownerTokenBefore = inputToken.balanceOf(address(this));
 
-        localAori.emergencyWithdraw(address(inputToken), tokenAmount);
+        // Withdraw tokens first
+        localAori.emergencyWithdraw(address(inputToken), tokenAmount, address(this));
+        // Withdraw ETH separately
+        localAori.emergencyWithdraw(NATIVE_TOKEN, ethAmount, address(this));
 
         assertEq(address(this).balance, ownerEthBefore + ethAmount, "Should receive ETH");
         assertEq(inputToken.balanceOf(address(this)), ownerTokenBefore + tokenAmount, "Should receive tokens");
@@ -356,7 +361,7 @@ contract EmergencyTests is TestUtils {
         uint256 ownerTokenBefore = inputToken.balanceOf(address(this));
 
         // Call with zero amount and no ETH in contract
-        localAori.emergencyWithdraw(address(inputToken), 0);
+        localAori.emergencyWithdraw(address(inputToken), 0, address(this));
 
         // Balances should remain unchanged
         assertEq(address(this).balance, ownerEthBefore, "ETH balance should be unchanged");
@@ -384,7 +389,7 @@ contract EmergencyTests is TestUtils {
         uint256 withdrawAmount = order.inputAmount / 2;
 
         // Emergency withdraw from locked balance
-        localAori.emergencyWithdraw(
+        localAori.emergencyWithdrawFromUser(
             address(inputToken),
             withdrawAmount,
             userA,
@@ -393,13 +398,13 @@ contract EmergencyTests is TestUtils {
         );
 
         assertEq(
-            localAori.getLockedBalances(userA, address(inputToken)), order.inputAmount - withdrawAmount, "Locked balance should decrease"
+            localLens.getLockedBalances(userA, address(inputToken)), order.inputAmount - withdrawAmount, "Locked balance should decrease"
         );
         assertEq(inputToken.balanceOf(customRecipient), recipientBalanceBefore + withdrawAmount, "Recipient should receive tokens");
 
-        // Should revert with insufficient balance for unlocked
-        vm.expectRevert(InsufficientUnlockedBalance.selector);
-        localAori.emergencyWithdraw(
+        // Should revert with arithmetic underflow (user has no unlocked balance)
+        vm.expectRevert(); // arithmetic underflow panic
+        localAori.emergencyWithdrawFromUser(
             address(inputToken),
             1000e18,
             userA,
@@ -432,7 +437,7 @@ contract EmergencyTests is TestUtils {
         uint256 withdrawAmount = order.inputAmount / 2;
 
         // Emergency withdraw from unlocked balance
-        localAori.emergencyWithdraw(
+        localAori.emergencyWithdrawFromUser(
             address(inputToken),
             withdrawAmount,
             solver,
@@ -441,7 +446,7 @@ contract EmergencyTests is TestUtils {
         );
 
         assertEq(
-            localAori.getUnlockedBalances(solver, address(inputToken)),
+            localLens.getUnlockedBalances(solver, address(inputToken)),
             order.inputAmount - withdrawAmount,
             "Unlocked balance should decrease"
         );
@@ -454,7 +459,7 @@ contract EmergencyTests is TestUtils {
     function testEmergencyWithdrawAccountingAccessControl() public {
         vm.prank(nonOwner);
         vm.expectRevert();
-        localAori.emergencyWithdraw(address(inputToken), 100, userA, true, customRecipient);
+        localAori.emergencyWithdrawFromUser(address(inputToken), 100, userA, true, customRecipient);
     }
 
     /**
@@ -463,25 +468,24 @@ contract EmergencyTests is TestUtils {
     function testEmergencyWithdrawAccountingInvalidParameters() public {
         // Zero amount
         vm.expectRevert(AmountMustBeGreaterThanZero.selector);
-        localAori.emergencyWithdraw(address(inputToken), 0, userA, true, customRecipient);
+        localAori.emergencyWithdrawFromUser(address(inputToken), 0, userA, true, customRecipient);
 
         // Invalid user
         vm.expectRevert(InvalidUserAddress.selector);
-        localAori.emergencyWithdraw(address(inputToken), 100, address(0), true, customRecipient);
+        localAori.emergencyWithdrawFromUser(address(inputToken), 100, address(0), true, customRecipient);
 
         // Invalid recipient
         vm.expectRevert(InvalidRecipient.selector);
-        localAori.emergencyWithdraw(address(inputToken), 100, userA, true, address(0));
+        localAori.emergencyWithdrawFromUser(address(inputToken), 100, userA, true, address(0));
     }
 
     /**
      * @notice Tests insufficient balance handling
      */
     function testEmergencyWithdrawAccountingInsufficientBalance() public {
-        // Should revert with insufficient balance for locked
-        // User has 0 locked balance, trying to withdraw 1000e18
-        vm.expectRevert(abi.encodeWithSelector(LockedBalanceDecreaseFailed.selector, 1000e18, 0));
-        localAori.emergencyWithdraw(
+        // Should revert with arithmetic underflow (user has 0 locked balance)
+        vm.expectRevert(); // arithmetic underflow panic
+        localAori.emergencyWithdrawFromUser(
             address(inputToken),
             1000e18,
             userA,
@@ -511,12 +515,12 @@ contract EmergencyTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order2, sig2);
 
-        uint256 totalLockedBefore = localAori.getLockedBalances(userA, address(inputToken));
+        uint256 totalLockedBefore = localLens.getLockedBalances(userA, address(inputToken));
         uint256 withdrawAmount = order1.inputAmount;
 
-        localAori.emergencyWithdraw(address(inputToken), withdrawAmount, userA, true, customRecipient);
+        localAori.emergencyWithdrawFromUser(address(inputToken), withdrawAmount, userA, true, customRecipient);
 
-        uint256 totalLockedAfter = localAori.getLockedBalances(userA, address(inputToken));
+        uint256 totalLockedAfter = localLens.getLockedBalances(userA, address(inputToken));
 
         assertEq(totalLockedAfter, totalLockedBefore - withdrawAmount, "Locked balance should decrease correctly");
         assertEq(totalLockedAfter, order2.inputAmount, "Remaining should equal second order");
@@ -542,7 +546,7 @@ contract EmergencyTests is TestUtils {
         bytes32 orderId = localAori.hash(order);
 
         // Step 1: Emergency withdraw tokens
-        localAori.emergencyWithdraw(
+        localAori.emergencyWithdrawFromUser(
             address(inputToken),
             order.inputAmount,
             userA,
@@ -550,14 +554,14 @@ contract EmergencyTests is TestUtils {
             customRecipient
         );
 
-        // Step 2: Try emergency cancel (should fail due to insufficient contract balance)
+        // Step 2: Try emergency cancel (should fail due to insufficient locked balance)
         // After emergencyWithdraw, the locked balance is 0, but the order still references inputAmount
-        vm.expectRevert(abi.encodeWithSelector(LockedBalanceDecreaseFailed.selector, order.inputAmount, 0));
+        vm.expectRevert(); // arithmetic underflow panic
         localAori.emergencyCancel(orderId, userA);
 
         // Verify order is still active but balance is gone
         assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Active), "Order should still be active");
-        assertEq(localAori.getLockedBalances(userA, address(inputToken)), 0, "Locked balance should be zero");
+        assertEq(localLens.getLockedBalances(userA, address(inputToken)), 0, "Locked balance should be zero");
     }
 
     /**
@@ -613,7 +617,7 @@ contract EmergencyTests is TestUtils {
         assertEq(uint8(localAori.orderStatus(swapOrderId)), uint8(OrderStatus.Settled), "Swap should be settled");
 
         // 3. Can withdraw unlocked balances
-        uint256 unlockedBalance = localAori.getUnlockedBalances(solver, address(inputToken));
+        uint256 unlockedBalance = localLens.getUnlockedBalances(solver, address(inputToken));
         if (unlockedBalance > 0) {
             vm.prank(solver);
             localAori.withdraw(address(inputToken), unlockedBalance);

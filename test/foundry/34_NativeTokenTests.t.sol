@@ -17,11 +17,11 @@ import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/t
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Test } from "forge-std/Test.sol";
 import { console } from "forge-std/console.sol";
-import "../../contracts/libraries/AoriUtils.sol";
+import { TokenUtils, NATIVE_TOKEN } from "../../contracts/libraries/internal/TokenUtils.sol";
 import "../../contracts/types/AoriErrors.sol";
 
 contract NativeTokenTests is TestUtils {
-    using NativeTokenUtils for address;
+    using TokenUtils for address;
 
     // Test addresses
     address public user;
@@ -72,7 +72,7 @@ contract NativeTokenTests is TestUtils {
 
         uint256 initialBalance = user.balance;
         uint256 initialContractBalance = address(localAori).balance;
-        uint256 initialLocked = localAori.getLockedBalances(user, NATIVE_TOKEN);
+        uint256 initialLocked = localLens.getLockedBalances(user, NATIVE_TOKEN);
 
         vm.prank(user);
         localAori.depositNative{ value: INPUT_AMOUNT }(order);
@@ -80,7 +80,7 @@ contract NativeTokenTests is TestUtils {
         // Verify balances
         assertEq(user.balance, initialBalance - INPUT_AMOUNT, "User balance should decrease");
         assertEq(address(localAori).balance, initialContractBalance + INPUT_AMOUNT, "Contract should receive ETH");
-        assertEq(localAori.getLockedBalances(user, NATIVE_TOKEN), initialLocked + INPUT_AMOUNT, "Locked balance should increase");
+        assertEq(localLens.getLockedBalances(user, NATIVE_TOKEN), initialLocked + INPUT_AMOUNT, "Locked balance should increase");
 
         // Verify order status
         bytes32 orderId = localAori.hash(order);
@@ -709,7 +709,7 @@ contract NativeTokenTests is TestUtils {
         }
 
         // Verify total locked balance
-        assertEq(localAori.getLockedBalances(user, NATIVE_TOKEN), INPUT_AMOUNT * 3, "Total locked should be 3x input amount");
+        assertEq(localLens.getLockedBalances(user, NATIVE_TOKEN), INPUT_AMOUNT * 3, "Total locked should be 3x input amount");
     }
 
     /**

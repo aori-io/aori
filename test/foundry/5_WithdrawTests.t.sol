@@ -124,7 +124,7 @@ contract WithdrawTests is TestUtils {
         localAori.fill(order);
 
         // Verify solver now has unlocked balance in outputToken (the input token)
-        uint256 solverUnlockedBalance = localAori.getUnlockedBalances(solver, address(outputToken));
+        uint256 solverUnlockedBalance = localLens.getUnlockedBalances(solver, address(outputToken));
         require(solverUnlockedBalance >= amount, "Failed to setup solver unlocked balance");
     }
 
@@ -162,7 +162,7 @@ contract WithdrawTests is TestUtils {
      */
     function testWithdrawFullBalance_WithSentinelValue() public {
         // Arrange - use solver's unlocked balance (realistic scenario)
-        uint256 initialBalance = localAori.getUnlockedBalances(solver, address(outputToken));
+        uint256 initialBalance = localLens.getUnlockedBalances(solver, address(outputToken));
         uint256 initialTokenBalance = outputToken.balanceOf(solver);
 
         // Act
@@ -170,7 +170,7 @@ contract WithdrawTests is TestUtils {
         localAori.withdraw(address(outputToken), 0);
 
         // Assert
-        assertEq(localAori.getUnlockedBalances(solver, address(outputToken)), 0, "Unlocked balance should be zero after full withdrawal");
+        assertEq(localLens.getUnlockedBalances(solver, address(outputToken)), 0, "Unlocked balance should be zero after full withdrawal");
         assertEq(outputToken.balanceOf(solver), initialTokenBalance + initialBalance, "Solver should receive full unlocked balance");
     }
 
@@ -180,7 +180,7 @@ contract WithdrawTests is TestUtils {
      */
     function testWithdrawPartialBalance_ValidAmount() public {
         // Arrange - use solver's unlocked balance
-        uint256 initialBalance = localAori.getUnlockedBalances(solver, address(outputToken));
+        uint256 initialBalance = localLens.getUnlockedBalances(solver, address(outputToken));
         uint256 initialTokenBalance = outputToken.balanceOf(solver);
 
         // Act
@@ -189,7 +189,7 @@ contract WithdrawTests is TestUtils {
 
         // Assert
         assertEq(
-            localAori.getUnlockedBalances(solver, address(outputToken)),
+            localLens.getUnlockedBalances(solver, address(outputToken)),
             initialBalance - PARTIAL_AMOUNT,
             "Remaining balance should be initial minus withdrawn amount"
         );
@@ -202,7 +202,7 @@ contract WithdrawTests is TestUtils {
      */
     function testWithdrawPartialBalance_AmountEqualsBalance() public {
         // Arrange - use solver's unlocked balance
-        uint256 exactBalance = localAori.getUnlockedBalances(solver, address(outputToken));
+        uint256 exactBalance = localLens.getUnlockedBalances(solver, address(outputToken));
         uint256 initialTokenBalance = outputToken.balanceOf(solver);
 
         // Act
@@ -210,7 +210,7 @@ contract WithdrawTests is TestUtils {
         localAori.withdraw(address(outputToken), exactBalance);
 
         // Assert
-        assertEq(localAori.getUnlockedBalances(solver, address(outputToken)), 0, "Balance should be zero after withdrawing exact amount");
+        assertEq(localLens.getUnlockedBalances(solver, address(outputToken)), 0, "Balance should be zero after withdrawing exact amount");
         assertEq(outputToken.balanceOf(solver), initialTokenBalance + exactBalance, "Solver should receive the exact balance amount");
     }
 
@@ -220,7 +220,7 @@ contract WithdrawTests is TestUtils {
      */
     function testWithdrawPartialBalance_AmountIsOne() public {
         // Arrange - use solver's unlocked balance
-        uint256 initialBalance = localAori.getUnlockedBalances(solver, address(outputToken));
+        uint256 initialBalance = localLens.getUnlockedBalances(solver, address(outputToken));
         uint256 initialTokenBalance = outputToken.balanceOf(solver);
 
         // Act
@@ -229,7 +229,7 @@ contract WithdrawTests is TestUtils {
 
         // Assert
         assertEq(
-            localAori.getUnlockedBalances(solver, address(outputToken)), initialBalance - SMALL_AMOUNT, "Balance should decrease by 1 wei"
+            localLens.getUnlockedBalances(solver, address(outputToken)), initialBalance - SMALL_AMOUNT, "Balance should decrease by 1 wei"
         );
         assertEq(outputToken.balanceOf(solver), initialTokenBalance + SMALL_AMOUNT, "Solver should receive 1 wei");
     }
@@ -257,7 +257,7 @@ contract WithdrawTests is TestUtils {
      */
     function testWithdrawPartialBalance_AmountExceedsBalance() public {
         // Arrange - use solver's balance
-        uint256 currentBalance = localAori.getUnlockedBalances(solver, address(outputToken));
+        uint256 currentBalance = localLens.getUnlockedBalances(solver, address(outputToken));
         uint256 excessiveAmount = currentBalance + 1e18;
 
         // Act & Assert
@@ -293,7 +293,7 @@ contract WithdrawTests is TestUtils {
      */
     function testWithdrawEventEmission_FullWithdrawal() public {
         // Arrange - use solver's balance
-        uint256 expectedAmount = localAori.getUnlockedBalances(solver, address(outputToken));
+        uint256 expectedAmount = localLens.getUnlockedBalances(solver, address(outputToken));
 
         // Act & Assert
         vm.expectEmit(true, true, false, true);
@@ -344,7 +344,7 @@ contract WithdrawTests is TestUtils {
      */
     function testWithdrawMultipleTokens() public {
         // Use existing balances from setup
-        uint256 initialBalanceOutput = localAori.getUnlockedBalances(solver, address(outputToken));
+        uint256 initialBalanceOutput = localLens.getUnlockedBalances(solver, address(outputToken));
         require(initialBalanceOutput >= PARTIAL_AMOUNT, "Need sufficient outputToken balance");
 
         // Create additional balance in a different token through another trade
@@ -379,7 +379,7 @@ contract WithdrawTests is TestUtils {
         localAori.fill(order);
 
         // Now solver has balances in both outputToken and inputToken
-        uint256 inputTokenBalance = localAori.getUnlockedBalances(solver, address(inputToken));
+        uint256 inputTokenBalance = localLens.getUnlockedBalances(solver, address(inputToken));
 
         // Act - withdraw from both tokens
         vm.prank(solver);
@@ -390,11 +390,11 @@ contract WithdrawTests is TestUtils {
 
         // Assert
         assertEq(
-            localAori.getUnlockedBalances(solver, address(outputToken)),
+            localLens.getUnlockedBalances(solver, address(outputToken)),
             initialBalanceOutput - PARTIAL_AMOUNT,
             "OutputToken balance should be reduced by partial amount"
         );
-        assertEq(localAori.getUnlockedBalances(solver, address(inputToken)), 0, "InputToken balance should be zero after full withdrawal");
+        assertEq(localLens.getUnlockedBalances(solver, address(inputToken)), 0, "InputToken balance should be zero after full withdrawal");
     }
 
     /**
@@ -403,7 +403,7 @@ contract WithdrawTests is TestUtils {
      */
     function testWithdrawAfterDeposit() public {
         // Verify solver has unlocked balance from the setup trades
-        uint256 solverBalance = localAori.getUnlockedBalances(solver, address(outputToken));
+        uint256 solverBalance = localLens.getUnlockedBalances(solver, address(outputToken));
         assertGt(solverBalance, 0, "Solver should have unlocked balance from trades");
 
         // Act - withdraw the unlocked balance
@@ -412,7 +412,7 @@ contract WithdrawTests is TestUtils {
         localAori.withdraw(address(outputToken), 0); // Full withdrawal
 
         // Assert
-        assertEq(localAori.getUnlockedBalances(solver, address(outputToken)), 0, "Solver unlocked balance should be zero after withdrawal");
+        assertEq(localLens.getUnlockedBalances(solver, address(outputToken)), 0, "Solver unlocked balance should be zero after withdrawal");
         assertEq(outputToken.balanceOf(solver), initialTokenBalance + solverBalance, "Solver should receive the withdrawn tokens");
     }
 
@@ -422,7 +422,7 @@ contract WithdrawTests is TestUtils {
      */
     function testWithdrawRevert_ReentrancyProtection() public {
         // Setup a balance for testing
-        uint256 balance = localAori.getUnlockedBalances(solver, address(outputToken));
+        uint256 balance = localLens.getUnlockedBalances(solver, address(outputToken));
         require(balance > 0, "Need balance for reentrancy test");
 
         // The nonReentrant modifier should prevent any reentrancy
@@ -448,14 +448,14 @@ contract WithdrawTests is TestUtils {
      */
     function testWithdrawBoundaryValues() public {
         // Test withdrawal of minimal amount from existing balance
-        uint256 balance = localAori.getUnlockedBalances(solver, address(outputToken));
+        uint256 balance = localLens.getUnlockedBalances(solver, address(outputToken));
         require(balance >= SMALL_AMOUNT, "Need sufficient balance for boundary test");
 
         vm.prank(solver);
         localAori.withdraw(address(outputToken), SMALL_AMOUNT);
 
         assertEq(
-            localAori.getUnlockedBalances(solver, address(outputToken)),
+            localLens.getUnlockedBalances(solver, address(outputToken)),
             balance - SMALL_AMOUNT,
             "Should handle small amount withdrawal correctly"
         );
@@ -467,14 +467,14 @@ contract WithdrawTests is TestUtils {
      */
     function testWithdrawArithmeticSafety() public {
         // This tests the uint128 casting and subtraction safety using existing balance
-        uint256 balance = localAori.getUnlockedBalances(solver, address(outputToken));
+        uint256 balance = localLens.getUnlockedBalances(solver, address(outputToken));
         require(balance > 0, "Need balance for arithmetic test");
 
         // Withdraw exact balance should result in zero
         vm.prank(solver);
         localAori.withdraw(address(outputToken), balance);
 
-        assertEq(localAori.getUnlockedBalances(solver, address(outputToken)), 0, "Balance should be exactly zero after full withdrawal");
+        assertEq(localLens.getUnlockedBalances(solver, address(outputToken)), 0, "Balance should be exactly zero after full withdrawal");
     }
 
     /**
@@ -483,14 +483,14 @@ contract WithdrawTests is TestUtils {
      */
     function testWithdrawUint128CastingSafety() public {
         // Test with existing balance to ensure uint128 casting works
-        uint256 balance = localAori.getUnlockedBalances(solver, address(outputToken));
+        uint256 balance = localLens.getUnlockedBalances(solver, address(outputToken));
         require(balance > 0, "Need balance for casting test");
 
         // Should be able to withdraw the full amount without overflow issues
         vm.prank(solver);
         localAori.withdraw(address(outputToken), 0); // Full withdrawal
 
-        assertEq(localAori.getUnlockedBalances(solver, address(outputToken)), 0, "Should handle uint128 casting correctly");
+        assertEq(localLens.getUnlockedBalances(solver, address(outputToken)), 0, "Should handle uint128 casting correctly");
     }
 
     /**
@@ -509,7 +509,7 @@ contract WithdrawTests is TestUtils {
      * @dev Verifies that failed withdrawals don't corrupt state
      */
     function testWithdrawStateConsistency_AfterFailure() public {
-        uint256 initialBalance = localAori.getUnlockedBalances(solver, address(outputToken));
+        uint256 initialBalance = localLens.getUnlockedBalances(solver, address(outputToken));
         uint256 initialTokenBalance = outputToken.balanceOf(solver);
 
         // Attempt invalid withdrawal
@@ -519,7 +519,7 @@ contract WithdrawTests is TestUtils {
 
         // Verify state is unchanged after failed withdrawal
         assertEq(
-            localAori.getUnlockedBalances(solver, address(outputToken)),
+            localLens.getUnlockedBalances(solver, address(outputToken)),
             initialBalance,
             "Balance should be unchanged after failed withdrawal"
         );

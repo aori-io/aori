@@ -30,7 +30,7 @@ pragma solidity 0.8.33;
  */
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
-import "../../contracts/libraries/AoriUtils.sol";
+import { BalanceUtils } from "../../contracts/libraries/internal/BalanceUtils.sol";
 import "../../contracts/types/AoriErrors.sol";
 import { Balance } from "../../contracts/types/AoriTypes.sol";
 
