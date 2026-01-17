@@ -448,7 +448,9 @@ contract AoriPeripheryTests is TestUtils {
     /**
      * @notice Fuzz test getPendingSettle with variable number of fills
      */
-    function testFuzz_GetPendingSettle_MultipleFills(uint8 numFills) public {
+    function testFuzz_GetPendingSettle_MultipleFills(
+        uint8 numFills
+    ) public {
         numFills = uint8(bound(numFills, 1, 5)); // Keep reasonable for gas
 
         // Create and deposit orders
@@ -492,7 +494,10 @@ contract AoriPeripheryTests is TestUtils {
     /**
      * @notice Fuzz test getOrdersInputTotals aggregation accuracy
      */
-    function testFuzz_GetOrdersInputTotals_Aggregation(uint128 amount1, uint128 amount2) public {
+    function testFuzz_GetOrdersInputTotals_Aggregation(
+        uint128 amount1,
+        uint128 amount2
+    ) public {
         amount1 = uint128(bound(amount1, 1e6, 1e24));
         amount2 = uint128(bound(amount2, 1e6, 1e24));
 
@@ -554,7 +559,10 @@ contract AoriPeripheryTests is TestUtils {
     /**
      * @notice Fuzz test with random srcEid queries
      */
-    function testFuzz_GetPendingSettle_RandomSrcEids(uint32 randomEid1, uint32 randomEid2) public {
+    function testFuzz_GetPendingSettle_RandomSrcEids(
+        uint32 randomEid1,
+        uint32 randomEid2
+    ) public {
         vm.assume(randomEid1 != localEid && randomEid2 != localEid);
         vm.assume(randomEid1 != 0 && randomEid2 != 0);
 

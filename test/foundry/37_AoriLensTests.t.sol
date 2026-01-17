@@ -99,7 +99,10 @@ contract AoriLensTests is TestUtils {
 
         assertEq(retrieved1.offerer, testOrder.offerer, "Order 1 offerer mismatch");
         assertEq(retrieved2.offerer, order2.offerer, "Order 2 offerer mismatch");
-        assertTrue(retrieved1.inputAmount != retrieved2.inputAmount || testOrder.inputAmount == order2.inputAmount, "Orders should have different or same amounts");
+        assertTrue(
+            retrieved1.inputAmount != retrieved2.inputAmount || testOrder.inputAmount == order2.inputAmount,
+            "Orders should have different or same amounts"
+        );
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -177,9 +180,7 @@ contract AoriLensTests is TestUtils {
         }
 
         vm.prank(address(endpoints[localEid]));
-        localAori.lzReceive(
-            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1), guid, payload, address(0), bytes("")
-        );
+        localAori.lzReceive(Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1), guid, payload, address(0), bytes(""));
 
         // Solver should now have unlocked balance
         uint256 unlocked = localLens.getUnlockedBalances(solver, address(convertedToken));
@@ -461,7 +462,9 @@ contract AoriLensTests is TestUtils {
     /**
      * @notice Fuzz test balance consistency between locked and unlocked
      */
-    function testFuzz_Balances_Consistency(uint128 depositAmount) public {
+    function testFuzz_Balances_Consistency(
+        uint128 depositAmount
+    ) public {
         depositAmount = uint128(bound(depositAmount, 1e6, 1e24));
 
         // Record initial locked balance (from setUp)
@@ -502,7 +505,9 @@ contract AoriLensTests is TestUtils {
     /**
      * @notice Fuzz test fills length tracking
      */
-    function testFuzz_FillsLength_Tracking(uint8 numFills) public {
+    function testFuzz_FillsLength_Tracking(
+        uint8 numFills
+    ) public {
         numFills = uint8(bound(numFills, 1, 5));
 
         for (uint256 i = 0; i < numFills; i++) {
@@ -534,7 +539,10 @@ contract AoriLensTests is TestUtils {
     /**
      * @notice Fuzz test random user/token queries return zero
      */
-    function testFuzz_Balances_RandomQueries(address randomUser, address randomToken) public view {
+    function testFuzz_Balances_RandomQueries(
+        address randomUser,
+        address randomToken
+    ) public view {
         vm.assume(randomUser != userA && randomUser != address(0));
         vm.assume(randomToken != address(convertedToken) && randomToken != address(0));
 
