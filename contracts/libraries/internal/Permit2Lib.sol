@@ -13,7 +13,6 @@ import { Order, Options } from "../../types/AoriTypes.sol";
  * @dev Uses witness-based signing where the Order struct is included in the Permit2 signature
  */
 library Permit2Lib {
-    
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                         CONSTANTS                           */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
@@ -26,17 +25,15 @@ library Permit2Lib {
     /**
      * @dev Options typehash for witness hashing
      */
-    bytes32 internal constant OPTIONS_TYPEHASH = keccak256(
-        "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
-    );
+    bytes32 internal constant OPTIONS_TYPEHASH =
+        keccak256("Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)");
 
     /**
      * @dev Order typehash for witness hashing (includes nested Options)
      */
     bytes32 internal constant ORDER_TYPEHASH = keccak256(
         "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,"
-        "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient,"
-        "Options options)"
+        "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient," "Options options)"
         "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
     );
 
@@ -49,8 +46,7 @@ library Permit2Lib {
     string internal constant WITNESS_TYPE_STRING = "Order witness)"
         "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
         "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,"
-        "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient,"
-        "Options options)"
+        "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient," "Options options)"
         "TokenPermissions(address token,uint256 amount)";
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -62,16 +58,10 @@ library Permit2Lib {
      * @param options The options to hash
      * @return The keccak256 hash of the options following EIP-712 struct hashing
      */
-    function hashOptions(Options calldata options) internal pure returns (bytes32) {
-        return keccak256(
-            abi.encode(
-                OPTIONS_TYPEHASH,
-                options.feeMbps,
-                options.feeRecipient,
-                options.solver,
-                options.slippageMbps
-            )
-        );
+    function hashOptions(
+        Options calldata options
+    ) internal pure returns (bytes32) {
+        return keccak256(abi.encode(OPTIONS_TYPEHASH, options.feeMbps, options.feeRecipient, options.solver, options.slippageMbps));
     }
 
     /**

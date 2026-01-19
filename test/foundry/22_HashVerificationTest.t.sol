@@ -223,8 +223,7 @@ contract HashVerificationTest is TestUtils {
             abi.encode(
                 keccak256(
                     "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,"
-                    "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient,"
-                    "Options options)"
+                    "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient," "Options options)"
                     "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
                 ),
                 order.inputAmount,

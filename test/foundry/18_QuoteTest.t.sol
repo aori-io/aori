@@ -193,7 +193,7 @@ contract QuoteTest is TestUtils {
                     endTime: uint32(block.timestamp + 1 days),
                     srcEid: localEid,
                     dstEid: remoteEid,
-            options: defaultOrderOptions()
+                    options: defaultOrderOptions()
                 });
 
                 // Approve tokens for fill

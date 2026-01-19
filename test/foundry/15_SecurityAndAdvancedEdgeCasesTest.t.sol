@@ -334,10 +334,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         // Test non-whitelisted hook
         address nonWhitelistedHook = address(0x400);
         SrcHook memory srcData = SrcHook({
-            hookAddress: nonWhitelistedHook,
-            preferredToken: address(inputToken),
-            minPreferredTokenAmountOut: 1000,
-            instructions: ""
+            hookAddress: nonWhitelistedHook, preferredToken: address(inputToken), minPreferredTokenAmountOut: 1000, instructions: ""
         });
 
         vm.prank(solver);
@@ -537,8 +534,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
             abi.encode(
                 keccak256(
                     "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,"
-                    "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient,"
-                    "Options options)"
+                    "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient," "Options options)"
                     "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
                 ),
                 order.inputAmount,

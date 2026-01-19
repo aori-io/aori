@@ -270,8 +270,7 @@ contract TestUtils is TestHelperOz5 {
             abi.encode(
                 keccak256(
                     "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,"
-                    "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient,"
-                    "Options options)"
+                    "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient," "Options options)"
                     "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
                 ),
                 order.inputAmount,
@@ -310,8 +309,8 @@ contract TestUtils is TestHelperOz5 {
         return Options({
             feeMbps: 0,
             feeRecipient: address(0),
-            solver: address(0),      // Any whitelisted solver allowed
-            slippageMbps: 0          // 0 = limit order
+            solver: address(0), // Any whitelisted solver allowed
+            slippageMbps: 0 // 0 = limit order
         });
     }
 
@@ -320,13 +319,10 @@ contract TestUtils is TestHelperOz5 {
      * @param slippageMbps Slippage tolerance in millibasis points (1000 = 1%)
      * @return Options struct for market order
      */
-    function marketOrderOptions(uint16 slippageMbps) public pure returns (Options memory) {
-        return Options({
-            feeMbps: 0,
-            feeRecipient: address(0),
-            solver: address(0),
-            slippageMbps: slippageMbps
-        });
+    function marketOrderOptions(
+        uint16 slippageMbps
+    ) public pure returns (Options memory) {
+        return Options({ feeMbps: 0, feeRecipient: address(0), solver: address(0), slippageMbps: slippageMbps });
     }
 
     /**
@@ -335,13 +331,11 @@ contract TestUtils is TestHelperOz5 {
      * @param feeRecipient Who receives the fee
      * @return Options struct with fee configuration
      */
-    function feeOrderOptions(uint16 feeMbps, address feeRecipient) public pure returns (Options memory) {
-        return Options({
-            feeMbps: feeMbps,
-            feeRecipient: feeRecipient,
-            solver: address(0),
-            slippageMbps: 0
-        });
+    function feeOrderOptions(
+        uint16 feeMbps,
+        address feeRecipient
+    ) public pure returns (Options memory) {
+        return Options({ feeMbps: feeMbps, feeRecipient: feeRecipient, solver: address(0), slippageMbps: 0 });
     }
 
     /**

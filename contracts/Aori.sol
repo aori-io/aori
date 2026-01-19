@@ -1013,17 +1013,15 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     /**
      * @dev EIP712 typehash for Options struct
      */
-    bytes32 private constant _OPTIONS_TYPEHASH = keccak256(
-        "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
-    );
+    bytes32 private constant _OPTIONS_TYPEHASH =
+        keccak256("Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)");
 
     /**
      * @dev EIP712 typehash for Order struct with nested Options
      */
     bytes32 private constant _ORDER_TYPEHASH = keccak256(
         "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,"
-        "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient,"
-        "Options options)"
+        "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient," "Options options)"
         "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
     );
 
@@ -1032,16 +1030,10 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      * @param options The options to hash
      * @return The computed hash
      */
-    function _hashOptions(Options calldata options) internal pure returns (bytes32) {
-        return keccak256(
-            abi.encode(
-                _OPTIONS_TYPEHASH,
-                options.feeMbps,
-                options.feeRecipient,
-                options.solver,
-                options.slippageMbps
-            )
-        );
+    function _hashOptions(
+        Options calldata options
+    ) internal pure returns (bytes32) {
+        return keccak256(abi.encode(_OPTIONS_TYPEHASH, options.feeMbps, options.feeRecipient, options.solver, options.slippageMbps));
     }
 
     /**

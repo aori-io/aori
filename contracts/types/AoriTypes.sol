@@ -24,10 +24,10 @@ struct Order {
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
 struct Options {
-    uint16 feeMbps;        // Fee in millibasis points (1000 = 1%)
-    address feeRecipient;  // Who receives the fee (address(0) = solver)
-    address solver;        // Authorized solver (address(0) = any whitelisted)
-    uint16 slippageMbps;   // 0 = limit order, >0 = market order
+    uint16 feeMbps; // Fee in millibasis points (1000 = 1%)
+    address feeRecipient; // Who receives the fee (address(0) = solver)
+    address solver; // Authorized solver (address(0) = any whitelisted)
+    uint16 slippageMbps; // 0 = limit order, >0 = market order
 }
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -35,11 +35,11 @@ struct Options {
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
 enum OrderStatus {
-    Unknown,         // Order not found
-    Active,          // Order deposited but not filled
-    Filled,          // Pending settlement
-    Cancelled,       // Order cancelled
-    Settled          // Order settled
+    Unknown, // Order not found
+    Active, // Order deposited but not filled
+    Filled, // Pending settlement
+    Cancelled, // Order cancelled
+    Settled // Order settled
 }
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
