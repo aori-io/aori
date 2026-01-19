@@ -23,6 +23,7 @@ import { TestHelperOz5 } from "@layerzerolabs/test-devtools-evm-foundry/contract
 import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import { MockERC20 } from "../Mock/MockERC20.sol";
 import { MockHook } from "../Mock/MockHook.sol";
+import { AoriLens } from "../../contracts/periphery/AoriLens.sol";
 
 /**
  * @title MockAoriUpgraded
@@ -53,6 +54,7 @@ contract UpgradeTests is TestHelperOz5 {
     Aori public implementation;
     Aori public aori; // proxy cast to Aori
     ERC1967Proxy public proxy;
+    AoriLens public lens;
 
     // Mock contracts
     MockERC20 public inputToken;
@@ -97,6 +99,9 @@ contract UpgradeTests is TestHelperOz5 {
 
         proxy = new ERC1967Proxy(address(implementation), initData);
         aori = Aori(payable(address(proxy)));
+
+        // Deploy lens for view functions
+        lens = new AoriLens(address(aori));
 
         // Setup test tokens
         inputToken = new MockERC20("Input", "IN");
@@ -337,7 +342,7 @@ contract UpgradeTests is TestHelperOz5 {
         aori.depositNative{ value: order.inputAmount }(order);
 
         // Verify locked balance
-        assertEq(aori.getLockedBalances(userA, order.inputToken), order.inputAmount, "Native tokens should be locked");
+        assertEq(lens.getLockedBalances(userA, order.inputToken), order.inputAmount, "Native tokens should be locked");
     }
 
     /**
@@ -368,7 +373,7 @@ contract UpgradeTests is TestHelperOz5 {
         aori.depositNative{ value: order.inputAmount }(order);
 
         // Verify locked balance
-        assertEq(aori.getLockedBalances(userA, order.inputToken), order.inputAmount, "Native tokens should be locked after deposit");
+        assertEq(lens.getLockedBalances(userA, order.inputToken), order.inputAmount, "Native tokens should be locked after deposit");
         assertEq(userA.balance, balanceBefore - order.inputAmount, "User balance should decrease after deposit");
 
         // Warp time to after order expiry so offerer can cancel
@@ -380,7 +385,7 @@ contract UpgradeTests is TestHelperOz5 {
         aori.cancel(orderId);
 
         // Verify locked balance is now 0
-        assertEq(aori.getLockedBalances(userA, order.inputToken), 0, "Locked balance should be 0 after cancel");
+        assertEq(lens.getLockedBalances(userA, order.inputToken), 0, "Locked balance should be 0 after cancel");
 
         // Verify tokens were directly transferred back to user
         assertEq(userA.balance, balanceBefore, "User should have full balance back after cancel");

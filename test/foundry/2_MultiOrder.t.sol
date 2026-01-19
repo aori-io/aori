@@ -99,7 +99,7 @@ contract MultiOrderSuccessTest is TestUtils {
     function testPhase1_DepositOrders() public {
         _createAndDepositOrders();
         // Verify that the locked balance for convertedToken increased.
-        uint256 lockedBalance = localAori.getLockedBalances(userA, address(convertedToken));
+        uint256 lockedBalance = localLens.getLockedBalances(userA, address(convertedToken));
         assertEq(lockedBalance, totalInput, "Locked balance not increased correctly");
     }
 
@@ -173,7 +173,7 @@ contract MultiOrderSuccessTest is TestUtils {
         console.log("Gas used for lzReceive settlement: %d", gas0 - gas1);
 
         // Verify final state
-        uint256 unlockedBalance = localAori.getUnlockedBalances(solver, address(convertedToken));
+        uint256 unlockedBalance = localLens.getUnlockedBalances(solver, address(convertedToken));
         assertEq(unlockedBalance, totalInput, "Solver unlocked token balance incorrect after settlement");
     }
 
@@ -213,7 +213,7 @@ contract MultiOrderSuccessTest is TestUtils {
         console.log("Gas used for lzReceive settlement: %d", gas0 - gas1);
 
         // Verify final state
-        uint256 unlockedBalance = localAori.getUnlockedBalances(solver, address(convertedToken));
+        uint256 unlockedBalance = localLens.getUnlockedBalances(solver, address(convertedToken));
         assertEq(unlockedBalance, totalInput, "Solver unlocked token balance incorrect after settlement");
     }
 }

@@ -18,10 +18,16 @@ import { ECDSA } from "solady/src/utils/ECDSA.sol";
 import { IAori } from "./interfaces/IAori.sol";
 import { Order, OrderStatus, SrcHook, DstHook, Balance, Options } from "./types/AoriTypes.sol";
 import "./types/AoriErrors.sol";
-import "./libraries/AoriUtils.sol";
+import { PayloadType, PayloadPackUtils, PayloadUnpackUtils, PayloadSizeUtils } from "./libraries/internal/PayloadUtils.sol";
+import { ValidationUtils } from "./libraries/internal/ValidationUtils.sol";
+import { BalanceUtils } from "./libraries/internal/BalanceUtils.sol";
+import { ExecutionUtils } from "./libraries/internal/ExecutionUtils.sol";
+import { HookUtils } from "./libraries/internal/HookUtils.sol";
+import { TokenUtils } from "./libraries/internal/TokenUtils.sol";
 import { AoriStorage, AoriStorageData } from "./storage/AoriStorage.sol";
 import { ISignatureTransfer } from "@permit2/src/interfaces/ISignatureTransfer.sol";
-import { Permit2Lib } from "./libraries/Permit2Lib.sol";
+import { Permit2Lib } from "./libraries/internal/Permit2Lib.sol";
+import { AoriAdminLib } from "./libraries/external/AoriAdminLib.sol";
 
 /**
  *                                @@@@@@@@@@@
@@ -60,7 +66,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     using SafeERC20 for IERC20;
     using BalanceUtils for Balance;
     using ValidationUtils for Order;
-    using NativeTokenUtils for address;
+    using TokenUtils for address;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    IMMUTABLE STATE                         */
@@ -126,57 +132,38 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     receive() external payable { }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                   STORAGE ACCESSORS                        */
+    /*                     VIEW FUNCTIONS                         */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    function orders(
-        bytes32 orderId
-    ) public view returns (uint128, uint128, address, address, uint32, uint32, uint32, uint32, address, address) {
-        Order memory order = _getAoriStorage().orders[orderId];
-        return (
-            order.inputAmount,
-            order.outputAmount,
-            order.inputToken,
-            order.outputToken,
-            order.startTime,
-            order.endTime,
-            order.srcEid,
-            order.dstEid,
-            order.offerer,
-            order.recipient
-        );
-    }
-
+    // These view functions are used internally via function pointers - DO NOT REMOVE
     /* forgefmt: disable-next-item */
-    function isSupportedChain(uint32 eid) public view returns (bool) {
-        return _getAoriStorage().isSupportedChain[eid];
-    }
-
-    function MAX_FILLS_PER_SETTLE() public view returns (uint16) {
-        return _getAoriStorage().maxFillsPerSettle;
-    }
-
+    function isSupportedChain(uint32 eid) public view returns (bool) { return _getAoriStorage().isSupportedChain[eid]; }
     /* forgefmt: disable-next-item */
-    function orderStatus(bytes32 orderId) public view returns (OrderStatus) {
-        return _getAoriStorage().orderStatus[orderId];
-    }
-
+    function orderStatus(bytes32 orderId) public view returns (OrderStatus) { return _getAoriStorage().orderStatus[orderId]; }
     /* forgefmt: disable-next-item */
-    function isAllowedHook(address hook) public view returns (bool) {
-        return _getAoriStorage().isAllowedHook[hook];
-    }
-
+    function isAllowedHook(address hook) public view returns (bool) { return _getAoriStorage().isAllowedHook[hook]; }
     /* forgefmt: disable-next-item */
-    function isAllowedSolver(address solver) public view returns (bool) {
-        return _getAoriStorage().isAllowedSolver[solver];
-    }
+    function isAllowedSolver(address solver) public view returns (bool) { return _getAoriStorage().isAllowedSolver[solver]; }
 
-    function srcEidToFillerFills(
-        uint32 srcEid,
-        address filler,
-        uint256 index
-    ) public view returns (bytes32) {
-        return _getAoriStorage().srcEidToFillerFills[srcEid][filler][index];
+    // Storage read helpers for AoriLens - enables external view contract without adding bytecode
+    /* forgefmt: disable-next-item */
+    function readStorage(bytes32 slot) external view returns (bytes32 value) { assembly { value := sload(slot) } }
+    /* forgefmt: disable-next-item */
+    function readStorageArray(bytes32 slot) external view returns (uint256 length) { assembly { length := sload(slot) } }
+
+    /// @notice Quote LayerZero messaging fee (kept in Aori.sol because it needs OApp's _quote)
+    function quote(
+        uint32 _dstEid,
+        uint8 _msgType,
+        bytes calldata _options,
+        bool _payInLzToken,
+        uint32 _srcEid,
+        address _filler
+    ) external view returns (MessagingFee memory) {
+        AoriStorageData storage $ = _getAoriStorage();
+        uint256 fillsLength = $.srcEidToFillerFills[_srcEid][_filler].length;
+        uint256 payloadSize = PayloadSizeUtils.calculatePayloadSize(_msgType, fillsLength, $.maxFillsPerSettle);
+        return _quote(_dstEid, new bytes(payloadSize), _options, _payInLzToken);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -199,198 +186,44 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         _unpause();
     }
 
-    /**
-     * @notice Adds a hook address to the whitelist
-     * @param hook The address of the hook to whitelist
-     * @dev Only callable by the contract owner
-     */
-    /* forgefmt: disable-next-item */
-    function addAllowedHook(address hook) external onlyOwner {
-        _getAoriStorage().isAllowedHook[hook] = true;
-        emit HookAdded(hook);
-    }
-
-    /**
-     * @notice Removes a hook address from the whitelist
-     * @param hook The address of the hook to remove
-     * @dev Only callable by the contract owner
-     */
-    /* forgefmt: disable-next-item */
-    function removeAllowedHook(address hook) external onlyOwner {
-        _getAoriStorage().isAllowedHook[hook] = false;
-        emit HookRemoved(hook);
-    }
-
-    /**
-     * @notice Adds a solver address to the whitelist
-     * @param solver The address of the solver to whitelist
-     * @dev Only callable by the contract owner
-     */
-    /* forgefmt: disable-next-item */
-    function addAllowedSolver(address solver) external onlyOwner {
-        _getAoriStorage().isAllowedSolver[solver] = true;
-        emit SolverAdded(solver);
-    }
-
-    /**
-     * @notice Removes a solver address from the whitelist
-     * @param solver The address of the solver to remove
-     * @dev Only callable by the contract owner
-     */
-    /* forgefmt: disable-next-item */
-    function removeAllowedSolver(address solver) external onlyOwner {
-        _getAoriStorage().isAllowedSolver[solver] = false;
-        emit SolverRemoved(solver);
-    }
-
-    /**
-     * @notice Adds a single chain to the supported chains list
-     * @param eid The endpoint ID of the chain to add
-     * @dev Only callable by the contract owner
-     */
-    /* forgefmt: disable-next-item */
-    function addSupportedChain(uint32 eid) external onlyOwner {
-        _getAoriStorage().isSupportedChain[eid] = true;
-        emit ChainSupported(eid);
-    }
-
-    /**
-     * @notice Adds multiple chains to the supported chains list
-     * @param eids Array of endpoint IDs of the chains to add
-     * @return results Array of booleans indicating which EIDs were successfully added
-     * @dev Only callable by the contract owner
-     */
-    /* forgefmt: disable-next-item */
-    function addSupportedChains(uint32[] calldata eids) external onlyOwner returns (bool[] memory results) {
-        AoriStorageData storage $ = _getAoriStorage();
-        uint256 length = eids.length;
-        results = new bool[](length);
-        for (uint256 i = 0; i < length; i++) {
-            $.isSupportedChain[eids[i]] = true;
-            emit ChainSupported(eids[i]);
-            results[i] = true;
-        }
-        return results;
-    }
-
-    /**
-     * @notice Removes a supported chain by its endpoint ID
-     * @param eid The endpoint ID of the chain to remove
-     * @dev Only callable by the contract owner
-     */
-    /* forgefmt: disable-next-item */
-    function removeSupportedChain(uint32 eid) external onlyOwner {
-        _getAoriStorage().isSupportedChain[eid] = false;
-        emit ChainRemoved(eid);
-    }
-
-    /**
-     * @notice Updates the maximum number of fills per settlement
-     * @param _maxFillsPerSettle The new maximum fills per settle value
-     * @dev Only callable by the contract owner
-     */
-    /* forgefmt: disable-next-item */
-    function setMaxFillsPerSettle(uint16 _maxFillsPerSettle) external onlyOwner {
-        if (_maxFillsPerSettle == 0) revert InvalidMaxFillsPerSettle();
-        AoriStorageData storage $ = _getAoriStorage();
-        uint16 oldValue = $.maxFillsPerSettle;
-        $.maxFillsPerSettle = _maxFillsPerSettle;
-        emit MaxFillsPerSettleUpdated(oldValue, _maxFillsPerSettle);
-    }
-
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                    EMERGENCY FUNCTIONS                     */
+    /*                    ADMIN FUNCTIONS                          */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    /**
-     * @notice Emergency function to cancel an order, bypassing normal restrictions
-     * @dev Only callable by the contract owner. Always transfers tokens to maintain accounting consistency.
-     *      WARNING: This bypasses normal validation and should only be used in emergency situations.
-     * @param orderId The hash of the order to cancel
-     * @param recipient The address to send tokens to (can be different from offerer)
-     */
-    function emergencyCancel(
-        bytes32 orderId,
-        address recipient
-    ) external onlyOwner {
-        AoriStorageData storage $ = _getAoriStorage();
-        if ($.orderStatus[orderId] != OrderStatus.Active) revert CanOnlyCancelActiveOrders();
-        if (recipient == address(0)) revert InvalidRecipient();
-        Order memory order = $.orders[orderId];
-        if (order.srcEid != ENDPOINT_ID) revert EmergencyCancelOnlyAllowedOnSourceChain();
-        address tokenAddress = order.inputToken;
-        uint128 amountToReturn = order.inputAmount;
-        // Validate sufficient balance
-        tokenAddress.validateSufficientBalance(amountToReturn);
-        $.orderStatus[orderId] = OrderStatus.Cancelled;
-        uint128 currentLocked = $.balances[order.offerer][tokenAddress].locked;
-        bool success = $.balances[order.offerer][tokenAddress].decreaseLockedNoRevert(amountToReturn);
-        if (!success) revert LockedBalanceDecreaseFailed(amountToReturn, currentLocked);
+    // NOTE: Simple management functions are kept inline rather than delegating to AoriAdminLib.
+    // This is intentional: the DELEGATECALL overhead for these one-liners exceeds the inline bytecode,
+    // so keeping them here actually saves contract size. Complex functions use the library.
 
-        // Transfer tokens to recipient
-        tokenAddress.safeTransfer(recipient, amountToReturn);
+    /// @notice Add a hook to the whitelist
+    /* forgefmt: disable-next-item */
+    function addAllowedHook(address hook) external onlyOwner { _getAoriStorage().isAllowedHook[hook] = true; emit HookAdded(hook); }
+    /// @notice Remove a hook from the whitelist
+    /* forgefmt: disable-next-item */
+    function removeAllowedHook(address hook) external onlyOwner { _getAoriStorage().isAllowedHook[hook] = false; emit HookRemoved(hook); }
+    /// @notice Add a solver to the whitelist
+    /* forgefmt: disable-next-item */
+    function addAllowedSolver(address solver) external onlyOwner { _getAoriStorage().isAllowedSolver[solver] = true; emit SolverAdded(solver); }
+    /// @notice Remove a solver from the whitelist
+    /* forgefmt: disable-next-item */
+    function removeAllowedSolver(address solver) external onlyOwner { _getAoriStorage().isAllowedSolver[solver] = false; emit SolverRemoved(solver); }
+    /// @notice Add a chain to the supported chains list
+    /* forgefmt: disable-next-item */
+    function addSupportedChain(uint32 eid) external onlyOwner { _getAoriStorage().isSupportedChain[eid] = true; emit ChainSupported(eid); }
+    /// @notice Remove a chain from the supported chains list
+    /* forgefmt: disable-next-item */
+    function removeSupportedChain(uint32 eid) external onlyOwner { _getAoriStorage().isSupportedChain[eid] = false; emit ChainRemoved(eid); }
 
-        emit Cancel(orderId);
-        emit Withdraw(recipient, tokenAddress, amountToReturn);
-    }
+    // Complex emergency functions delegated to AoriAdminLib to save bytecode
 
-    /**
-     * @notice Emergency function to extract tokens or ether from the contract
-     * @dev Only callable by the contract owner. Does not update user balances - use for direct contract withdrawals.
-     * @param token The token address to withdraw
-     * @param amount The amount of tokens to withdraw
-     */
-    function emergencyWithdraw(
-        address token,
-        uint256 amount
-    ) external onlyOwner {
-        uint256 etherBalance = address(this).balance;
-        if (etherBalance > 0) {
-            (bool success,) = payable(owner()).call{ value: etherBalance }("");
-            if (!success) revert NativeTransferFailed();
-        }
-        if (amount > 0) {
-            token.safeTransfer(owner(), amount);
-        }
-    }
-
-    /**
-     * @notice Emergency function to extract tokens from a specific user's balance while maintaining accounting consistency
-     * @dev Only callable by the contract owner. Updates user balances to maintain internal accounting state.
-     * @param token The token address to withdraw
-     * @param amount The amount of tokens to withdraw
-     * @param user The user address whose balance to withdraw from
-     * @param isLocked Whether to withdraw from locked (true) or unlocked (false) balance
-     * @param recipient The address to send the withdrawn tokens to
-     */
-    function emergencyWithdraw(
-        address token,
-        uint256 amount,
-        address user,
-        bool isLocked,
-        address recipient
-    ) external onlyOwner {
-        if (amount == 0) revert AmountMustBeGreaterThanZero();
-        if (user == address(0)) revert InvalidUserAddress();
-        if (recipient == address(0)) revert InvalidRecipient();
-
-        AoriStorageData storage $ = _getAoriStorage();
-        if (isLocked) {
-            uint128 currentLocked = $.balances[user][token].locked;
-            bool success = $.balances[user][token].decreaseLockedNoRevert(uint128(amount));
-            if (!success) revert LockedBalanceDecreaseFailed(uint128(amount), currentLocked);
-        } else {
-            uint256 unlockedBalance = $.balances[user][token].unlocked;
-            if (unlockedBalance < amount) revert InsufficientUnlockedBalance();
-            $.balances[user][token].unlocked = uint128(unlockedBalance - amount);
-        }
-
-        // Validate sufficient balance and transfer
-        token.validateSufficientBalance(amount);
-        token.safeTransfer(recipient, amount);
-
-        emit Withdraw(user, token, amount);
-    }
+    /// @notice Emergency function to cancel an order and return funds to recipient
+    /* forgefmt: disable-next-item */
+    function emergencyCancel(bytes32 orderId, address recipient) external onlyOwner { AoriAdminLib.emergencyCancel(orderId, recipient, ENDPOINT_ID); }
+    /// @notice Emergency function to withdraw tokens from the contract
+    /* forgefmt: disable-next-item */
+    function emergencyWithdraw(address token, uint256 amount, address recipient) external onlyOwner { AoriAdminLib.emergencyWithdraw(token, amount, recipient); }
+    /// @notice Emergency function to withdraw tokens from a user's balance
+    /* forgefmt: disable-next-item */
+    function emergencyWithdrawFromUser(address token, uint256 amount, address user, bool isLocked, address recipient) external onlyOwner { AoriAdminLib.emergencyWithdrawFromUser(token, amount, user, isLocked, recipient); }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                         MODIFIERS                          */
@@ -935,7 +768,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             Order memory order = $.orders[orderId];
 
             if (order.dstEid != senderEid) {
-                emit SettlementFailed(orderId, order.dstEid, senderEid, "Eid mismatch");
+                emit SettlementFailed(orderId, order.dstEid, senderEid);
                 continue;
             }
 
@@ -1075,47 +908,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                       HEALTH CHECK                         */
-    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-    // TODO: Remove health check functions before production deployment
-
-    /**
-     * @notice Send a ping to a remote chain to verify cross-chain connectivity
-     * @dev Useful for deployment verification and health checks. Requires peer to be set.
-     * @param dstEid The destination endpoint ID to ping
-     * @param extraOptions LayerZero messaging options
-     */
-    function ping(uint32 dstEid, bytes calldata extraOptions) external payable nonReentrant whenNotPaused {
-        bytes memory payload = PayloadPackUtils.packPing();
-        MessagingReceipt memory receipt = _lzSend(dstEid, payload, extraOptions, MessagingFee(msg.value, 0), payable(msg.sender));
-        emit PingSent(dstEid, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
-    }
-
-    /**
-     * @notice Quote the fee for sending a ping
-     * @param dstEid The destination endpoint ID
-     * @param extraOptions LayerZero messaging options
-     * @param payInLzToken Whether to pay in LZ token
-     * @return fee The estimated messaging fee
-     */
-    function quotePing(uint32 dstEid, bytes calldata extraOptions, bool payInLzToken) external view returns (MessagingFee memory fee) {
-        bytes memory payload = PayloadPackUtils.packPing();
-        return _quote(dstEid, payload, extraOptions, payInLzToken);
-    }
-
-    /**
-     * @notice Handles ping payload from remote chain
-     * @dev Emits PingReceived event for verification
-     * @param payload The ping payload (1 byte type only)
-     * @param srcEid The source endpoint ID that sent the ping
-     */
-    function _handlePing(bytes calldata payload, uint32 srcEid) internal {
-        payload.validatePingLen();
-        emit PingReceived(srcEid);
-    }
-
-    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                          WITHDRAW                          */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
@@ -1202,8 +994,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             _handleCancellation(payload);
         } else if (msgType == PayloadType.Settlement) {
             _handleSettlement(payload, srcEid);
-        } else if (msgType == PayloadType.Ping) {
-            _handlePing(payload, srcEid);
         } else {
             revert InvalidMessageType();
         }
@@ -1288,65 +1078,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      */
     /* forgefmt: disable-next-item */
     function hash(Order calldata order) public pure returns (bytes32) { return keccak256(abi.encode(order)); }
-
-    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                       VIEW FUNCTIONS                       */
-    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-    /**
-     * @notice Returns the locked balance for a user and token
-     * @param offerer The user address
-     * @param token The token address
-     * @return The locked balance amount
-     */
-    function getLockedBalances(
-        address offerer,
-        address token
-    ) external view returns (uint256) {
-        return _getAoriStorage().balances[offerer][token].locked;
-    }
-
-    /**
-     * @notice Returns the unlocked balance for a user and token
-     * @param offerer The user address
-     * @param token The token address
-     * @return The unlocked balance amount
-     */
-    function getUnlockedBalances(
-        address offerer,
-        address token
-    ) external view returns (uint256) {
-        return _getAoriStorage().balances[offerer][token].unlocked;
-    }
-
-    /**
-     * @notice Returns a fee quote for sending a message through LayerZero
-     * @param _dstEid Destination endpoint ID
-     * @param _msgType Message type (0 for settlement, 1 for cancellation)
-     * @param _options Execution options
-     * @param _payInLzToken Whether to pay fee in LayerZero token
-     * @param _srcEid Source endpoint ID (for settle operations)
-     * @param _filler Filler address (for settle operations)
-     * @return fee The messaging fee in native currency
-     */
-    function quote(
-        uint32 _dstEid,
-        uint8 _msgType,
-        bytes calldata _options,
-        bool _payInLzToken,
-        uint32 _srcEid,
-        address _filler
-    ) public view returns (MessagingFee memory) {
-        AoriStorageData storage $ = _getAoriStorage();
-        // Calculate payload size using the library function
-        uint256 fillsLength = $.srcEidToFillerFills[_srcEid][_filler].length;
-        uint256 payloadSize = PayloadSizeUtils.calculatePayloadSize(_msgType, fillsLength, $.maxFillsPerSettle);
-
-        // Get the quote from LayerZero
-        MessagingFee memory messagingFee = _quote(_dstEid, new bytes(payloadSize), _options, _payInLzToken);
-
-        return messagingFee;
-    }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                     UUPS UPGRADEABILITY                     */

@@ -20,7 +20,7 @@ pragma solidity 0.8.33;
  */
 import "forge-std/Test.sol";
 import "./TestUtils.sol";
-import "../../contracts/libraries/AoriUtils.sol";
+import { ExecutionUtils } from "../../contracts/libraries/internal/ExecutionUtils.sol";
 import "../Mock/MockERC20.sol";
 import "../Mock/ExecutionMockHook.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";

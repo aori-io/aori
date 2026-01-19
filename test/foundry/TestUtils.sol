@@ -37,9 +37,10 @@ import { OAppUpgradeable, Origin, MessagingFee } from "@layerzerolabs/oapp-evm-u
 import { TestHelperOz5 } from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
 import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { PayloadType } from "../../contracts/libraries/AoriUtils.sol";
+import { PayloadType } from "../../contracts/libraries/internal/PayloadUtils.sol";
 import { MockERC20 } from "../Mock/MockERC20.sol";
 import { MockHook } from "../Mock/MockHook.sol";
+import { AoriLens } from "../../contracts/periphery/AoriLens.sol";
 
 /**
  * @title TestUtils
@@ -51,6 +52,8 @@ contract TestUtils is TestHelperOz5 {
     // Common state
     Aori public localAori;
     Aori public remoteAori;
+    AoriLens public localLens;
+    AoriLens public remoteLens;
 
     /**
      * @notice Deploys an ERC1967 proxy for any Aori-derived implementation
@@ -119,6 +122,10 @@ contract TestUtils is TestHelperOz5 {
         localAori = deployAori(address(endpoints[localEid]), localEid, address(this), MAX_FILLS_PER_SETTLE);
         remoteAori = deployAori(address(endpoints[remoteEid]), remoteEid, address(this), MAX_FILLS_PER_SETTLE);
 
+        // Deploy lens contracts for view functions
+        localLens = new AoriLens(address(localAori));
+        remoteLens = new AoriLens(address(remoteAori));
+
         // Wire the OApps together
         address[] memory aoriInstances = new address[](2);
         aoriInstances[0] = address(localAori);
@@ -130,22 +137,8 @@ contract TestUtils is TestHelperOz5 {
         remoteAori.setPeer(localEid, bytes32(uint256(uint160(address(localAori)))));
 
         // Setup chains as supported (local already done in constructor)
-        // Mock the quote call for remote chain
-        vm.mockCall(
-            address(localAori),
-            abi.encodeWithSelector(localAori.quote.selector, remoteEid, uint8(PayloadType.Settlement), bytes(""), false, 0, address(0)),
-            abi.encode(1 ether) // Return a mock fee
-        );
-
         // Add remote chain as supported on local contract
         localAori.addSupportedChain(remoteEid);
-
-        // Mock the quote call for local chain
-        vm.mockCall(
-            address(remoteAori),
-            abi.encodeWithSelector(remoteAori.quote.selector, localEid, uint8(PayloadType.Settlement), bytes(""), false, 0, address(0)),
-            abi.encode(1 ether) // Return a mock fee
-        );
 
         // Add local chain as supported on remote contract
         remoteAori.addSupportedChain(localEid);

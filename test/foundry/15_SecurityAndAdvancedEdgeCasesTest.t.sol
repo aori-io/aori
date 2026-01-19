@@ -18,7 +18,7 @@ pragma solidity 0.8.33;
  */
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import "./TestUtils.sol";
-import "../../contracts/libraries/AoriUtils.sol";
+import { TokenUtils, NATIVE_TOKEN } from "../../contracts/libraries/internal/TokenUtils.sol";
 import { Aori, IAori } from "../../contracts/Aori.sol";
 import "../../contracts/types/AoriErrors.sol";
 
@@ -59,6 +59,8 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
     address public nonWhitelistedSolver = address(0x300);
     TestAori public testLocalAori;
     TestAori public testRemoteAori;
+    AoriLens public testLocalLens;
+    AoriLens public testRemoteLens;
 
     function setUp() public override(TestUtils) {
         super.setUp();
@@ -89,18 +91,9 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         outputToken.mint(solver, type(uint128).max);
         outputToken.mint(nonWhitelistedSolver, type(uint128).max);
 
-        // Setup chains as supported
-        // Mock the quote calls
-        vm.mockCall(
-            address(testLocalAori),
-            abi.encodeWithSelector(testLocalAori.quote.selector, remoteEid, 0, bytes(""), false, 0, address(0)),
-            abi.encode(1 ether)
-        );
-        vm.mockCall(
-            address(testRemoteAori),
-            abi.encodeWithSelector(testRemoteAori.quote.selector, localEid, 0, bytes(""), false, 0, address(0)),
-            abi.encode(1 ether)
-        );
+        // Deploy lens contracts for test Aori instances
+        testLocalLens = new AoriLens(address(testLocalAori));
+        testRemoteLens = new AoriLens(address(testRemoteAori));
 
         // Add support for chains
         testLocalAori.addSupportedChain(remoteEid);

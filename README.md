@@ -36,7 +36,7 @@ struct Order {
 
 ### Native Token Support
 
-The protocol supports both ERC-20 tokens and native tokens (ETH/native chain currency). Native tokens are represented by the address `0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE` and can be deposited using the `depositNative()` function. The `NativeTokenUtils` library abstracts the handling of transfers and balance observations for both token types.
+The protocol supports both ERC-20 tokens and native tokens (ETH/native chain currency). Native tokens are represented by the address `0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE` and can be deposited using the `depositNative()` function. The `TokenUtils` library abstracts the handling of transfers and balance observations for both token types.
 
 ### Order Lifecycle
 
