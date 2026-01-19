@@ -201,8 +201,7 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
                 MockHook2.handleHook.selector,
                 address(convertedToken), // Output converted token
                 SRC_HOOK_OUTPUT // Amount of tokens to output
-            ),
-            solver: solverSource
+            )
         });
     }
 

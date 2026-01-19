@@ -103,8 +103,7 @@ contract HookFailuresTest is TestUtils {
             hookAddress: address(failingHook),
             preferredToken: address(outputToken), // Different from input to take the hook path
             minPreferredTokenAmountOut: 1000, // Arbitrary minimum amount since no conversion
-            instructions: abi.encodeWithSelector(FailingHook.transfer.selector),
-            solver: solver
+            instructions: abi.encodeWithSelector(FailingHook.transfer.selector)
         });
 
         // No approval for the preferred token
@@ -128,8 +127,7 @@ contract HookFailuresTest is TestUtils {
             hookAddress: address(failingHook),
             preferredToken: address(outputToken),
             minPreferredTokenAmountOut: 1000,
-            instructions: abi.encodeWithSelector(FailingHook.transfer.selector),
-            solver: solver
+            instructions: abi.encodeWithSelector(FailingHook.transfer.selector)
         });
 
         // Approve tokens

@@ -31,7 +31,7 @@ pragma solidity 0.8.33;
  */
 import "forge-std/Test.sol";
 import { Aori, IAori } from "../../contracts/Aori.sol";
-import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance, Options } from "../../contracts/types/AoriTypes.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { OAppUpgradeable, Origin, MessagingFee } from "@layerzerolabs/oapp-evm-upgradeable/contracts/oapp/OAppUpgradeable.sol";
 import { TestHelperOz5 } from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
@@ -196,7 +196,8 @@ contract TestUtils is TestHelperOz5 {
             startTime: uint32(block.timestamp), // Set to current timestamp
             endTime: uint32(block.timestamp + endTimeOffset),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
     }
 
@@ -232,7 +233,8 @@ contract TestUtils is TestHelperOz5 {
             startTime: uint32(_startTime),
             endTime: uint32(_endTime),
             srcEid: _srcEid,
-            dstEid: _dstEid
+            dstEid: _dstEid,
+            options: defaultOrderOptions()
         });
     }
 
@@ -252,10 +254,24 @@ contract TestUtils is TestHelperOz5 {
         Order memory order,
         uint256 privKey
     ) public view returns (bytes memory) {
+        // Hash the nested Options struct first
+        bytes32 optionsHash = keccak256(
+            abi.encode(
+                keccak256("Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"),
+                order.options.feeMbps,
+                order.options.feeRecipient,
+                order.options.solver,
+                order.options.slippageMbps
+            )
+        );
+
+        // Hash the Order struct with nested Options hash
         bytes32 structHash = keccak256(
             abi.encode(
                 keccak256(
-                    "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient)"
+                    "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,"
+                    "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient," "Options options)"
+                    "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
                 ),
                 order.inputAmount,
                 order.outputAmount,
@@ -266,7 +282,8 @@ contract TestUtils is TestHelperOz5 {
                 order.srcEid,
                 order.dstEid,
                 order.offerer,
-                order.recipient
+                order.recipient,
+                optionsHash
             )
         );
 
@@ -285,6 +302,43 @@ contract TestUtils is TestHelperOz5 {
     }
 
     /**
+     * @notice Creates default order options (limit order, no fees)
+     * @return Default Options struct
+     */
+    function defaultOrderOptions() public pure returns (Options memory) {
+        return Options({
+            feeMbps: 0,
+            feeRecipient: address(0),
+            solver: address(0), // Any whitelisted solver allowed
+            slippageMbps: 0 // 0 = limit order
+        });
+    }
+
+    /**
+     * @notice Creates market order options with slippage
+     * @param slippageMbps Slippage tolerance in millibasis points (1000 = 1%)
+     * @return Options struct for market order
+     */
+    function marketOrderOptions(
+        uint16 slippageMbps
+    ) public pure returns (Options memory) {
+        return Options({ feeMbps: 0, feeRecipient: address(0), solver: address(0), slippageMbps: slippageMbps });
+    }
+
+    /**
+     * @notice Creates order options with fees
+     * @param feeMbps Fee in millibasis points (1000 = 1%)
+     * @param feeRecipient Who receives the fee
+     * @return Options struct with fee configuration
+     */
+    function feeOrderOptions(
+        uint16 feeMbps,
+        address feeRecipient
+    ) public pure returns (Options memory) {
+        return Options({ feeMbps: feeMbps, feeRecipient: feeRecipient, solver: address(0), slippageMbps: 0 });
+    }
+
+    /**
      * @notice Creates default source solver data with hook conversion
      * @param inputAmount The amount of input tokens to use in the hook instructions (defaults to 1e18)
      */
@@ -295,8 +349,7 @@ contract TestUtils is TestHelperOz5 {
             hookAddress: address(mockHook),
             preferredToken: address(convertedToken),
             minPreferredTokenAmountOut: 1500,
-            instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), inputAmount),
-            solver: solver
+            instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), inputAmount)
         });
     }
 

@@ -360,7 +360,8 @@ contract AoriPeripheryTests is TestUtils {
                 startTime: uint32(block.timestamp),
                 endTime: uint32(block.timestamp + 1 hours),
                 srcEid: localEid,
-                dstEid: remoteEid
+                dstEid: remoteEid,
+                options: Options({ feeMbps: 0, feeRecipient: address(0), solver: address(0), slippageMbps: 0 })
             });
 
             bytes memory signature = signOrder(order);
@@ -401,7 +402,8 @@ contract AoriPeripheryTests is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 hours),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: Options({ feeMbps: 0, feeRecipient: address(0), solver: address(0), slippageMbps: 0 })
         });
 
         bytes memory sig2 = signOrder(order2);
@@ -517,7 +519,8 @@ contract AoriPeripheryTests is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 hours),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: Options({ feeMbps: 0, feeRecipient: address(0), solver: address(0), slippageMbps: 0 })
         });
 
         Order memory order2 = Order({
@@ -530,7 +533,8 @@ contract AoriPeripheryTests is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 hours),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: Options({ feeMbps: 0, feeRecipient: address(0), solver: address(0), slippageMbps: 0 })
         });
 
         // Deposit both with hooks (converts to convertedToken)

@@ -78,7 +78,8 @@ contract SingleChainHookTest is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: localEid,
-            dstEid: localEid // Same chain for single-chain swap
+            dstEid: localEid, // Same chain for single-chain swap
+            options: defaultOrderOptions()
         });
     }
 
@@ -126,8 +127,7 @@ contract SingleChainHookTest is TestUtils {
             hookAddress: address(testHook),
             preferredToken: address(outputToken),
             minPreferredTokenAmountOut: uint256(outputAmount),
-            instructions: hookData,
-            solver: solver
+            instructions: hookData
         });
 
         // Calculate order ID
@@ -204,8 +204,7 @@ contract SingleChainHookTest is TestUtils {
             hookAddress: address(testHook),
             preferredToken: address(outputToken),
             minPreferredTokenAmountOut: uint256(outputAmount),
-            instructions: hookData,
-            solver: solver
+            instructions: hookData
         });
 
         // Execute deposit with hook
@@ -247,7 +246,8 @@ contract SingleChainHookTest is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: localEid,
-            dstEid: localEid // Same chain for single-chain to allow source cancellation
+            dstEid: localEid, // Same chain for single-chain to allow source cancellation
+            options: defaultOrderOptions()
         });
 
         // Create hook data - for single-chain swaps, hook should produce OUTPUT tokens
@@ -271,8 +271,7 @@ contract SingleChainHookTest is TestUtils {
             hookAddress: address(testHook),
             preferredToken: address(outputToken), // For single-chain, this should be output token
             minPreferredTokenAmountOut: uint256(outputAmount),
-            instructions: hookData,
-            solver: solver
+            instructions: hookData
         });
 
         // Deposit with hook - this will immediately settle for single-chain swaps
@@ -323,8 +322,7 @@ contract SingleChainHookTest is TestUtils {
             hookAddress: address(mockFailingHook),
             preferredToken: address(outputToken),
             minPreferredTokenAmountOut: uint256(outputAmount),
-            instructions: hookData,
-            solver: solver
+            instructions: hookData
         });
 
         // This should revert when the hook tries to transfer tokens it doesn't have
@@ -363,8 +361,7 @@ contract SingleChainHookTest is TestUtils {
             hookAddress: address(nonWhitelistedHook),
             preferredToken: address(outputToken),
             minPreferredTokenAmountOut: uint256(outputAmount),
-            instructions: hookData,
-            solver: solver
+            instructions: hookData
         });
 
         // Should revert with "Invalid hook address"
@@ -408,8 +405,7 @@ contract SingleChainHookTest is TestUtils {
             hookAddress: address(testHook),
             preferredToken: address(outputToken),
             minPreferredTokenAmountOut: uint256(outputAmount),
-            instructions: hookData,
-            solver: solver
+            instructions: hookData
         });
 
         // Should revert with "Insufficient output from hook"

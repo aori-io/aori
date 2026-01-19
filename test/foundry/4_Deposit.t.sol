@@ -345,8 +345,7 @@ contract DepositTests is TestUtils {
             hookAddress: address(0), // Missing hook
             preferredToken: address(inputToken),
             minPreferredTokenAmountOut: 1e18,
-            instructions: "",
-            solver: solver
+            instructions: ""
         });
 
         vm.prank(solver);
@@ -364,11 +363,7 @@ contract DepositTests is TestUtils {
         address nonWhitelistedHook = address(0x999);
 
         SrcHook memory hook = SrcHook({
-            hookAddress: nonWhitelistedHook,
-            preferredToken: address(inputToken),
-            minPreferredTokenAmountOut: 1e18,
-            instructions: "",
-            solver: solver
+            hookAddress: nonWhitelistedHook, preferredToken: address(inputToken), minPreferredTokenAmountOut: 1e18, instructions: ""
         });
 
         vm.prank(userA);
@@ -515,7 +510,8 @@ contract DepositTests is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
     }
 

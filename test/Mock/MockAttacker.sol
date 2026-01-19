@@ -27,8 +27,7 @@ contract ReentrantAttacker {
             hookAddress: address(this), // Use this contract as the hook
             preferredToken: address(0x1234), // Use a different token for conversion
             minPreferredTokenAmountOut: 1000, // Arbitrary minimum amount
-            instructions: abi.encodeWithSelector(this.attackHook.selector),
-            solver: address(0) // Placeholder - will fail validation
+            instructions: abi.encodeWithSelector(this.attackHook.selector)
         });
 
         // Approve tokens first

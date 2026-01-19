@@ -2,7 +2,7 @@
 pragma solidity 0.8.33;
 
 import { ISignatureTransfer } from "@permit2/src/interfaces/ISignatureTransfer.sol";
-import { Order } from "../../types/AoriTypes.sol";
+import { Order, Options } from "../../types/AoriTypes.sol";
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                          PERMIT2                            */
@@ -23,24 +23,46 @@ library Permit2Lib {
     address internal constant PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
     /**
-     * @dev Order typehash for witness hashing
-     * keccak256("Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient)")
+     * @dev Options typehash for witness hashing
      */
-    bytes32 internal constant ORDER_TYPEHASH = 0x16210483e9c961c9c307e53963eafad0795395f2fce68f0c9c294cca1ac5a06a;
+    bytes32 internal constant OPTIONS_TYPEHASH =
+        keccak256("Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)");
+
+    /**
+     * @dev Order typehash for witness hashing (includes nested Options)
+     */
+    bytes32 internal constant ORDER_TYPEHASH = keccak256(
+        "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,"
+        "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient," "Options options)"
+        "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
+    );
 
     /**
      * @dev Witness type string for permitWitnessTransferFrom
      * Combined with Permit2's stub: "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,"
-     * Results in full typehash: "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,Order witness)Order(...)TokenPermissions(...)"
-     * Alphabetical ordering per EIP-712: Order (O) < TokenPermissions (T)
+     * Results in full typehash: "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,Order witness)Options(...)Order(...)TokenPermissions(...)"
+     * Alphabetical ordering per EIP-712: Options (O) < Order (O) < TokenPermissions (T)
      */
     string internal constant WITNESS_TYPE_STRING = "Order witness)"
-        "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient)"
+        "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
+        "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,"
+        "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient," "Options options)"
         "TokenPermissions(address token,uint256 amount)";
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                         FUNCTIONS                           */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /**
+     * @notice Hash Options for Permit2 witness
+     * @param options The options to hash
+     * @return The keccak256 hash of the options following EIP-712 struct hashing
+     */
+    function hashOptions(
+        Options calldata options
+    ) internal pure returns (bytes32) {
+        return keccak256(abi.encode(OPTIONS_TYPEHASH, options.feeMbps, options.feeRecipient, options.solver, options.slippageMbps));
+    }
 
     /**
      * @notice Hash an order for use as Permit2 witness
@@ -61,7 +83,8 @@ library Permit2Lib {
                 order.srcEid,
                 order.dstEid,
                 order.offerer,
-                order.recipient
+                order.recipient,
+                hashOptions(order.options)
             )
         );
     }
