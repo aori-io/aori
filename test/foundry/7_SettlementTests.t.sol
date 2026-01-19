@@ -323,10 +323,23 @@ contract SettlementTests is TestUtils {
         uint256 privKey,
         address contractAddress
     ) internal pure returns (bytes memory) {
+        // Hash the nested Options struct first
+        bytes32 optionsHash = keccak256(
+            abi.encode(
+                keccak256("Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"),
+                order.options.feeMbps,
+                order.options.feeRecipient,
+                order.options.solver,
+                order.options.slippageMbps
+            )
+        );
+
         bytes32 structHash = keccak256(
             abi.encode(
                 keccak256(
-                    "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient)"
+                    "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,"
+                    "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient," "Options options)"
+                    "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
                 ),
                 order.inputAmount,
                 order.outputAmount,
@@ -337,7 +350,8 @@ contract SettlementTests is TestUtils {
                 order.srcEid,
                 order.dstEid,
                 order.offerer,
-                order.recipient
+                order.recipient,
+                optionsHash
             )
         );
 

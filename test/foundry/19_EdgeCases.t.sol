@@ -98,7 +98,8 @@ contract EdgeCasesTest is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp) + 3600,
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         // Generate a valid signature
@@ -127,7 +128,8 @@ contract EdgeCasesTest is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp) + 3600,
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         bytes32 digest = _getOrderDigest(order);
@@ -155,7 +157,8 @@ contract EdgeCasesTest is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp) + 3600,
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         bytes32 digest = _getOrderDigest(order);
@@ -166,8 +169,7 @@ contract EdgeCasesTest is TestUtils {
             hookAddress: address(mockHook),
             preferredToken: address(inputToken),
             minPreferredTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
-            instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(inputToken), 1 ether),
-            solver: solver
+            instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(inputToken), 1 ether)
         });
 
         // Ensure the token will revert on transfer
@@ -182,8 +184,18 @@ contract EdgeCasesTest is TestUtils {
     function _getOrderDigest(
         Order memory order
     ) internal view returns (bytes32) {
+        bytes32 OPTIONS_TYPEHASH = keccak256("Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)");
         bytes32 ORDER_TYPEHASH = keccak256(
-            "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient)"
+            "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,"
+            "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient," "Options options)"
+            "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
+        );
+
+        // Hash options first
+        bytes32 optionsHash = keccak256(
+            abi.encode(
+                OPTIONS_TYPEHASH, order.options.feeMbps, order.options.feeRecipient, order.options.solver, order.options.slippageMbps
+            )
         );
 
         bytes32 structHash = keccak256(
@@ -198,7 +210,8 @@ contract EdgeCasesTest is TestUtils {
                 order.srcEid,
                 order.dstEid,
                 order.offerer,
-                order.recipient
+                order.recipient,
+                optionsHash
             )
         );
 

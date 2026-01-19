@@ -16,7 +16,7 @@ import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils
 import { EIP712 } from "solady/src/utils/EIP712.sol";
 import { ECDSA } from "solady/src/utils/ECDSA.sol";
 import { IAori } from "./interfaces/IAori.sol";
-import { Order, OrderStatus, SrcHook, DstHook, Balance } from "./types/AoriTypes.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance, Options } from "./types/AoriTypes.sol";
 import "./types/AoriErrors.sol";
 import { PayloadType, PayloadPackUtils, PayloadUnpackUtils, PayloadSizeUtils } from "./libraries/internal/PayloadUtils.sol";
 import { ValidationUtils } from "./libraries/internal/ValidationUtils.sol";
@@ -311,7 +311,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         SrcHook calldata hook
     ) internal returns (uint256 amountReceived, address tokenReceived) {
         // Validate hook struct upfront
-        hook.validateSrcHook(this.isAllowedHook, this.isAllowedSolver);
+        hook.validateSrcHook(this.isAllowedHook);
 
         // Send input tokens to hook for conversion
         if (order.inputToken.isNativeToken()) {
@@ -335,7 +335,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
 
             uint256 surplus = amountReceived - order.outputAmount;
             if (surplus > 0) {
-                order.outputToken.safeTransfer(hook.solver, surplus);
+                address solver = order.options.solver == address(0) ? msg.sender : order.options.solver;
+                order.outputToken.safeTransfer(solver, surplus);
             }
         } else {
             // Cross-chain: convert to preferred token for cross-chain transfer
@@ -513,7 +514,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
 
         ValidationUtils.validateCommonOrderParams(order);
 
-        hook.validateSrcHook(this.isAllowedHook, this.isAllowedSolver);
+        hook.validateSrcHook(this.isAllowedHook);
 
         // Build Permit2 structs - transfer directly to hook
         ISignatureTransfer.PermitTransferFrom memory permit = Permit2Lib.buildPermit(order, nonce, deadline);
@@ -538,7 +539,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
 
             uint256 surplus = amountReceived - order.outputAmount;
             if (surplus > 0) {
-                order.outputToken.safeTransfer(hook.solver, surplus);
+                address solver = order.options.solver == address(0) ? msg.sender : order.options.solver;
+                order.outputToken.safeTransfer(solver, surplus);
             }
 
             emit SrcHookExecuted(orderId, order.inputToken, order.outputToken, order.inputAmount, amountReceived);
@@ -576,7 +578,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      */
     /* forgefmt: disable-next-item */
     function fill(Order calldata order) external payable nonReentrant whenNotPaused onlySolver {
-        bytes32 orderId = order.validateFill(ENDPOINT_ID, this.orderStatus);
+        bytes32 orderId = order.validateFill(msg.sender, ENDPOINT_ID, this.orderStatus);
 
         // Validate payment method matches output token type
         if (order.outputToken.isNativeToken()) {
@@ -611,7 +613,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         Order calldata order,
         DstHook calldata hook
     ) external payable nonReentrant whenNotPaused onlySolver {
-        bytes32 orderId = order.validateFill(ENDPOINT_ID, this.orderStatus);
+        bytes32 orderId = order.validateFill(msg.sender, ENDPOINT_ID, this.orderStatus);
 
         // Execute hook to convert preferred tokens to output tokens
         uint256 amountReceived = _executeDstHook(order, hook);
@@ -1009,14 +1011,33 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     }
 
     /**
-     * @dev EIP712 typehash for order struct
+     * @dev EIP712 typehash for Options struct
+     */
+    bytes32 private constant _OPTIONS_TYPEHASH =
+        keccak256("Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)");
+
+    /**
+     * @dev EIP712 typehash for Order struct with nested Options
      */
     bytes32 private constant _ORDER_TYPEHASH = keccak256(
-        "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient)"
+        "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,"
+        "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient," "Options options)"
+        "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
     );
 
     /**
-     * @dev Returns the EIP712 digest for the given order
+     * @dev Hashes Options struct for EIP-712
+     * @param options The options to hash
+     * @return The computed hash
+     */
+    function _hashOptions(
+        Options calldata options
+    ) internal pure returns (bytes32) {
+        return keccak256(abi.encode(_OPTIONS_TYPEHASH, options.feeMbps, options.feeRecipient, options.solver, options.slippageMbps));
+    }
+
+    /**
+     * @dev Returns the EIP712 digest for the given order with nested Options
      * @param order The order details
      * @return The computed digest
      */
@@ -1035,7 +1056,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
                     order.srcEid,
                     order.dstEid,
                     order.offerer,
-                    order.recipient
+                    order.recipient,
+                    _hashOptions(order.options)
                 )
             )
         );

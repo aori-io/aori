@@ -153,8 +153,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
                 MockHook2.handleHook.selector,
                 NATIVE_TOKEN, // Output native tokens
                 HOOK_OUTPUT // Amount of native tokens to output
-            ),
-            solver: solverSC
+            )
         });
 
         // User approves their input tokens to be spent by the contract
@@ -331,8 +330,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
             hookAddress: address(mockHook2),
             preferredToken: NATIVE_TOKEN,
             minPreferredTokenAmountOut: OUTPUT_AMOUNT,
-            instructions: abi.encodeWithSelector(MockHook2.handleHook.selector, NATIVE_TOKEN, HOOK_OUTPUT),
-            solver: solverSC
+            instructions: abi.encodeWithSelector(MockHook2.handleHook.selector, NATIVE_TOKEN, HOOK_OUTPUT)
         });
 
         // User approves tokens
@@ -389,8 +387,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
                 MockHook2.handleHook.selector,
                 NATIVE_TOKEN,
                 OUTPUT_AMOUNT - 1 // Less than required
-            ),
-            solver: solverSC
+            )
         });
 
         vm.prank(userSC);
@@ -430,8 +427,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
             hookAddress: address(mockHook2),
             preferredToken: NATIVE_TOKEN,
             minPreferredTokenAmountOut: customOutputAmount,
-            instructions: abi.encodeWithSelector(MockHook2.handleHook.selector, NATIVE_TOKEN, customHookOutput),
-            solver: solverSC
+            instructions: abi.encodeWithSelector(MockHook2.handleHook.selector, NATIVE_TOKEN, customHookOutput)
         });
 
         uint256 initialUserNative = userSC.balance;
@@ -505,8 +501,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
             hookAddress: address(mockHook2),
             preferredToken: NATIVE_TOKEN,
             minPreferredTokenAmountOut: customOutputAmount,
-            instructions: abi.encodeWithSelector(MockHook2.handleHook.selector, NATIVE_TOKEN, customHookOutput),
-            solver: solverSC
+            instructions: abi.encodeWithSelector(MockHook2.handleHook.selector, NATIVE_TOKEN, customHookOutput)
         });
 
         vm.prank(userSC);

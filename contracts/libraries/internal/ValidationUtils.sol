@@ -64,18 +64,25 @@ library ValidationUtils {
      * @notice Validates fill parameters for both single-chain and cross-chain swaps
      * @dev Performs comprehensive validation for fill operations
      * @param order The order to validate
+     * @param solver The address attempting to fill the order
      * @param endpointId The current chain's endpoint ID
      * @param orderStatus The status mapping function to check order status
      * @return orderId The calculated order hash
      */
     function validateFill(
         Order calldata order,
+        address solver,
         uint32 endpointId,
         function(bytes32) external view returns (OrderStatus) orderStatus
     ) internal view returns (bytes32 orderId) {
         // Order parameter validation
         validateCommonOrderParams(order);
         if (order.dstEid != endpointId) revert ChainMismatch(endpointId, order.dstEid);
+
+        // Solver authorization: if order specifies a solver, only that solver can fill
+        if (order.options.solver != address(0) && solver != order.options.solver) {
+            revert UnauthorizedSolver();
+        }
 
         orderId = keccak256(abi.encode(order));
 

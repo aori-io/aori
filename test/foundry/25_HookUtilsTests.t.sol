@@ -74,13 +74,8 @@ contract HookUtilsTest is Test {
     /// @notice Covers line 208 in AoriUtils.sol
     function test_isSome_SrcHook_zeroAddress() public view {
         // Arrange
-        SrcHook memory hook = SrcHook({
-            hookAddress: ZERO_ADDRESS,
-            preferredToken: address(0),
-            minPreferredTokenAmountOut: 0,
-            instructions: bytes(""),
-            solver: address(0)
-        });
+        SrcHook memory hook =
+            SrcHook({ hookAddress: ZERO_ADDRESS, preferredToken: address(0), minPreferredTokenAmountOut: 0, instructions: bytes("") });
 
         // Act
         bool result = wrapper.isSomeSrcHook(hook);
@@ -93,13 +88,8 @@ contract HookUtilsTest is Test {
     /// @notice Covers line 208 in AoriUtils.sol
     function test_isSome_SrcHook_nonZeroAddress() public view {
         // Arrange
-        SrcHook memory hook = SrcHook({
-            hookAddress: TEST_ADDRESS,
-            preferredToken: address(0),
-            minPreferredTokenAmountOut: 0,
-            instructions: bytes(""),
-            solver: address(0)
-        });
+        SrcHook memory hook =
+            SrcHook({ hookAddress: TEST_ADDRESS, preferredToken: address(0), minPreferredTokenAmountOut: 0, instructions: bytes("") });
 
         // Act
         bool result = wrapper.isSomeSrcHook(hook);
@@ -158,13 +148,8 @@ contract HookUtilsTest is Test {
         expected[2] = true; // Another normal address
 
         for (uint256 i = 0; i < addresses.length; i++) {
-            SrcHook memory hook = SrcHook({
-                hookAddress: addresses[i],
-                preferredToken: address(0),
-                minPreferredTokenAmountOut: 0,
-                instructions: bytes(""),
-                solver: address(0)
-            });
+            SrcHook memory hook =
+                SrcHook({ hookAddress: addresses[i], preferredToken: address(0), minPreferredTokenAmountOut: 0, instructions: bytes("") });
 
             bool result = wrapper.isSomeSrcHook(hook);
             assertEq(result, expected[i], string(abi.encodePacked("SrcHook test failed for address: ", addresses[i])));
