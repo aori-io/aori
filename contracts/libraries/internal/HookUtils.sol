@@ -11,19 +11,16 @@ import "../../types/AoriErrors.sol";
 library HookUtils {
     /**
      * @notice Validates SrcHook struct fields
+     * @dev Solver validation removed - solver is now in Order.options
      * @param hook The SrcHook to validate
      * @param isAllowedHook Function to check hook whitelist
-     * @param isAllowedSolver Function to check solver whitelist
      */
     function validateSrcHook(
         SrcHook calldata hook,
-        function(address) external view returns (bool) isAllowedHook,
-        function(address) external view returns (bool) isAllowedSolver
+        function(address) external view returns (bool) isAllowedHook
     ) internal view {
         if (hook.hookAddress == address(0)) revert MissingHook();
         if (!isAllowedHook(hook.hookAddress)) revert InvalidHookAddress();
-        if (hook.solver == address(0)) revert SolverRequiredInHook();
-        if (!isAllowedSolver(hook.solver)) revert InvalidSolverInHook();
     }
 
     /**

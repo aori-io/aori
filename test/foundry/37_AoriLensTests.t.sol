@@ -484,7 +484,8 @@ contract AoriLensTests is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 hours),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: Options({ feeMbps: 0, feeRecipient: address(0), solver: address(0), slippageMbps: 0 })
         });
 
         vm.prank(userA);
