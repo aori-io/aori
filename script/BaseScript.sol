@@ -82,21 +82,11 @@ abstract contract BaseScript is Script {
         });
 
         chains[6] = ChainConfig({
-            name: "monad",
-            chainId: 143,
-            eid: 30390,
-            endpoint: LZ_ENDPOINT_2_MAINNET,
-            rpcEnvVar: "MONAD_RPC_URL",
-            isTestnet: false
+            name: "monad", chainId: 143, eid: 30390, endpoint: LZ_ENDPOINT_2_MAINNET, rpcEnvVar: "MONAD_RPC_URL", isTestnet: false
         });
 
         chains[7] = ChainConfig({
-            name: "stable",
-            chainId: 988,
-            eid: 30396,
-            endpoint: LZ_ENDPOINT_2_MAINNET,
-            rpcEnvVar: "STABLE_RPC_URL",
-            isTestnet: false
+            name: "stable", chainId: 988, eid: 30396, endpoint: LZ_ENDPOINT_2_MAINNET, rpcEnvVar: "STABLE_RPC_URL", isTestnet: false
         });
 
         return chains;
@@ -191,7 +181,10 @@ abstract contract BaseScript is Script {
     }
 
     /// @notice Verify caller is contract owner
-    function _requireOwner(Aori aori, address caller) internal view {
+    function _requireOwner(
+        Aori aori,
+        address caller
+    ) internal view {
         require(aori.owner() == caller, "Caller is not owner");
     }
 
@@ -232,7 +225,9 @@ abstract contract BaseScript is Script {
     }
 
     /// @notice Check if contract is already deployed at address
-    function _isDeployed(address addr) internal view returns (bool) {
+    function _isDeployed(
+        address addr
+    ) internal view returns (bool) {
         uint256 size;
         assembly { size := extcodesize(addr) }
         return size > 0;

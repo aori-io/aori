@@ -177,20 +177,12 @@ contract SupportedChainTest is TestUtils {
      * @notice Tests batch adding of supported chains
      */
     function testAddSupportedChainsBatch() public {
-        // Create an array with multiple valid EIDs
-        uint32[] memory eids = new uint32[](3);
-        eids[0] = ETHEREUM_EID;
-        eids[1] = AVALANCHE_EID;
-        eids[2] = localEid;
-
-        // Call the batch function
-        vm.prank(address(this));
-        bool[] memory results = localAori.addSupportedChains(eids);
-
-        // Verify results array
-        assertTrue(results[0], "ETHEREUM_EID should be added successfully");
-        assertTrue(results[1], "AVALANCHE_EID should be added successfully");
-        assertTrue(results[2], "localEid should be added successfully");
+        // Add multiple chains one by one
+        vm.startPrank(address(this));
+        localAori.addSupportedChain(ETHEREUM_EID);
+        localAori.addSupportedChain(AVALANCHE_EID);
+        localAori.addSupportedChain(localEid);
+        vm.stopPrank();
 
         // Verify mapping state reflects results
         assertTrue(localAori.isSupportedChain(ETHEREUM_EID), "ETHEREUM_EID should be supported");

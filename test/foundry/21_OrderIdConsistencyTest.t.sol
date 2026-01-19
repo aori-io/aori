@@ -40,8 +40,8 @@ contract OrderIdConsistencyTest is TestUtils {
         assertEq(uint8(localAori.orderStatus(expectedOrderId)), uint8(OrderStatus.Active), "Order should be marked Active");
 
         // Verify the stored order has the converted token
-        (,, address storedInputToken,,,,,,,) = localAori.orders(expectedOrderId);
-        assertEq(storedInputToken, address(convertedToken), "Input token should be converted token");
-        assertNotEq(storedInputToken, order.inputToken, "Input token should be different from original");
+        Order memory storedOrder = localLens.orders(expectedOrderId);
+        assertEq(storedOrder.inputToken, address(convertedToken), "Input token should be converted token");
+        assertNotEq(storedOrder.inputToken, order.inputToken, "Input token should be different from original");
     }
 }

@@ -37,9 +37,10 @@ import { OAppUpgradeable, Origin, MessagingFee } from "@layerzerolabs/oapp-evm-u
 import { TestHelperOz5 } from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
 import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { PayloadType } from "../../contracts/libraries/AoriUtils.sol";
+import { PayloadType } from "../../contracts/libraries/internal/PayloadUtils.sol";
 import { MockERC20 } from "../Mock/MockERC20.sol";
 import { MockHook } from "../Mock/MockHook.sol";
+import { AoriLens } from "../../contracts/periphery/AoriLens.sol";
 
 /**
  * @title TestUtils
@@ -51,6 +52,8 @@ contract TestUtils is TestHelperOz5 {
     // Common state
     Aori public localAori;
     Aori public remoteAori;
+    AoriLens public localLens;
+    AoriLens public remoteLens;
 
     /**
      * @notice Deploys an ERC1967 proxy for any Aori-derived implementation
@@ -119,6 +122,10 @@ contract TestUtils is TestHelperOz5 {
         localAori = deployAori(address(endpoints[localEid]), localEid, address(this), MAX_FILLS_PER_SETTLE);
         remoteAori = deployAori(address(endpoints[remoteEid]), remoteEid, address(this), MAX_FILLS_PER_SETTLE);
 
+        // Deploy lens contracts for view functions
+        localLens = new AoriLens(address(localAori));
+        remoteLens = new AoriLens(address(remoteAori));
+
         // Wire the OApps together
         address[] memory aoriInstances = new address[](2);
         aoriInstances[0] = address(localAori);
@@ -130,22 +137,8 @@ contract TestUtils is TestHelperOz5 {
         remoteAori.setPeer(localEid, bytes32(uint256(uint160(address(localAori)))));
 
         // Setup chains as supported (local already done in constructor)
-        // Mock the quote call for remote chain
-        vm.mockCall(
-            address(localAori),
-            abi.encodeWithSelector(localAori.quote.selector, remoteEid, uint8(PayloadType.Settlement), bytes(""), false, 0, address(0)),
-            abi.encode(1 ether) // Return a mock fee
-        );
-
         // Add remote chain as supported on local contract
         localAori.addSupportedChain(remoteEid);
-
-        // Mock the quote call for local chain
-        vm.mockCall(
-            address(remoteAori),
-            abi.encodeWithSelector(remoteAori.quote.selector, localEid, uint8(PayloadType.Settlement), bytes(""), false, 0, address(0)),
-            abi.encode(1 ether) // Return a mock fee
-        );
 
         // Add local chain as supported on remote contract
         remoteAori.addSupportedChain(localEid);
@@ -277,8 +270,7 @@ contract TestUtils is TestHelperOz5 {
             abi.encode(
                 keccak256(
                     "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,"
-                    "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient,"
-                    "Options options)"
+                    "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient," "Options options)"
                     "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
                 ),
                 order.inputAmount,
@@ -317,8 +309,8 @@ contract TestUtils is TestHelperOz5 {
         return Options({
             feeMbps: 0,
             feeRecipient: address(0),
-            solver: address(0),      // Any whitelisted solver allowed
-            slippageMbps: 0          // 0 = limit order
+            solver: address(0), // Any whitelisted solver allowed
+            slippageMbps: 0 // 0 = limit order
         });
     }
 
@@ -327,13 +319,10 @@ contract TestUtils is TestHelperOz5 {
      * @param slippageMbps Slippage tolerance in millibasis points (1000 = 1%)
      * @return Options struct for market order
      */
-    function marketOrderOptions(uint16 slippageMbps) public pure returns (Options memory) {
-        return Options({
-            feeMbps: 0,
-            feeRecipient: address(0),
-            solver: address(0),
-            slippageMbps: slippageMbps
-        });
+    function marketOrderOptions(
+        uint16 slippageMbps
+    ) public pure returns (Options memory) {
+        return Options({ feeMbps: 0, feeRecipient: address(0), solver: address(0), slippageMbps: slippageMbps });
     }
 
     /**
@@ -342,13 +331,11 @@ contract TestUtils is TestHelperOz5 {
      * @param feeRecipient Who receives the fee
      * @return Options struct with fee configuration
      */
-    function feeOrderOptions(uint16 feeMbps, address feeRecipient) public pure returns (Options memory) {
-        return Options({
-            feeMbps: feeMbps,
-            feeRecipient: feeRecipient,
-            solver: address(0),
-            slippageMbps: 0
-        });
+    function feeOrderOptions(
+        uint16 feeMbps,
+        address feeRecipient
+    ) public pure returns (Options memory) {
+        return Options({ feeMbps: feeMbps, feeRecipient: feeRecipient, solver: address(0), slippageMbps: 0 });
     }
 
     /**

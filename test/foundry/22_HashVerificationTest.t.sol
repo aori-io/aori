@@ -158,11 +158,6 @@ contract HashVerificationTest is TestUtils {
         // ADD THIS CODE HERE - before any deposit operations
         vm.startPrank(address(this));
         // Mark Ethereum destination as supported
-        vm.mockCall(
-            ARBITRUM_CONTRACT_ADDRESS,
-            abi.encodeWithSelector(Aori(ARBITRUM_CONTRACT_ADDRESS).quote.selector, ETHEREUM_EID, 0, bytes(""), false, 0, address(0)),
-            abi.encode(1 ether)
-        );
         Aori(ARBITRUM_CONTRACT_ADDRESS).addSupportedChain(ETHEREUM_EID);
         vm.stopPrank();
 
@@ -228,8 +223,7 @@ contract HashVerificationTest is TestUtils {
             abi.encode(
                 keccak256(
                     "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,"
-                    "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient,"
-                    "Options options)"
+                    "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient," "Options options)"
                     "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
                 ),
                 order.inputAmount,

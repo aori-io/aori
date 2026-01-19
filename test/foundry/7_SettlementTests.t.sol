@@ -62,6 +62,8 @@ contract SettlementTests is TestUtils {
     // Test-specific Aori contracts
     TestSettlementAori public testLocalAori;
     TestSettlementAori public testRemoteAori;
+    AoriLens public testLocalLens;
+    AoriLens public testRemoteLens;
 
     function setUp() public override {
         super.setUp();
@@ -89,18 +91,9 @@ contract SettlementTests is TestUtils {
         testLocalAori.addAllowedHook(address(mockHook));
         testRemoteAori.addAllowedHook(address(mockHook));
 
-        // Setup chains as supported
-        // Mock the quote calls
-        vm.mockCall(
-            address(testLocalAori),
-            abi.encodeWithSelector(testLocalAori.quote.selector, remoteEid, 0, bytes(""), false, 0, address(0)),
-            abi.encode(1 ether)
-        );
-        vm.mockCall(
-            address(testRemoteAori),
-            abi.encodeWithSelector(testRemoteAori.quote.selector, localEid, 0, bytes(""), false, 0, address(0)),
-            abi.encode(1 ether)
-        );
+        // Deploy lens contracts for test Aori instances
+        testLocalLens = new AoriLens(address(testLocalAori));
+        testRemoteLens = new AoriLens(address(testRemoteAori));
 
         // Add support for chains
         testLocalAori.addSupportedChain(remoteEid);
@@ -345,8 +338,7 @@ contract SettlementTests is TestUtils {
             abi.encode(
                 keccak256(
                     "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,"
-                    "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient,"
-                    "Options options)"
+                    "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient," "Options options)"
                     "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
                 ),
                 order.inputAmount,
@@ -399,7 +391,7 @@ contract SettlementTests is TestUtils {
         // This should trigger the early return in settleOrder without changing any state
 
         // Record balances before settlement attempt
-        uint256 solverBalanceBefore = testLocalAori.getUnlockedBalances(solver, address(inputToken));
+        uint256 solverBalanceBefore = testLocalLens.getUnlockedBalances(solver, address(inputToken));
 
         // Execute settlement message
         vm.chainId(localEid);
@@ -410,7 +402,7 @@ contract SettlementTests is TestUtils {
         );
 
         // Verify that balances didn't change because of the early return
-        uint256 solverBalanceAfter = testLocalAori.getUnlockedBalances(solver, address(inputToken));
+        uint256 solverBalanceAfter = testLocalLens.getUnlockedBalances(solver, address(inputToken));
         assertEq(solverBalanceBefore, solverBalanceAfter, "Solver balance should not change for inactive order");
 
         // Verify order status didn't change
@@ -491,7 +483,7 @@ contract SettlementTests is TestUtils {
         );
 
         // Record balances before settlement attempt
-        uint256 solverBalanceBefore = testLocalAori.getUnlockedBalances(solver, address(inputToken));
+        uint256 solverBalanceBefore = testLocalLens.getUnlockedBalances(solver, address(inputToken));
 
         // Now execute the settlement
         vm.chainId(localEid);
@@ -502,7 +494,7 @@ contract SettlementTests is TestUtils {
         );
 
         // Verify that balances didn't change because of the early return due to insufficient balance
-        uint256 solverBalanceAfter = testLocalAori.getUnlockedBalances(solver, address(inputToken));
+        uint256 solverBalanceAfter = testLocalLens.getUnlockedBalances(solver, address(inputToken));
         assertEq(solverBalanceBefore, solverBalanceAfter, "Solver balance should not change when balance ops fail");
 
         // Verify the order status - it appears the status is actually Unknown, not Active

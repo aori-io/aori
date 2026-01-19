@@ -4,7 +4,7 @@ pragma solidity 0.8.33;
 import { Order, OrderStatus, SrcHook, DstHook, Balance, Options } from "../../contracts/types/AoriTypes.sol";
 import "./TestUtils.sol";
 import { ISignatureTransfer } from "@permit2/src/interfaces/ISignatureTransfer.sol";
-import { Permit2Lib } from "../../contracts/libraries/Permit2Lib.sol";
+import { Permit2Lib } from "../../contracts/libraries/internal/Permit2Lib.sol";
 import { DeployPermit2 } from "@permit2/test/utils/DeployPermit2.sol";
 import "../../contracts/types/AoriErrors.sol";
 
@@ -20,8 +20,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
         "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,Order witness)"
         "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
         "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,"
-        "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient,"
-        "Options options)"
+        "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient," "Options options)"
         "TokenPermissions(address token,uint256 amount)"
     );
 
@@ -131,7 +130,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
         assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Active));
 
         // Check locked balance
-        assertEq(localAori.getLockedBalances(userA, address(inputToken)), order.inputAmount);
+        assertEq(localLens.getLockedBalances(userA, address(inputToken)), order.inputAmount);
     }
 
     function testDepositWithPermit2_DifferentNonces() public {
@@ -308,7 +307,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
         assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Active));
 
         // Check converted token is locked (hook converts input to convertedToken)
-        assertGt(localAori.getLockedBalances(userA, address(convertedToken)), 0);
+        assertGt(localLens.getLockedBalances(userA, address(convertedToken)), 0);
     }
 
     function testDepositWithPermit2_WithHook_UnallowedHook() public {

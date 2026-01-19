@@ -126,12 +126,6 @@ error MissingHook();
 /// @notice Thrown when hook address is not whitelisted
 error InvalidHookAddress();
 
-/// @notice Thrown when solver is not specified in hook
-error SolverRequiredInHook();
-
-/// @notice Thrown when solver in hook is not whitelisted
-error InvalidSolverInHook();
-
 /// @notice Thrown when hook call fails
 error HookCallFailed();
 

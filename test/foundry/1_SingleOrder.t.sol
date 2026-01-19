@@ -91,13 +91,13 @@ contract SingleOrderSuccessTest is TestUtils {
      * @notice Test Phase 1: Deposit on source chain
      */
     function testPhase1_Deposit() public {
-        uint256 initialLocked = localAori.getLockedBalances(userA, address(convertedToken));
+        uint256 initialLocked = localLens.getLockedBalances(userA, address(convertedToken));
 
         _createAndDepositOrder();
 
         // Verify locked balance increased
         assertEq(
-            localAori.getLockedBalances(userA, address(convertedToken)),
+            localLens.getLockedBalances(userA, address(convertedToken)),
             initialLocked + order.inputAmount,
             "Locked balance not increased for user"
         );
@@ -144,7 +144,7 @@ contract SingleOrderSuccessTest is TestUtils {
 
         // Verify final state
         assertEq(
-            localAori.getUnlockedBalances(solver, address(convertedToken)),
+            localLens.getUnlockedBalances(solver, address(convertedToken)),
             order.inputAmount,
             "Solver unlocked token balance incorrect after settlement"
         );
@@ -161,7 +161,7 @@ contract SingleOrderSuccessTest is TestUtils {
 
         // Verify final state
         assertEq(
-            localAori.getUnlockedBalances(solver, address(convertedToken)),
+            localLens.getUnlockedBalances(solver, address(convertedToken)),
             order.inputAmount,
             "Solver unlocked token balance incorrect after settlement"
         );

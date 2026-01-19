@@ -39,7 +39,7 @@ contract DepositTests is TestUtils {
         Order memory order = createValidTestOrder();
         bytes memory signature = signOrder(order);
 
-        uint256 initialLocked = localAori.getLockedBalances(userA, address(inputToken));
+        uint256 initialLocked = localLens.getLockedBalances(userA, address(inputToken));
         uint256 initialBalance = inputToken.balanceOf(userA);
 
         vm.prank(userA);
@@ -49,7 +49,7 @@ contract DepositTests is TestUtils {
         localAori.deposit(order, signature);
 
         // Verify state changes
-        assertEq(localAori.getLockedBalances(userA, address(inputToken)), initialLocked + order.inputAmount);
+        assertEq(localLens.getLockedBalances(userA, address(inputToken)), initialLocked + order.inputAmount);
         assertEq(inputToken.balanceOf(userA), initialBalance - order.inputAmount);
 
         bytes32 orderHash = localAori.hash(order);
@@ -64,7 +64,7 @@ contract DepositTests is TestUtils {
         order.dstEid = localEid; // Make it single-chain
         bytes memory signature = signOrder(order);
 
-        uint256 initialLocked = localAori.getLockedBalances(userA, address(inputToken));
+        uint256 initialLocked = localLens.getLockedBalances(userA, address(inputToken));
 
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
@@ -73,7 +73,7 @@ contract DepositTests is TestUtils {
         localAori.deposit(order, signature);
 
         // Verify locked balance increased
-        assertEq(localAori.getLockedBalances(userA, address(inputToken)), initialLocked + order.inputAmount);
+        assertEq(localLens.getLockedBalances(userA, address(inputToken)), initialLocked + order.inputAmount);
 
         bytes32 orderHash = localAori.hash(order);
         assertEq(uint8(localAori.orderStatus(orderHash)), uint8(OrderStatus.Active));
@@ -363,10 +363,7 @@ contract DepositTests is TestUtils {
         address nonWhitelistedHook = address(0x999);
 
         SrcHook memory hook = SrcHook({
-            hookAddress: nonWhitelistedHook,
-            preferredToken: address(inputToken),
-            minPreferredTokenAmountOut: 1e18,
-            instructions: ""
+            hookAddress: nonWhitelistedHook, preferredToken: address(inputToken), minPreferredTokenAmountOut: 1e18, instructions: ""
         });
 
         vm.prank(userA);
