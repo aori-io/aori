@@ -74,4 +74,43 @@ library TokenUtils {
             if (IERC20(token).balanceOf(address(this)) < amount) revert InsufficientContractBalance(token);
         }
     }
+
+    /**
+     * @notice Validates msg.value matches expected amount for token type
+     * @param token The token address (use NATIVE_TOKEN for ETH)
+     * @param expectedAmount The expected amount
+     * @param msgValue The msg.value to validate
+     */
+    function validateMsgValue(
+        address token,
+        uint256 expectedAmount,
+        uint256 msgValue
+    ) internal pure {
+        if (isNativeToken(token)) {
+            if (msgValue != expectedAmount) revert IncorrectNativeAmount(expectedAmount, msgValue);
+        } else {
+            if (msgValue != 0) revert UnexpectedNativeTokens();
+        }
+    }
+
+    /**
+     * @notice Transfers tokens from sender, handling native vs ERC20
+     * @param token The token address
+     * @param from The sender address
+     * @param to The recipient address
+     * @param amount The amount to transfer
+     */
+    function safeTransferFrom(
+        address token,
+        address from,
+        address to,
+        uint256 amount
+    ) internal {
+        if (isNativeToken(token)) {
+            (bool success,) = payable(to).call{ value: amount }("");
+            if (!success) revert NativeTransferFailed();
+        } else {
+            IERC20(token).safeTransferFrom(from, to, amount);
+        }
+    }
 }

@@ -581,11 +581,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         bytes32 orderId = order.validateFill(msg.sender, ENDPOINT_ID, this.orderStatus);
 
         // Validate payment method matches output token type
-        if (order.outputToken.isNativeToken()) {
-            if (msg.value != order.outputAmount) revert IncorrectNativeAmount(order.outputAmount, msg.value);
-        } else {
-            if (msg.value != 0) revert UnexpectedNativeTokens();
-        }
+        order.outputToken.validateMsgValue(order.outputAmount, msg.value);
 
         // Update contract state
         if (order.isSingleChainSwap()) {
@@ -595,11 +591,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         }
 
         // Transfer tokens to recipient
-        if (order.outputToken.isNativeToken()) {
-            order.outputToken.safeTransfer(order.recipient, order.outputAmount);
-        } else {
-            IERC20(order.outputToken).safeTransferFrom(msg.sender, order.recipient, order.outputAmount);
-        }
+        order.outputToken.safeTransferFrom(msg.sender, order.recipient, order.outputAmount);
     }
 
     /**
@@ -649,15 +641,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         hook.validateDstHook(this.isAllowedHook);
 
         if (hook.preferredDstInputAmount > 0) {
-            if (hook.preferredToken.isNativeToken()) {
-                if (msg.value != hook.preferredDstInputAmount) revert IncorrectNativeAmount(hook.preferredDstInputAmount, msg.value);
-                (bool success,) = payable(hook.hookAddress).call{ value: hook.preferredDstInputAmount }("");
-                if (!success) revert NativeTransferFailed();
-            } else {
-                // ERC20 token input - no native tokens should be sent
-                if (msg.value != 0) revert UnexpectedNativeTokens();
-                IERC20(hook.preferredToken).safeTransferFrom(msg.sender, hook.hookAddress, hook.preferredDstInputAmount);
-            }
+            hook.preferredToken.validateMsgValue(hook.preferredDstInputAmount, msg.value);
+            hook.preferredToken.safeTransferFrom(msg.sender, hook.hookAddress, hook.preferredDstInputAmount);
         } else {
             // Hook expects no input tokens - ensure no ETH was mistakenly sent
             if (msg.value != 0) revert UnexpectedNativeTokens();
