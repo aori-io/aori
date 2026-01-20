@@ -61,6 +61,28 @@ library ValidationUtils {
     }
 
     /**
+     * @notice Validates deposit parameters without signature verification
+     * @dev Used for depositNative and depositWithPermit2 which have their own auth mechanisms
+     * @param order The order to validate
+     * @param endpointId The current chain's endpoint ID
+     * @param orderStatus The status mapping function to check order status
+     * @param isSupportedChain A function to check if the destination chain is supported
+     * @return orderId The calculated order hash
+     */
+    function validateDepositNoSig(
+        Order calldata order,
+        uint32 endpointId,
+        function(bytes32) external view returns (OrderStatus) orderStatus,
+        function(uint32) external view returns (bool) isSupportedChain
+    ) internal view returns (bytes32 orderId) {
+        orderId = keccak256(abi.encode(order));
+        if (orderStatus(orderId) != OrderStatus.Unknown) revert OrderAlreadyExists();
+        if (!isSupportedChain(order.dstEid)) revert DestinationChainNotSupported(order.dstEid);
+        if (order.srcEid != endpointId) revert ChainMismatch(endpointId, order.srcEid);
+        validateCommonOrderParams(order);
+    }
+
+    /**
      * @notice Validates fill parameters for both single-chain and cross-chain swaps
      * @dev Performs comprehensive validation for fill operations
      * @param order The order to validate
