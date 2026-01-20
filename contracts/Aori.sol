@@ -383,16 +383,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         if (msg.value != order.inputAmount) revert IncorrectNativeAmount(order.inputAmount, msg.value);
         if (msg.sender != order.offerer) revert OnlyOffererCanDepositNativeTokens();
 
-        // Calculate order ID and validate uniqueness
-        bytes32 orderId = hash(order);
-        AoriStorageData storage $ = _getAoriStorage();
-        if ($.orderStatus[orderId] != OrderStatus.Unknown) revert OrderAlreadyExists();
-        if (!$.isSupportedChain[order.dstEid]) revert DestinationChainNotSupported(order.dstEid);
-        if (order.srcEid != ENDPOINT_ID) revert ChainMismatch(ENDPOINT_ID, order.srcEid);
-
-        // Use validation utility for common order parameter checks
-        ValidationUtils.validateCommonOrderParams(order);
-
+        bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, this.orderStatus, this.isSupportedChain);
         _postDeposit(order.inputToken, order.inputAmount, order, orderId);
     }
 
@@ -413,15 +404,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         if (msg.value != order.inputAmount) revert IncorrectNativeAmount(order.inputAmount, msg.value);
         if (msg.sender != order.offerer) revert OnlyOffererCanDepositNativeTokens();
 
-        // Calculate order ID and validate uniqueness
-        bytes32 orderId = hash(order);
-        AoriStorageData storage $ = _getAoriStorage();
-        if ($.orderStatus[orderId] != OrderStatus.Unknown) revert OrderAlreadyExists();
-        if (!$.isSupportedChain[order.dstEid]) revert DestinationChainNotSupported(order.dstEid);
-        if (order.srcEid != ENDPOINT_ID) revert ChainMismatch(ENDPOINT_ID, order.srcEid);
-
-        // Use validation utility for common order parameter checks
-        ValidationUtils.validateCommonOrderParams(order);
+        bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, this.orderStatus, this.isSupportedChain);
 
         // Execute hook to convert native tokens to preferred/output tokens
         (uint256 amountReceived, address tokenReceived) = _executeSrcHook(order, hook);
@@ -430,6 +413,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
 
         if (order.isSingleChainSwap()) {
             // Single-chain: immediate settlement (tokens already transferred to recipient)
+            AoriStorageData storage $ = _getAoriStorage();
             $.orders[orderId] = order;
             $.orderStatus[orderId] = OrderStatus.Settled;
             emit Deposit(orderId, order);
@@ -462,13 +446,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         if (order.inputToken.isNativeToken()) revert UseDepositNativeForNativeTokens();
         if (block.timestamp > deadline) revert Permit2SignatureExpired();
 
-        bytes32 orderId = hash(order);
-        AoriStorageData storage $ = _getAoriStorage();
-        if ($.orderStatus[orderId] != OrderStatus.Unknown) revert OrderAlreadyExists();
-        if (!$.isSupportedChain[order.dstEid]) revert DestinationChainNotSupported(order.dstEid);
-        if (order.srcEid != ENDPOINT_ID) revert ChainMismatch(ENDPOINT_ID, order.srcEid);
-
-        ValidationUtils.validateCommonOrderParams(order);
+        bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, this.orderStatus, this.isSupportedChain);
 
         // Build Permit2 structs
         ISignatureTransfer.PermitTransferFrom memory permit = Permit2Lib.buildPermit(order, nonce, deadline);
@@ -506,14 +484,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         if (order.inputToken.isNativeToken()) revert UseDepositNativeForNativeTokens();
         if (block.timestamp > deadline) revert Permit2SignatureExpired();
 
-        bytes32 orderId = hash(order);
-        AoriStorageData storage $ = _getAoriStorage();
-        if ($.orderStatus[orderId] != OrderStatus.Unknown) revert OrderAlreadyExists();
-        if (!$.isSupportedChain[order.dstEid]) revert DestinationChainNotSupported(order.dstEid);
-        if (order.srcEid != ENDPOINT_ID) revert ChainMismatch(ENDPOINT_ID, order.srcEid);
-
-        ValidationUtils.validateCommonOrderParams(order);
-
+        bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, this.orderStatus, this.isSupportedChain);
         hook.validateSrcHook(this.isAllowedHook);
 
         // Build Permit2 structs - transfer directly to hook
@@ -546,6 +517,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             emit SrcHookExecuted(orderId, order.inputToken, order.outputToken, order.inputAmount, amountReceived);
 
             // Single-chain: immediate settlement
+            AoriStorageData storage $ = _getAoriStorage();
             $.orders[orderId] = order;
             $.orderStatus[orderId] = OrderStatus.Settled;
             emit Deposit(orderId, order);
