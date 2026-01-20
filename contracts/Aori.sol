@@ -470,17 +470,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
 
         ValidationUtils.validateCommonOrderParams(order);
 
-        // Build Permit2 structs
-        ISignatureTransfer.PermitTransferFrom memory permit = Permit2Lib.buildPermit(order, nonce, deadline);
-        ISignatureTransfer.SignatureTransferDetails memory transferDetails =
-            Permit2Lib.buildTransferDetails(address(this), order.inputAmount);
-
-        bytes32 witness = Permit2Lib.hashOrder(order);
-
-        // Execute Permit2 transfer - this verifies the signature
-        // The user signed over: token, amount, nonce, deadline, spender (this contract), AND the order
-        ISignatureTransfer(Permit2Lib.PERMIT2)
-            .permitWitnessTransferFrom(permit, transferDetails, order.offerer, witness, Permit2Lib.WITNESS_TYPE_STRING, signature);
+        Permit2Lib.executeTransfer(order, address(this), nonce, deadline, signature);
 
         _postDeposit(order.inputToken, order.inputAmount, order, orderId);
     }
@@ -516,16 +506,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
 
         hook.validateSrcHook(this.isAllowedHook);
 
-        // Build Permit2 structs - transfer directly to hook
-        ISignatureTransfer.PermitTransferFrom memory permit = Permit2Lib.buildPermit(order, nonce, deadline);
-        ISignatureTransfer.SignatureTransferDetails memory transferDetails =
-            Permit2Lib.buildTransferDetails(hook.hookAddress, order.inputAmount);
-
-        bytes32 witness = Permit2Lib.hashOrder(order);
-
-        // Transfer tokens to hook via Permit2
-        ISignatureTransfer(Permit2Lib.PERMIT2)
-            .permitWitnessTransferFrom(permit, transferDetails, order.offerer, witness, Permit2Lib.WITNESS_TYPE_STRING, signature);
+        Permit2Lib.executeTransfer(order, hook.hookAddress, nonce, deadline, signature);
 
         // Execute hook conversion (tokens already at hook address)
         if (order.isSingleChainSwap()) {
