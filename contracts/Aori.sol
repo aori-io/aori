@@ -377,16 +377,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         if (msg.value != order.inputAmount) revert IncorrectNativeAmount(order.inputAmount, msg.value);
         if (msg.sender != order.offerer) revert OnlyOffererCanDepositNativeTokens();
 
-        // Calculate order ID and validate uniqueness
-        bytes32 orderId = hash(order);
-        AoriStorageData storage $ = _getAoriStorage();
-        if ($.orderStatus[orderId] != OrderStatus.Unknown) revert OrderAlreadyExists();
-        if (!$.isSupportedChain[order.dstEid]) revert DestinationChainNotSupported(order.dstEid);
-        if (order.srcEid != ENDPOINT_ID) revert ChainMismatch(ENDPOINT_ID, order.srcEid);
-
-        // Use validation utility for common order parameter checks
-        ValidationUtils.validateCommonOrderParams(order);
-
+        bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, this.orderStatus, this.isSupportedChain);
         _postDeposit(order.inputToken, order.inputAmount, order, orderId);
     }
 
@@ -407,15 +398,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         if (msg.value != order.inputAmount) revert IncorrectNativeAmount(order.inputAmount, msg.value);
         if (msg.sender != order.offerer) revert OnlyOffererCanDepositNativeTokens();
 
-        // Calculate order ID and validate uniqueness
-        bytes32 orderId = hash(order);
-        AoriStorageData storage $ = _getAoriStorage();
-        if ($.orderStatus[orderId] != OrderStatus.Unknown) revert OrderAlreadyExists();
-        if (!$.isSupportedChain[order.dstEid]) revert DestinationChainNotSupported(order.dstEid);
-        if (order.srcEid != ENDPOINT_ID) revert ChainMismatch(ENDPOINT_ID, order.srcEid);
-
-        // Use validation utility for common order parameter checks
-        ValidationUtils.validateCommonOrderParams(order);
+        bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, this.orderStatus, this.isSupportedChain);
 
         // Execute hook to convert native tokens to preferred/output tokens
         (uint256 amountReceived, address tokenReceived) = _executeSrcHook(order, hook);
@@ -424,6 +407,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
 
         if (order.isSingleChainSwap()) {
             // Single-chain: immediate settlement (tokens already transferred to recipient)
+            AoriStorageData storage $ = _getAoriStorage();
             $.orders[orderId] = order;
             $.orderStatus[orderId] = OrderStatus.Settled;
             emit Deposit(orderId, order);
@@ -456,25 +440,9 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         if (order.inputToken.isNativeToken()) revert UseDepositNativeForNativeTokens();
         if (block.timestamp > deadline) revert Permit2SignatureExpired();
 
-        bytes32 orderId = hash(order);
-        AoriStorageData storage $ = _getAoriStorage();
-        if ($.orderStatus[orderId] != OrderStatus.Unknown) revert OrderAlreadyExists();
-        if (!$.isSupportedChain[order.dstEid]) revert DestinationChainNotSupported(order.dstEid);
-        if (order.srcEid != ENDPOINT_ID) revert ChainMismatch(ENDPOINT_ID, order.srcEid);
+        bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, this.orderStatus, this.isSupportedChain);
 
-        ValidationUtils.validateCommonOrderParams(order);
-
-        // Build Permit2 structs
-        ISignatureTransfer.PermitTransferFrom memory permit = Permit2Lib.buildPermit(order, nonce, deadline);
-        ISignatureTransfer.SignatureTransferDetails memory transferDetails =
-            Permit2Lib.buildTransferDetails(address(this), order.inputAmount);
-
-        bytes32 witness = Permit2Lib.hashOrder(order);
-
-        // Execute Permit2 transfer - this verifies the signature
-        // The user signed over: token, amount, nonce, deadline, spender (this contract), AND the order
-        ISignatureTransfer(Permit2Lib.PERMIT2)
-            .permitWitnessTransferFrom(permit, transferDetails, order.offerer, witness, Permit2Lib.WITNESS_TYPE_STRING, signature);
+        Permit2Lib.executeTransfer(order, address(this), nonce, deadline, signature);
 
         _postDeposit(order.inputToken, order.inputAmount, order, orderId);
     }
@@ -500,26 +468,10 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         if (order.inputToken.isNativeToken()) revert UseDepositNativeForNativeTokens();
         if (block.timestamp > deadline) revert Permit2SignatureExpired();
 
-        bytes32 orderId = hash(order);
-        AoriStorageData storage $ = _getAoriStorage();
-        if ($.orderStatus[orderId] != OrderStatus.Unknown) revert OrderAlreadyExists();
-        if (!$.isSupportedChain[order.dstEid]) revert DestinationChainNotSupported(order.dstEid);
-        if (order.srcEid != ENDPOINT_ID) revert ChainMismatch(ENDPOINT_ID, order.srcEid);
-
-        ValidationUtils.validateCommonOrderParams(order);
-
+        bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, this.orderStatus, this.isSupportedChain);
         hook.validateSrcHook(this.isAllowedHook);
 
-        // Build Permit2 structs - transfer directly to hook
-        ISignatureTransfer.PermitTransferFrom memory permit = Permit2Lib.buildPermit(order, nonce, deadline);
-        ISignatureTransfer.SignatureTransferDetails memory transferDetails =
-            Permit2Lib.buildTransferDetails(hook.hookAddress, order.inputAmount);
-
-        bytes32 witness = Permit2Lib.hashOrder(order);
-
-        // Transfer tokens to hook via Permit2
-        ISignatureTransfer(Permit2Lib.PERMIT2)
-            .permitWitnessTransferFrom(permit, transferDetails, order.offerer, witness, Permit2Lib.WITNESS_TYPE_STRING, signature);
+        Permit2Lib.executeTransfer(order, hook.hookAddress, nonce, deadline, signature);
 
         // Execute hook conversion (tokens already at hook address)
         if (order.isSingleChainSwap()) {
@@ -534,6 +486,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             emit SrcHookExecuted(orderId, order.inputToken, order.outputToken, order.inputAmount, amountReceived);
 
             // Single-chain: immediate settlement
+            AoriStorageData storage $ = _getAoriStorage();
             $.orders[orderId] = order;
             $.orderStatus[orderId] = OrderStatus.Settled;
             emit Deposit(orderId, order);
@@ -569,11 +522,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         bytes32 orderId = order.validateFill(msg.sender, ENDPOINT_ID, this.orderStatus);
 
         // Validate payment method matches output token type
-        if (order.outputToken.isNativeToken()) {
-            if (msg.value != order.outputAmount) revert IncorrectNativeAmount(order.outputAmount, msg.value);
-        } else {
-            if (msg.value != 0) revert UnexpectedNativeTokens();
-        }
+        order.outputToken.validateMsgValue(order.outputAmount, msg.value);
 
         // Update contract state
         if (order.isSingleChainSwap()) {
@@ -583,11 +532,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         }
 
         // Transfer tokens to recipient
-        if (order.outputToken.isNativeToken()) {
-            order.outputToken.safeTransfer(order.recipient, order.outputAmount);
-        } else {
-            IERC20(order.outputToken).safeTransferFrom(msg.sender, order.recipient, order.outputAmount);
-        }
+        order.outputToken.safeTransferFrom(msg.sender, order.recipient, order.outputAmount);
     }
 
     /**
@@ -637,15 +582,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         hook.validateDstHook(this.isAllowedHook);
 
         if (hook.preferredDstInputAmount > 0) {
-            if (hook.preferredToken.isNativeToken()) {
-                if (msg.value != hook.preferredDstInputAmount) revert IncorrectNativeAmount(hook.preferredDstInputAmount, msg.value);
-                (bool success,) = payable(hook.hookAddress).call{ value: hook.preferredDstInputAmount }("");
-                if (!success) revert NativeTransferFailed();
-            } else {
-                // ERC20 token input - no native tokens should be sent
-                if (msg.value != 0) revert UnexpectedNativeTokens();
-                IERC20(hook.preferredToken).safeTransferFrom(msg.sender, hook.hookAddress, hook.preferredDstInputAmount);
-            }
+            hook.preferredToken.validateMsgValue(hook.preferredDstInputAmount, msg.value);
+            hook.preferredToken.safeTransferFrom(msg.sender, hook.hookAddress, hook.preferredDstInputAmount);
         } else {
             // Hook expects no input tokens - ensure no ETH was mistakenly sent
             if (msg.value != 0) revert UnexpectedNativeTokens();
