@@ -134,7 +134,6 @@ library TokenUtils {
             if (!success) revert NativeTransferFailed();
         } else {
             IERC20(token).safeTransferFrom(from, to, amount);
-
         }
     }
 }
