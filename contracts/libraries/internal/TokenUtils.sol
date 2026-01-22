@@ -95,7 +95,10 @@ library TokenUtils {
         if (surplus > 0) {
             address surplusRecipient = solver == address(0) ? msg.sender : solver;
             safeTransfer(token, surplusRecipient, surplus);
+        }
+    }
 
+    /**
      * @notice Validates msg.value matches expected amount for token type
      * @param token The token address (use NATIVE_TOKEN for ETH)
      * @param expectedAmount The expected amount
@@ -131,7 +134,6 @@ library TokenUtils {
             if (!success) revert NativeTransferFailed();
         } else {
             IERC20(token).safeTransferFrom(from, to, amount);
-
         }
     }
 }
