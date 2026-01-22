@@ -949,56 +949,14 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     }
 
     /**
-     * @dev EIP712 typehash for Options struct
-     */
-    bytes32 private constant _OPTIONS_TYPEHASH =
-        keccak256("Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)");
-
-    /**
-     * @dev EIP712 typehash for Order struct with nested Options
-     */
-    bytes32 private constant _ORDER_TYPEHASH = keccak256(
-        "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,"
-        "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient," "Options options)"
-        "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
-    );
-
-    /**
-     * @dev Hashes Options struct for EIP-712
-     * @param options The options to hash
-     * @return The computed hash
-     */
-    function _hashOptions(
-        Options calldata options
-    ) internal pure returns (bytes32) {
-        return keccak256(abi.encode(_OPTIONS_TYPEHASH, options.feeMbps, options.feeRecipient, options.solver, options.slippageMbps));
-    }
-
-    /**
      * @dev Returns the EIP712 digest for the given order with nested Options
+     * @dev Reuses Permit2Lib.hashOrder to avoid duplicating typehash constants and hash functions
      * @param order The order details
      * @return The computed digest
      */
     /* forgefmt: disable-next-item */
     function _hashOrder712(Order calldata order) internal view returns (bytes32) {
-        return _hashTypedDataSansChainId(
-            keccak256(
-                abi.encode(
-                    _ORDER_TYPEHASH,
-                    order.inputAmount,
-                    order.outputAmount,
-                    order.inputToken,
-                    order.outputToken,
-                    order.startTime,
-                    order.endTime,
-                    order.srcEid,
-                    order.dstEid,
-                    order.offerer,
-                    order.recipient,
-                    _hashOptions(order.options)
-                )
-            )
-        );
+        return _hashTypedDataSansChainId(Permit2Lib.hashOrder(order));
     }
 
     /**
