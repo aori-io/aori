@@ -10,8 +10,20 @@ import "../../types/AoriErrors.sol";
  */
 library HookUtils {
     /**
+     * @notice Validates a hook address is non-zero and whitelisted
+     * @param hookAddress The hook address to validate
+     * @param isAllowedHook Function to check hook whitelist
+     */
+    function _validateHook(
+        address hookAddress,
+        function(address) external view returns (bool) isAllowedHook
+    ) private view {
+        if (hookAddress == address(0)) revert MissingHook();
+        if (!isAllowedHook(hookAddress)) revert InvalidHookAddress();
+    }
+
+    /**
      * @notice Validates SrcHook struct fields
-     * @dev Solver validation removed - solver is now in Order.options
      * @param hook The SrcHook to validate
      * @param isAllowedHook Function to check hook whitelist
      */
@@ -19,8 +31,7 @@ library HookUtils {
         SrcHook calldata hook,
         function(address) external view returns (bool) isAllowedHook
     ) internal view {
-        if (hook.hookAddress == address(0)) revert MissingHook();
-        if (!isAllowedHook(hook.hookAddress)) revert InvalidHookAddress();
+        _validateHook(hook.hookAddress, isAllowedHook);
     }
 
     /**
@@ -32,7 +43,6 @@ library HookUtils {
         DstHook calldata hook,
         function(address) external view returns (bool) isAllowedHook
     ) internal view {
-        if (hook.hookAddress == address(0)) revert MissingHook();
-        if (!isAllowedHook(hook.hookAddress)) revert InvalidHookAddress();
+        _validateHook(hook.hookAddress, isAllowedHook);
     }
 }
