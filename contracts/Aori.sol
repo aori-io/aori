@@ -263,8 +263,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     /**
      * @notice Deposits tokens to the contract with a hook call for token conversion
      * @dev Executes a hook call for token conversion before deposit processing.
-     *      For single-chain swaps, immediately settles and transfers tokens to recipient.
-     *      For cross-chain swaps, locks converted tokens for later settlement.
+     *      For cross-chain orders only - use swap() for single-chain atomic swaps.
      * @param order The order details
      * @param signature The user's EIP712 signature over the order
      * @param hook The pre-hook configuration for token conversion
@@ -275,36 +274,26 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         SrcHook calldata hook
     ) external nonReentrant whenNotPaused onlySolver {
         if (order.inputToken.isNativeToken()) revert UseDepositNativeForNativeTokens();
+
         bytes32 orderId = order.validateDeposit(signature, _hashOrder712(order), ENDPOINT_ID, this.orderStatus, this.isSupportedChain);
 
-        // Execute hook to convert input tokens to preferred/output tokens
+        // Execute hook to convert input tokens to preferred token
         (uint256 amountReceived, address tokenReceived) = _executeSrcHook(order, hook);
 
         emit SrcHookExecuted(orderId, order.inputToken, tokenReceived, order.inputAmount, amountReceived);
 
-        if (order.isSingleChainSwap()) {
-            // Single-chain: immediate settlement (tokens already transferred to recipient)
-            AoriStorageData storage $ = _getAoriStorage();
-            $.orders[orderId] = order;
-            $.orderStatus[orderId] = OrderStatus.Settled;
-            emit Deposit(orderId, order);
-            emit Fill(orderId, order);
-            emit Settle(orderId);
-        } else {
-            // Cross-chain: lock converted tokens for later settlement
-            _postDeposit(tokenReceived, amountReceived, order, orderId);
-        }
+        _postDeposit(tokenReceived, amountReceived, order, orderId);
     }
 
     /**
-     * @notice Executes a source hook to convert input tokens and handle distribution
-     * @dev Sends input tokens (native or ERC20) to hook, executes conversion, and handles token distribution.
-     *      For single-chain swaps: converts to output token and immediately distributes.
-     *      For cross-chain swaps: converts to preferred token for later cross-chain transfer.
+     * @notice Executes a source hook to convert input tokens to preferred token
+     * @dev Sends input tokens (native or ERC20) to hook, executes conversion to preferred token.
+     *      Works for both single-chain and cross-chain orders using deposit-then-fill flow.
+     *      For atomic single-chain swaps, use swap() with _executeSwap() instead.
      * @param order The order details
      * @param hook The source hook configuration
      * @return amountReceived The amount of tokens received from the hook
-     * @return tokenReceived The token address that was received
+     * @return tokenReceived The token address that was received (hook.preferredToken)
      */
     function _executeSrcHook(
         Order calldata order,
@@ -323,30 +312,13 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             IERC20(order.inputToken).safeTransferFrom(order.offerer, hook.hookAddress, order.inputAmount);
         }
 
-        if (order.isSingleChainSwap()) {
-            // Single-chain: convert to final output token and distribute immediately
-            amountReceived = ExecutionUtils.observeBalChg(hook.hookAddress, hook.instructions, order.outputToken);
+        // Cross-chain: convert to preferred token for cross-chain transfer
+        amountReceived = ExecutionUtils.observeBalChg(hook.hookAddress, hook.instructions, hook.preferredToken);
 
-            if (amountReceived < order.outputAmount) revert InsufficientSrcHookOutput(order.outputAmount, amountReceived);
-            tokenReceived = order.outputToken;
-
-            // Distribute tokens: exact amount to recipient, surplus to solver
-            order.outputToken.safeTransfer(order.recipient, order.outputAmount);
-
-            uint256 surplus = amountReceived - order.outputAmount;
-            if (surplus > 0) {
-                address solver = order.options.solver == address(0) ? msg.sender : order.options.solver;
-                order.outputToken.safeTransfer(solver, surplus);
-            }
-        } else {
-            // Cross-chain: convert to preferred token for cross-chain transfer
-            amountReceived = ExecutionUtils.observeBalChg(hook.hookAddress, hook.instructions, hook.preferredToken);
-
-            if (amountReceived < hook.minPreferredTokenAmountOut) {
-                revert InsufficientSrcHookOutput(hook.minPreferredTokenAmountOut, amountReceived);
-            }
-            tokenReceived = hook.preferredToken;
+        if (amountReceived < hook.minPreferredTokenAmountOut) {
+            revert InsufficientSrcHookOutput(hook.minPreferredTokenAmountOut, amountReceived);
         }
+        tokenReceived = hook.preferredToken;
     }
 
     /**
@@ -390,9 +362,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     /**
      * @notice Deposits native tokens to the contract with a hook call for token conversion
      * @dev User calls this directly and sends their own ETH via msg.value.
-     *      Executes a hook call for token conversion before deposit processing.
-     *      For single-chain swaps, immediately settles and transfers tokens to recipient.
-     *      For cross-chain swaps, locks converted tokens for later settlement.
+     *      For cross-chain orders only - use swapNative() for single-chain atomic swaps.
      * @param order The order details (must specify NATIVE_TOKEN as inputToken)
      * @param hook The pre-hook configuration for token conversion
      */
@@ -406,23 +376,12 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
 
         bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, this.orderStatus, this.isSupportedChain);
 
-        // Execute hook to convert native tokens to preferred/output tokens
+        // Execute hook to convert native tokens to preferred token
         (uint256 amountReceived, address tokenReceived) = _executeSrcHook(order, hook);
 
         emit SrcHookExecuted(orderId, order.inputToken, tokenReceived, order.inputAmount, amountReceived);
 
-        if (order.isSingleChainSwap()) {
-            // Single-chain: immediate settlement (tokens already transferred to recipient)
-            AoriStorageData storage $ = _getAoriStorage();
-            $.orders[orderId] = order;
-            $.orderStatus[orderId] = OrderStatus.Settled;
-            emit Deposit(orderId, order);
-            emit Fill(orderId, order);
-            emit Settle(orderId);
-        } else {
-            // Cross-chain: lock converted tokens for later settlement
-            _postDeposit(tokenReceived, amountReceived, order, orderId);
-        }
+        _postDeposit(tokenReceived, amountReceived, order, orderId);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -456,8 +415,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     /**
      * @notice Deposits tokens using Permit2 with source hook for token conversion
      * @dev Tokens are transferred directly to the hook via Permit2, then hook converts them.
-     *      For single-chain swaps, immediately settles and transfers tokens to recipient.
-     *      For cross-chain swaps, locks converted tokens for later settlement.
+     *      For cross-chain orders only - use swapWithPermit2() for single-chain atomic swaps.
      * @param order The order to deposit (witness data)
      * @param hook Source hook for token conversion
      * @param nonce Permit2 nonce for replay protection
@@ -479,44 +437,149 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
 
         Permit2Lib.executeTransfer(order, hook.hookAddress, nonce, deadline, signature);
 
-        // Execute hook conversion (tokens already at hook address)
-        if (order.isSingleChainSwap()) {
-            // Single-chain: convert to final output token and distribute immediately
-            uint256 amountReceived = ExecutionUtils.observeBalChg(hook.hookAddress, hook.instructions, order.outputToken);
+        // Execute hook conversion - convert to preferred token
+        uint256 amountReceived = ExecutionUtils.observeBalChg(hook.hookAddress, hook.instructions, hook.preferredToken);
 
-            if (amountReceived < order.outputAmount) revert InsufficientSrcHookOutput(order.outputAmount, amountReceived);
-
-            // Distribute tokens: exact amount to recipient, surplus to solver
-            order.outputToken.safeTransfer(order.recipient, order.outputAmount);
-
-            uint256 surplus = amountReceived - order.outputAmount;
-            if (surplus > 0) {
-                address solver = order.options.solver == address(0) ? msg.sender : order.options.solver;
-                order.outputToken.safeTransfer(solver, surplus);
-            }
-
-            emit SrcHookExecuted(orderId, order.inputToken, order.outputToken, order.inputAmount, amountReceived);
-
-            // Single-chain: immediate settlement
-            AoriStorageData storage $ = _getAoriStorage();
-            $.orders[orderId] = order;
-            $.orderStatus[orderId] = OrderStatus.Settled;
-            emit Deposit(orderId, order);
-            emit Fill(orderId, order);
-            emit Settle(orderId);
-        } else {
-            // Cross-chain: convert to preferred token for cross-chain transfer
-            uint256 amountReceived = ExecutionUtils.observeBalChg(hook.hookAddress, hook.instructions, hook.preferredToken);
-
-            if (amountReceived < hook.minPreferredTokenAmountOut) {
-                revert InsufficientSrcHookOutput(hook.minPreferredTokenAmountOut, amountReceived);
-            }
-
-            emit SrcHookExecuted(orderId, order.inputToken, hook.preferredToken, order.inputAmount, amountReceived);
-
-            // Cross-chain: lock converted tokens for later settlement
-            _postDeposit(hook.preferredToken, amountReceived, order, orderId);
+        if (amountReceived < hook.minPreferredTokenAmountOut) {
+            revert InsufficientSrcHookOutput(hook.minPreferredTokenAmountOut, amountReceived);
         }
+
+        emit SrcHookExecuted(orderId, order.inputToken, hook.preferredToken, order.inputAmount, amountReceived);
+
+        _postDeposit(hook.preferredToken, amountReceived, order, orderId);
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                       ATOMIC SWAPS                         */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /**
+     * @notice Executes an atomic single-chain swap via hook
+     * @dev Only for single-chain orders. Input tokens converted to output via hook.
+     * @param order The order details (srcEid must equal dstEid)
+     * @param signature User's EIP-712 signature
+     * @param hook The source hook for token conversion
+     */
+    function swap(
+        Order calldata order,
+        bytes calldata signature,
+        SrcHook calldata hook
+    ) external nonReentrant whenNotPaused onlySolver {
+        if (order.inputToken.isNativeToken()) revert UseDepositNativeForNativeTokens();
+        if (!order.isSingleChainSwap()) revert NotSingleChainOrder();
+
+        bytes32 orderId = order.validateDeposit(
+            signature,
+            _hashOrder712(order),
+            ENDPOINT_ID,
+            this.orderStatus,
+            this.isSupportedChain
+        );
+
+        hook.validateSrcHook(this.isAllowedHook);
+
+        IERC20(order.inputToken).safeTransferFrom(order.offerer, hook.hookAddress, order.inputAmount);
+
+        address solver = order.options.solver == address(0) ? msg.sender : order.options.solver;
+        _executeSwap(orderId, order, hook, solver);
+    }
+
+    /**
+     * @notice Executes an atomic single-chain swap with native token input
+     * @dev Offerer must be msg.sender. Native tokens sent to hook for conversion.
+     * @param order The order details (inputToken must be NATIVE_TOKEN)
+     * @param hook The source hook for token conversion
+     */
+    function swapNative(
+        Order calldata order,
+        SrcHook calldata hook
+    ) external payable nonReentrant whenNotPaused {
+        if (!order.inputToken.isNativeToken()) revert OrderMustSpecifyNativeToken();
+        if (msg.value != order.inputAmount) revert IncorrectNativeAmount(order.inputAmount, msg.value);
+        if (msg.sender != order.offerer) revert OnlyOffererCanDepositNativeTokens();
+        if (!order.isSingleChainSwap()) revert NotSingleChainOrder();
+
+        bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, this.orderStatus, this.isSupportedChain);
+
+        hook.validateSrcHook(this.isAllowedHook);
+
+        (bool success,) = payable(hook.hookAddress).call{ value: order.inputAmount }("");
+        if (!success) revert NativeTransferFailed();
+
+        address solver = order.options.solver == address(0) ? msg.sender : order.options.solver;
+        _executeSwap(orderId, order, hook, solver);
+    }
+
+    /**
+     * @notice Executes an atomic single-chain swap using Permit2
+     * @dev Tokens transferred directly to hook via Permit2
+     * @param order The order details
+     * @param hook The source hook for token conversion
+     * @param nonce Permit2 nonce
+     * @param deadline Permit2 signature deadline
+     * @param signature User's Permit2 signature
+     */
+    function swapWithPermit2(
+        Order calldata order,
+        SrcHook calldata hook,
+        uint256 nonce,
+        uint256 deadline,
+        bytes calldata signature
+    ) external nonReentrant whenNotPaused onlySolver {
+        if (order.inputToken.isNativeToken()) revert UseSwapNativeForNativeTokens();
+        if (block.timestamp > deadline) revert Permit2SignatureExpired();
+        if (!order.isSingleChainSwap()) revert NotSingleChainOrder();
+
+        bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, this.orderStatus, this.isSupportedChain);
+        hook.validateSrcHook(this.isAllowedHook);
+
+        Permit2Lib.executeTransfer(order, hook.hookAddress, nonce, deadline, signature);
+
+        address solver = order.options.solver == address(0) ? msg.sender : order.options.solver;
+        _executeSwap(orderId, order, hook, solver);
+    }
+
+    /**
+     * @notice Core swap execution logic shared by all swap variants
+     * @dev Executes hook, validates output, distributes tokens, updates state
+     * @param orderId The computed order hash
+     * @param order The order details
+     * @param hook The source hook for token conversion
+     * @param solver The solver address (for surplus distribution)
+     * @return amountReceived The amount of output tokens received from hook
+     */
+    function _executeSwap(
+        bytes32 orderId,
+        Order calldata order,
+        SrcHook calldata hook,
+        address solver
+    ) internal returns (uint256 amountReceived) {
+        AoriStorageData storage $ = _getAoriStorage();
+
+        // Execute hook - converts input to output
+        amountReceived = ExecutionUtils.observeBalChg(hook.hookAddress, hook.instructions, order.outputToken);
+
+        if (amountReceived < order.outputAmount) {
+            revert InsufficientSrcHookOutput(order.outputAmount, amountReceived);
+        }
+
+        // Calculate distribution
+        uint256 surplus = amountReceived - order.outputAmount;
+
+        // Transfer to recipient
+        order.outputToken.safeTransfer(order.recipient, order.outputAmount);
+
+        // Surplus to solver
+        if (surplus > 0) {
+            order.outputToken.safeTransfer(solver, surplus);
+        }
+
+        // Update state
+        $.orders[orderId] = order;
+        $.orderStatus[orderId] = OrderStatus.Settled;
+
+        // Emit event
+        emit Swap(orderId, order, amountReceived);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/

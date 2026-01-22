@@ -222,6 +222,16 @@ error InvalidUserAddress();
 error AmountMustBeGreaterThanZero();
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+/*                       SWAP ERRORS                          */
+/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+/// @notice Thrown when swap() is called for a cross-chain order
+error NotSingleChainOrder();
+
+/// @notice Thrown when swapNative() should be used instead of swapWithPermit2
+error UseSwapNativeForNativeTokens();
+
+/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                    PERIPHERY ERRORS                        */
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
