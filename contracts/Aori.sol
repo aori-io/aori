@@ -331,13 +331,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             tokenReceived = order.outputToken;
 
             // Distribute tokens: exact amount to recipient, surplus to solver
-            order.outputToken.safeTransfer(order.recipient, order.outputAmount);
-
-            uint256 surplus = amountReceived - order.outputAmount;
-            if (surplus > 0) {
-                address solver = order.options.solver == address(0) ? msg.sender : order.options.solver;
-                order.outputToken.safeTransfer(solver, surplus);
-            }
+            order.outputToken.distributeWithSurplus(order.recipient, order.outputAmount, order.options.solver, amountReceived);
         } else {
             // Cross-chain: convert to preferred token for cross-chain transfer
             amountReceived = ExecutionUtils.observeBalChg(hook.hookAddress, hook.instructions, hook.preferredToken);
@@ -487,13 +481,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             if (amountReceived < order.outputAmount) revert InsufficientSrcHookOutput(order.outputAmount, amountReceived);
 
             // Distribute tokens: exact amount to recipient, surplus to solver
-            order.outputToken.safeTransfer(order.recipient, order.outputAmount);
-
-            uint256 surplus = amountReceived - order.outputAmount;
-            if (surplus > 0) {
-                address solver = order.options.solver == address(0) ? msg.sender : order.options.solver;
-                order.outputToken.safeTransfer(solver, surplus);
-            }
+            order.outputToken.distributeWithSurplus(order.recipient, order.outputAmount, order.options.solver, amountReceived);
 
             emit SrcHookExecuted(orderId, order.inputToken, order.outputToken, order.inputAmount, amountReceived);
 
