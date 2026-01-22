@@ -213,10 +213,11 @@ deploy_chain() {
 
     # Capture output to parse addresses
     local output
+    local exit_code=0
     output=$(forge script script/DeployMultichain.s.sol:DeployMultichain \
         --rpc-url "$rpc_url" \
-        $BROADCAST $VERIFY $FORGE_QUIET 2>&1)
-    local exit_code=$?
+        --private-key "$PRIVATE_KEY" \
+        $BROADCAST $VERIFY $FORGE_QUIET 2>&1) || exit_code=$?
 
     if [ $exit_code -eq 0 ]; then
         # Check if skipped
@@ -256,6 +257,7 @@ configure_peers_chain() {
 
     if forge script script/ConfigurePeers.s.sol:ConfigurePeers \
         --rpc-url "$rpc_url" \
+        --private-key "$PRIVATE_KEY" \
         --broadcast $FORGE_QUIET; then
         PEERS_SUCCESS+=("$chain_name")
         log "${GREEN}Peers configured: $chain_name${NC}"
@@ -278,6 +280,7 @@ upgrade_chain() {
 
     if forge script script/UpgradeAori.s.sol:UpgradeMultichain \
         --rpc-url "$rpc_url" \
+        --private-key "$PRIVATE_KEY" \
         $BROADCAST $VERIFY $FORGE_QUIET; then
         UPGRADE_SUCCESS+=("$chain_name")
         log "${GREEN}Upgrade success: $chain_name${NC}"
@@ -296,7 +299,7 @@ if [ "$MODE" == "dry-run" ] || [ "$MODE" == "deploy" ] || [ "$MODE" == "full" ];
 
 
     for rpc_var in "${RPCS[@]}"; do
-        deploy_chain "$rpc_var"
+        deploy_chain "$rpc_var" || true
         log ""
     done
 fi
