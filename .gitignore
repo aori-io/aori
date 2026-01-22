@@ -1,5 +1,6 @@
 .env
-broadcast
+# Track mainnet deployments, ignore dry runs
+broadcast/*/dry-run/
 node_modules
 .DS_Store
 coverage
