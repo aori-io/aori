@@ -563,16 +563,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             revert InsufficientSrcHookOutput(order.outputAmount, amountReceived);
         }
 
-        // Calculate distribution
-        uint256 surplus = amountReceived - order.outputAmount;
-
-        // Transfer to recipient
-        order.outputToken.safeTransfer(order.recipient, order.outputAmount);
-
-        // Surplus to solver
-        if (surplus > 0) {
-            order.outputToken.safeTransfer(solver, surplus);
-        }
+        // Distribute tokens: exact amount to recipient, surplus to solver
+        order.outputToken.distributeWithSurplus(order.recipient, order.outputAmount, solver, amountReceived);
 
         // Update state
         $.orders[orderId] = order;
@@ -627,8 +619,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         uint256 amountReceived = _executeDstHook(order, hook);
         emit DstHookExecuted(orderId, hook.preferredToken, order.outputToken, hook.preferredDstInputAmount, amountReceived);
 
-        uint256 surplus = amountReceived - order.outputAmount;
-
         // Update contract state
         if (order.isSingleChainSwap()) {
             _settleSingleChainSwap(orderId, order, msg.sender);
@@ -636,11 +626,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             _postFill(orderId, order);
         }
 
-        // Transfer tokens: exact amount to recipient, surplus to solver
-        order.outputToken.safeTransfer(order.recipient, order.outputAmount);
-        if (surplus > 0) {
-            order.outputToken.safeTransfer(msg.sender, surplus);
-        }
+        // Distribute tokens: exact amount to recipient, surplus to solver
+        order.outputToken.distributeWithSurplus(order.recipient, order.outputAmount, address(0), amountReceived);
     }
 
     /**
