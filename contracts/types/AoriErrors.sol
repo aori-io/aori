@@ -222,6 +222,18 @@ error InvalidUserAddress();
 error AmountMustBeGreaterThanZero();
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+/*                        FEE ERRORS                          */
+/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+/// @notice Thrown when fee exceeds maximum allowed (5%)
+error FeeTooHigh();
+
+/// @notice Thrown when actual output doesn't meet minimum required
+/// @param minimum The minimum acceptable output
+/// @param actual The actual output received
+error SlippageExceeded(uint256 minimum, uint256 actual);
+
+/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                       SWAP ERRORS                          */
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 

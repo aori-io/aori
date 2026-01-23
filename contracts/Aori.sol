@@ -280,7 +280,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         // Execute hook to convert input tokens to preferred token
         (uint256 amountReceived, address tokenReceived) = _executeSrcHook(order, hook);
 
-        emit SrcHookExecuted(orderId, order.inputToken, tokenReceived, order.inputAmount, amountReceived);
+        emit SrcHookExecuted(orderId, order.inputToken, tokenReceived, order.inputAmount, amountReceived, order.options.feeMbps);
 
         _postDeposit(tokenReceived, amountReceived, order, orderId);
     }
@@ -341,7 +341,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         $.orders[orderId].inputToken = depositToken;
         $.orders[orderId].inputAmount = SafeCast.toUint128(depositAmount);
 
-        emit Deposit(orderId, order);
+        emit Deposit(orderId, order, order.options.feeMbps);
     }
 
     /**
@@ -379,7 +379,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         // Execute hook to convert native tokens to preferred token
         (uint256 amountReceived, address tokenReceived) = _executeSrcHook(order, hook);
 
-        emit SrcHookExecuted(orderId, order.inputToken, tokenReceived, order.inputAmount, amountReceived);
+        emit SrcHookExecuted(orderId, order.inputToken, tokenReceived, order.inputAmount, amountReceived, order.options.feeMbps);
 
         _postDeposit(tokenReceived, amountReceived, order, orderId);
     }
@@ -444,7 +444,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             revert InsufficientSrcHookOutput(hook.minPreferredTokenAmountOut, amountReceived);
         }
 
-        emit SrcHookExecuted(orderId, order.inputToken, hook.preferredToken, order.inputAmount, amountReceived);
+        emit SrcHookExecuted(orderId, order.inputToken, hook.preferredToken, order.inputAmount, amountReceived, order.options.feeMbps);
 
         _postDeposit(hook.preferredToken, amountReceived, order, orderId);
     }
@@ -563,8 +563,26 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             revert InsufficientSrcHookOutput(order.outputAmount, amountReceived);
         }
 
-        // Distribute tokens: exact amount to recipient, surplus to solver
-        order.outputToken.distributeWithSurplus(order.recipient, order.outputAmount, solver, amountReceived);
+        // Calculate fee and amounts
+        uint256 fee = order.options.feeMbps > 0 
+            ? (order.outputAmount * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR 
+            : 0;
+        uint256 recipientAmount = order.outputAmount - fee;
+        uint256 surplus = amountReceived - order.outputAmount;
+
+        // Recipient gets output minus fee (immediate transfer)
+        order.outputToken.safeTransfer(order.recipient, recipientAmount);
+
+        // Fee accrues to feeRecipient (or solver if address(0))
+        if (fee > 0) {
+            address actualFeeRecipient = order.options.feeRecipient == address(0) ? solver : order.options.feeRecipient;
+            $.balances[actualFeeRecipient][order.outputToken].increaseUnlockedNoRevert(uint128(fee));
+        }
+
+        // Surplus accrues to solver
+        if (surplus > 0) {
+            $.balances[solver][order.outputToken].increaseUnlockedNoRevert(uint128(surplus));
+        }
 
         // Update state
         $.orders[orderId] = order;
@@ -717,19 +735,35 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
 
         Order memory order = $.orders[orderId];
 
+        // Calculate fee (order.inputAmount is the locked amount, already correct for srcHook)
+        uint256 fee = 0;
+        if (order.options.feeMbps > 0) {
+            fee = (uint256(order.inputAmount) * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR;
+        }
+        uint128 fillerAmount = order.inputAmount - uint128(fee);
+
         // Cache original balances for potential rollback
         Balance memory offererBalanceCache = $.balances[order.offerer][order.inputToken];
         Balance memory fillerBalanceCache = $.balances[filler][order.inputToken];
 
-        // Attempt atomic balance transfer
+        // Attempt atomic balance transfer: offerer locked → filler unlocked (minus fee)
         bool successLock = $.balances[order.offerer][order.inputToken].decreaseLockedNoRevert(order.inputAmount);
-        bool successUnlock = $.balances[filler][order.inputToken].increaseUnlockedNoRevert(order.inputAmount);
+        bool successUnlock = $.balances[filler][order.inputToken].increaseUnlockedNoRevert(fillerAmount);
 
         // If either operation failed, restore original balances to maintain atomicity
         if (!successLock || !successUnlock) {
             $.balances[order.offerer][order.inputToken] = offererBalanceCache;
             $.balances[filler][order.inputToken] = fillerBalanceCache;
             return; // Exit with no state changes
+        }
+
+        // Credit feeRecipient
+        if (fee > 0) {
+            address feeRecipient = order.options.feeRecipient == address(0) 
+                ? filler 
+                : order.options.feeRecipient;
+
+            $.balances[feeRecipient][order.inputToken].increaseUnlockedNoRevert(uint128(fee));
         }
 
         $.orderStatus[orderId] = OrderStatus.Settled;
@@ -765,10 +799,10 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     }
 
     /**
-     * @notice Handles settlement of same-chain swaps with immediate token transfer
+     * @notice Handles settlement of same-chain swaps with fee distribution
      * @dev Performs atomic settlement within the same transaction for same-chain orders.
-     *      Moves tokens from offerer's locked balance to solver's unlocked balance.
-     *      Includes comprehensive validation to ensure balance consistency.
+     *      Moves tokens from offerer's locked balance to solver's unlocked balance minus fee.
+     *      Fee accrues to feeRecipient's unlocked balance.
      * @param orderId The unique identifier for the order
      * @param order The order details
      * @param solver The address of the solver who filled the order
@@ -779,28 +813,28 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         address solver
     ) internal {
         AoriStorageData storage $ = _getAoriStorage();
-        // Capture initial state for validation
-        uint128 initialOffererLocked = $.balances[order.offerer][order.inputToken].locked;
-        uint128 initialSolverUnlocked = $.balances[solver][order.inputToken].unlocked;
 
-        // Atomic balance transfer: locked → unlocked
-        if ($.balances[order.offerer][order.inputToken].locked >= order.inputAmount) {
-            bool successLock = $.balances[order.offerer][order.inputToken].decreaseLockedNoRevert(order.inputAmount);
-
-            bool successUnlock = $.balances[solver][order.inputToken].increaseUnlockedNoRevert(order.inputAmount);
-
-            if (!successLock || !successUnlock) {
-                revert LockedBalanceDecreaseFailed(order.inputAmount, $.balances[order.offerer][order.inputToken].locked);
-            }
+        // Calculate fee (order.inputAmount is the locked amount, already correct for srcHook)
+        uint256 fee = 0;
+        if (order.options.feeMbps > 0) {
+            fee = (uint256(order.inputAmount) * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR;
         }
+        uint128 solverAmount = order.inputAmount - uint128(fee);
 
-        // Verify the transfer was executed correctly
-        uint128 finalOffererLocked = $.balances[order.offerer][order.inputToken].locked;
-        uint128 finalSolverUnlocked = $.balances[solver][order.inputToken].unlocked;
+        // Decrease offerer's locked balance
+        $.balances[order.offerer][order.inputToken].locked -= order.inputAmount;
 
-        $.balances[order.offerer][order.inputToken].validateBalanceTransferOrRevert(
-            initialOffererLocked, finalOffererLocked, initialSolverUnlocked, finalSolverUnlocked, order.inputAmount
-        );
+        // Credit solver (minus fee)
+        $.balances[solver][order.inputToken].increaseUnlockedNoRevert(solverAmount);
+
+        // Credit feeRecipient
+        if (fee > 0) {
+            address feeRecipient = order.options.feeRecipient == address(0) 
+                ? solver 
+                : order.options.feeRecipient;
+
+            $.balances[feeRecipient][order.inputToken].increaseUnlockedNoRevert(uint128(fee));
+        }
 
         $.orderStatus[orderId] = OrderStatus.Settled;
         emit Fill(orderId, order);

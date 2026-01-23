@@ -9,10 +9,18 @@ interface IAori {
     /*                          SRC EVENTS                        */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    event Deposit(bytes32 indexed orderId, Order order);
+    /**
+     * @notice Emitted when an order is deposited
+     * @param orderId The unique order identifier
+     * @param order The order details
+     * @param feeMbps The fee in millibasis points (for solver unlock calculation)
+     */
+    event Deposit(bytes32 indexed orderId, Order order, uint16 feeMbps);
     event Cancel(bytes32 indexed orderId);
     event Settle(bytes32 indexed orderId);
     event Withdraw(address indexed holder, address indexed token, uint256 amount);
+
+
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    CHAIN MANAGEMENT EVENTS                  */
@@ -171,8 +179,9 @@ interface IAori {
      * @param tokenOut The output token received from the hook (outputToken or preferredToken)
      * @param amountIn The input amount sent to the hook (order.inputAmount)
      * @param amountOut The amount of tokens received from hook execution
+     * @param feeMbps The fee in millibasis points (for solver unlock calculation)
      */
-    event SrcHookExecuted(bytes32 indexed orderId, address indexed tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
+    event SrcHookExecuted(bytes32 indexed orderId, address indexed tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut, uint16 feeMbps);
 
     /**
      * @notice Emitted when a destination hook is executed during fill

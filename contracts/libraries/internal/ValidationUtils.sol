@@ -10,9 +10,14 @@ import "../../types/AoriErrors.sol";
  * @dev Provides reusable validation logic for orders across different contract functions
  */
 library ValidationUtils {
+    /// @dev 100000 = 100% in millibasis points
+    uint256 internal constant MBPS_DIVISOR = 100_000;
+
+    /// @dev Maximum fee: 5% = 5000 mbps
+    uint16 internal constant MAX_FEE_MBPS = 5000;
     /**
      * @notice Validates basic order parameters that are common to all validation flows
-     * @dev Checks offerer, recipient, time bounds, amounts, and token addresses
+     * @dev Checks offerer, recipient, time bounds, amounts, token addresses, and fee
      * @param order The order to validate
      */
     /* forgefmt: disable-next-item */
@@ -25,6 +30,7 @@ library ValidationUtils {
         if (order.inputAmount == 0) revert InvalidInputAmount();
         if (order.outputAmount == 0) revert InvalidOutputAmount();
         if (order.inputToken == address(0) || order.outputToken == address(0)) revert InvalidToken();
+        if (order.options.feeMbps > MAX_FEE_MBPS) revert FeeTooHigh();
     }
 
     /**
