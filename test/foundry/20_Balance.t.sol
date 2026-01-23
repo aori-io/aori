@@ -15,13 +15,11 @@ pragma solidity 0.8.33;
  * 2. testRevert_LockMax - Tests overflow handling when locking maximum uint128 value
  * 3. testUnlock - Tests unlocking of previously locked tokens
  * 4. testRevert_UnlockInsufficientBalance - Tests revert when trying to unlock more than locked
- * 5. testUnlockAll - Tests unlocking all locked tokens at once
- * 6. testDecreaseLockedNoRevert - Tests non-reverting locked balance decrease
- * 7. testDecreaseLockedNoRevertUnderflow - Tests handling of underflow in non-reverting decrease
- * 8. testIncreaseUnlockedNoRevert - Tests non-reverting unlocked balance increase
- * 9. testIncreaseUnlockedNoRevertOverflow - Tests handling of overflow in non-reverting increase
- * 10. testComplexSequence - Tests a complex sequence of balance operations
- * 11. testGasUsage - Tests gas optimization of the balance operations
+ * 5. testDecreaseLockedNoRevert - Tests non-reverting locked balance decrease
+ * 6. testDecreaseLockedNoRevertUnderflow - Tests handling of underflow in non-reverting decrease
+ * 7. testIncreaseUnlockedNoRevert - Tests non-reverting unlocked balance increase
+ * 8. testIncreaseUnlockedNoRevertOverflow - Tests handling of overflow in non-reverting increase
+ * 9. testComplexSequence - Tests a complex sequence of balance operations
  *
  * Special notes:
  * - These tests focus on the Balance struct operations in isolation
@@ -104,20 +102,6 @@ contract BalanceUtilsTest is Test {
     }
 
     /**
-     * @notice Tests unlocking all locked tokens at once
-     */
-    function testUnlockAll() public {
-        uint128 amountToLock = 500;
-
-        balance.lock(amountToLock);
-        uint128 unlocked = balance.unlockAll();
-
-        assertEq(unlocked, amountToLock, "Should return unlocked amount");
-        assertEq(balance.getLocked(), 0, "Locked amount should be zero");
-        assertEq(balance.getUnlocked(), amountToLock, "Unlocked amount should increase by total locked");
-    }
-
-    /**
      * @notice Tests non-reverting locked balance decrease
      */
     function testDecreaseLockedNoRevert() public {
@@ -187,18 +171,13 @@ contract BalanceUtilsTest is Test {
         balance.lock(700);
         assertEq(balance.getLocked(), 1000, "Locked should increase to 1000");
 
-        // Unlock all
-        uint128 unlockedAmount = balance.unlockAll();
-        assertEq(unlockedAmount, 1000, "Should return 1000 as unlocked amount");
-        assertEq(balance.getLocked(), 0, "Locked should be 0");
-        assertEq(balance.getUnlocked(), 1200, "Unlocked should be 1200");
-
         // Test no-revert functions
-        bool success = balance.decreaseLockedNoRevert(100);
-        assertFalse(success, "Should fail when locked is 0");
+        bool success = balance.decreaseLockedNoRevert(1000);
+        assertTrue(success, "Should succeed");
+        assertEq(balance.getLocked(), 0, "Locked should be 0");
 
         success = balance.increaseUnlockedNoRevert(300);
         assertTrue(success, "Should succeed");
-        assertEq(balance.getUnlocked(), 1500, "Unlocked should increase to 1500");
+        assertEq(balance.getUnlocked(), 500, "Unlocked should increase to 500");
     }
 }

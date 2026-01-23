@@ -84,22 +84,6 @@ library BalanceUtils {
     }
 
     /**
-     * @notice Unlocks all locked tokens into the unlocked balance
-     * @dev Moves the entire locked balance to unlocked
-     * @param balance The Balance struct reference
-     * @return amount The amount that was unlocked
-     */
-    /* forgefmt: disable-next-item */
-    function unlockAll(Balance storage balance) internal returns (uint128 amount) {
-        (uint128 locked, uint128 unlocked) = loadBalance(balance);
-        amount = locked;
-        unlocked += amount;
-        locked = 0;
-
-        storeBalance(balance, locked, unlocked);
-    }
-
-    /**
      * @notice Gets the unlocked balance amount
      * @param balance The Balance struct reference
      * @return The unlocked balance amount
