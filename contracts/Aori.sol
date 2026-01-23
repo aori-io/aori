@@ -644,8 +644,12 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             _postFill(orderId, order);
         }
 
-        // Distribute tokens: exact amount to recipient, surplus to solver
-        order.outputToken.distributeWithSurplus(order.recipient, order.outputAmount, address(0), amountReceived);
+        // Transfer output to recipient, accrue surplus to solver
+        order.outputToken.safeTransfer(order.recipient, order.outputAmount);
+        uint256 surplus = amountReceived - order.outputAmount;
+        if (surplus > 0) {
+            _getAoriStorage().balances[msg.sender][order.outputToken].increaseUnlockedNoRevert(uint128(surplus));
+        }
     }
 
     /**

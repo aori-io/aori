@@ -20,8 +20,6 @@ interface IAori {
     event Settle(bytes32 indexed orderId);
     event Withdraw(address indexed holder, address indexed token, uint256 amount);
 
-
-
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    CHAIN MANAGEMENT EVENTS                  */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
