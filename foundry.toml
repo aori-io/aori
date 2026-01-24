@@ -61,4 +61,6 @@ base = { key = "${BASESCAN_API_KEY}", url = "https://api.basescan.org/api" }
 optimism = { key = "${OPTIMISM_ETHERSCAN_API_KEY}", url = "https://api-optimistic.etherscan.io/api" }
 arbitrum = { key = "${ARBISCAN_API_KEY}", url = "https://api.arbiscan.io/api" }
 bsc = { key = "${BSCSCAN_API_KEY}", url = "https://api.bscscan.com/api" }
-# Plasma, Monad, Stable don't have standard explorers - use Sourcify or manual verification
+plasma = { key = "${ETHERSCAN_API_KEY}", url = "https://api.plasmascan.to/api" }
+monad = { key = "${ETHERSCAN_API_KEY}", url = "https://api.monadscan.com/api" }
+stable = { key = "${ETHERSCAN_API_KEY}", url = "https://api.stablescan.xyz/api" }
