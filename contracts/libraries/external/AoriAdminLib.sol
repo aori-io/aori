@@ -100,6 +100,7 @@ library AoriAdminLib {
         emit Withdraw(recipient, token, amount);
     }
 
+    // TODO: Rename this function
     /**
      * @notice Emergency function to extract tokens from a user's balance
      * @param token The token address to withdraw
