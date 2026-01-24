@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+# Note: Not using set -e to allow continuing after individual chain failures
 
 # Load .env file if it exists
 if [ -f .env ]; then
@@ -324,7 +324,7 @@ if [ "$MODE" == "configure-peers" ] || [ "$MODE" == "full" ]; then
     fi
 
     for rpc_var in "${RPCS[@]}"; do
-        configure_peers_chain "$rpc_var"
+        configure_peers_chain "$rpc_var" || true
         log ""
     done
 fi
@@ -334,7 +334,7 @@ if [ "$MODE" == "upgrade" ]; then
     log ""
 
     for rpc_var in "${RPCS[@]}"; do
-        upgrade_chain "$rpc_var"
+        upgrade_chain "$rpc_var" || true
         log ""
     done
 fi
