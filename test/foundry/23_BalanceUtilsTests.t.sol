@@ -37,10 +37,6 @@ contract BalanceWrapper {
         return balance.increaseUnlockedNoRevert(amount);
     }
 
-    function unlockAll() external returns (uint128) {
-        return balance.unlockAll();
-    }
-
     function getUnlocked() external view returns (uint128) {
         return balance.getUnlocked();
     }
@@ -295,36 +291,6 @@ contract BalanceUtilsTest is Test {
         assertFalse(success);
         assertEq(wrapper.getLocked(), 100); // Should remain unchanged
         assertEq(wrapper.getUnlocked(), MAX_UINT128); // Should remain unchanged
-    }
-
-    /// @dev Tests the unlockAll function
-    /// @notice Covers lines 105-111 in AoriUtils.sol
-    function test_unlockAll() public {
-        // Arrange
-        wrapper.setRawBalance(100, 50);
-
-        // Act
-        uint128 unlockedAmount = wrapper.unlockAll();
-
-        // Assert
-        assertEq(unlockedAmount, 100);
-        assertEq(wrapper.getLocked(), 0);
-        assertEq(wrapper.getUnlocked(), 150);
-    }
-
-    /// @dev Tests the unlockAll function with zero locked amount
-    /// @notice Covers lines 105-111 in AoriUtils.sol
-    function test_unlockAll_zeroLocked() public {
-        // Arrange
-        wrapper.setRawBalance(0, 50);
-
-        // Act
-        uint128 unlockedAmount = wrapper.unlockAll();
-
-        // Assert
-        assertEq(unlockedAmount, 0);
-        assertEq(wrapper.getLocked(), 0);
-        assertEq(wrapper.getUnlocked(), 50);
     }
 
     /// @dev Tests the getUnlocked function
@@ -586,13 +552,11 @@ contract BalanceUtilsTest is Test {
         assertTrue(decreaseSuccess); // locked = 100, unlocked = 200
         bool increaseSuccess = wrapper.increaseUnlockedNoRevert(700); // Should succeed
         assertTrue(increaseSuccess); // locked = 100, unlocked = 900
-        uint128 unlocked = wrapper.unlockAll(); // Should unlock 100
-        assertEq(unlocked, 100); // locked = 0, unlocked = 1000
 
         // Final state verification
         (uint128 finalLocked, uint128 finalUnlocked) = wrapper.loadBalance();
-        assertEq(finalLocked, 0);
-        assertEq(finalUnlocked, 1000);
+        assertEq(finalLocked, 100);
+        assertEq(finalUnlocked, 900);
     }
 
     /// @dev Tests the integration of the new validation functions with balance operations
