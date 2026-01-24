@@ -3,32 +3,8 @@ pragma solidity 0.8.33;
 
 /**
  * @title BalanceUtilsTest
-<<<<<<< HEAD
  * @notice Tests for the Balance utility struct in AoriUtils library
- *
- * This test file verifies the functionality of the Balance struct which handles
- * locked and unlocked token balances within the Aori protocol. The tests ensure
- * that balance operations like locking, unlocking, and balance manipulations
- * work correctly under various conditions.
- *
- * Tests:
- * 1. testLock - Tests basic locking of tokens
- * 2. testRevert_LockMax - Tests overflow handling when locking maximum uint128 value
- * 3. testUnlock - Tests unlocking of previously locked tokens
- * 4. testRevert_UnlockInsufficientBalance - Tests revert when trying to unlock more than locked
- * 5. testDecreaseLockedNoRevert - Tests non-reverting locked balance decrease
- * 6. testDecreaseLockedNoRevertUnderflow - Tests handling of underflow in non-reverting decrease
- * 7. testIncreaseUnlockedNoRevert - Tests non-reverting unlocked balance increase
- * 8. testIncreaseUnlockedNoRevertOverflow - Tests handling of overflow in non-reverting increase
- * 9. testComplexSequence - Tests a complex sequence of balance operations
- *
- * Special notes:
- * - These tests focus on the Balance struct operations in isolation
- * - The tests include both successful cases and error cases with revert assertions
- * - Gas optimization is explicitly tested to ensure efficient storage operations
-=======
- * @notice Tests for the Balance utility struct in BalanceUtils library
->>>>>>> origin/cleanup/dead-balance-utils
+
  */
 import "forge-std/Test.sol";
 import { BalanceUtils } from "../../contracts/libraries/internal/BalanceUtils.sol";
@@ -73,7 +49,6 @@ contract BalanceUtilsTest is Test {
     }
 
     /**
-<<<<<<< HEAD
      * @notice Tests unlocking of previously locked tokens
      */
     function testUnlock() public {
@@ -102,8 +77,6 @@ contract BalanceUtilsTest is Test {
     }
 
     /**
-=======
->>>>>>> origin/cleanup/dead-balance-utils
      * @notice Tests non-reverting locked balance decrease
      */
     function testDecreaseLockedNoRevert() public {
@@ -178,7 +151,6 @@ contract BalanceUtilsTest is Test {
         balance.lock(700);
         assertEq(balance.locked, 1000, "Locked should increase to 1000");
 
-<<<<<<< HEAD
         // Test no-revert functions
         bool success = balance.decreaseLockedNoRevert(1000);
         assertTrue(success, "Should succeed");
@@ -187,11 +159,9 @@ contract BalanceUtilsTest is Test {
         success = balance.increaseUnlockedNoRevert(300);
         assertTrue(success, "Should succeed");
         assertEq(balance.getUnlocked(), 500, "Unlocked should increase to 500");
-=======
         // Test underflow protection
         success = balance.decreaseLockedNoRevert(2000);
         assertFalse(success, "Should fail when trying to decrease more than locked");
         assertEq(balance.locked, 1000, "Locked should remain unchanged");
->>>>>>> origin/cleanup/dead-balance-utils
     }
 }
