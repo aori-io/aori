@@ -351,9 +351,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      */
     /* forgefmt: disable-next-item */
     function depositNative(Order calldata order) external payable nonReentrant whenNotPaused {
-        if (!order.inputToken.isNativeToken()) revert OrderMustSpecifyNativeToken();
-        if (msg.value != order.inputAmount) revert IncorrectNativeAmount(order.inputAmount, msg.value);
-        if (msg.sender != order.offerer) revert OnlyOffererCanDepositNativeTokens();
+        order.validateNativeDeposit(msg.value, msg.sender);
 
         bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, this.orderStatus, this.isSupportedChain);
         _postDeposit(order.inputToken, order.inputAmount, order, orderId);
@@ -370,10 +368,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         Order calldata order,
         SrcHook calldata hook
     ) external payable nonReentrant whenNotPaused {
-        if (!order.inputToken.isNativeToken()) revert OrderMustSpecifyNativeToken();
-        if (msg.value != order.inputAmount) revert IncorrectNativeAmount(order.inputAmount, msg.value);
-        if (msg.sender != order.offerer) revert OnlyOffererCanDepositNativeTokens();
-
+        order.validateNativeDeposit(msg.value, msg.sender);
         bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, this.orderStatus, this.isSupportedChain);
 
         // Execute hook to convert native tokens to preferred token
@@ -494,11 +489,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         Order calldata order,
         SrcHook calldata hook
     ) external payable nonReentrant whenNotPaused {
-        if (!order.inputToken.isNativeToken()) revert OrderMustSpecifyNativeToken();
-        if (msg.value != order.inputAmount) revert IncorrectNativeAmount(order.inputAmount, msg.value);
-        if (msg.sender != order.offerer) revert OnlyOffererCanDepositNativeTokens();
+        order.validateNativeDeposit(msg.value, msg.sender);
         if (!order.isSingleChainSwap()) revert NotSingleChainOrder();
-
         bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, this.orderStatus, this.isSupportedChain);
 
         hook.validateSrcHook(this.isAllowedHook);

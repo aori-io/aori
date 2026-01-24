@@ -3,6 +3,7 @@ pragma solidity 0.8.33;
 
 import { SignatureCheckerLib } from "solady/src/utils/SignatureCheckerLib.sol";
 import { Order, OrderStatus } from "../../types/AoriTypes.sol";
+import { TokenUtils } from "./TokenUtils.sol";
 import "../../types/AoriErrors.sol";
 
 /**
@@ -10,13 +11,32 @@ import "../../types/AoriErrors.sol";
  * @dev Provides reusable validation logic for orders across different contract functions
  */
 library ValidationUtils {
-    
+    using TokenUtils for address;
+
     /// @dev 100000 = 100% in millibasis points
     uint256 internal constant MBPS_DIVISOR = 100_000;
 
     // TODO: Make this constant mutable
     /// @dev Maximum fee: 5% = 5000 mbps
     uint16 internal constant MAX_FEE_MBPS = 5000;
+
+    /**
+     * @notice Validates native token deposit parameters
+     * @dev Checks that input is native token, msg.value matches, and sender is offerer
+     * @param order The order to validate
+     * @param msgValue The msg.value sent with the transaction
+     * @param sender The msg.sender of the transaction
+     */
+    function validateNativeDeposit(
+        Order calldata order,
+        uint256 msgValue,
+        address sender
+    ) internal view {
+        if (!order.inputToken.isNativeToken()) revert OrderMustSpecifyNativeToken();
+        if (msgValue != order.inputAmount) revert IncorrectNativeAmount(order.inputAmount, msgValue);
+        if (sender != order.offerer) revert OnlyOffererCanDepositNativeTokens();
+    }
+
     /**
      * @notice Validates basic order parameters that are common to all validation flows
      * @dev Checks offerer, recipient, time bounds, amounts, token addresses, and fee
