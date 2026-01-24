@@ -564,9 +564,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         }
 
         // Calculate fee and amounts
-        uint256 fee = order.options.feeMbps > 0 
-            ? (order.outputAmount * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR 
-            : 0;
+        uint256 fee = (order.outputAmount * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR;
         uint256 recipientAmount = order.outputAmount - fee;
         uint256 surplus = amountReceived - order.outputAmount;
 
@@ -740,10 +738,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         Order memory order = $.orders[orderId];
 
         // Calculate fee (order.inputAmount is the locked amount, already correct for srcHook)
-        uint256 fee = 0;
-        if (order.options.feeMbps > 0) {
-            fee = (uint256(order.inputAmount) * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR;
-        }
+        uint256 fee = (uint256(order.inputAmount) * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR;
         uint128 fillerAmount = order.inputAmount - uint128(fee);
 
         // Cache original balances for potential rollback
@@ -819,10 +814,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         AoriStorageData storage $ = _getAoriStorage();
 
         // Calculate fee (order.inputAmount is the locked amount, already correct for srcHook)
-        uint256 fee = 0;
-        if (order.options.feeMbps > 0) {
-            fee = (uint256(order.inputAmount) * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR;
-        }
+        uint256 fee = (uint256(order.inputAmount) * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR;
         uint128 solverAmount = order.inputAmount - uint128(fee);
 
         // Decrease offerer's locked balance
