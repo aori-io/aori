@@ -18,6 +18,7 @@ interface IAori {
     event Deposit(bytes32 indexed orderId, Order order, uint16 feeMbps);
     event Cancel(bytes32 indexed orderId);
     event Settle(bytes32 indexed orderId);
+    event SettleFailed(bytes32 indexed orderId);
     event Withdraw(address indexed holder, address indexed token, uint256 amount);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
