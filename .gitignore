@@ -1,7 +1,6 @@
 .env
-# Track mainnet deployments, ignore dry runs and old timestamped broadcast files
+# Track mainnet deployments, ignore dry runs
 broadcast/**/dry-run/
-broadcast/**/run-[0-9]*.json
 node_modules
 .DS_Store
 coverage
