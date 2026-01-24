@@ -19,25 +19,6 @@ library BalanceUtils {
     /* forgefmt: disable-next-item */
     function lock(Balance storage balance, uint128 amount) internal { balance.locked += amount; }
 
-    /**
-     * @notice Unlocks a specified amount of tokens from locked to unlocked state
-     * @dev Decreases locked balance and increases unlocked balance
-     * @param balance The Balance struct reference
-     * @param amount The amount to unlock
-     */
-    function unlock(
-        Balance storage balance,
-        uint128 amount
-    ) internal {
-        (uint128 locked, uint128 unlocked) = loadBalance(balance);
-        if (locked < amount) revert LockedBalanceDecreaseFailed(amount, locked);
-        unchecked {
-            locked -= amount;
-        }
-        unlocked += amount;
-
-        storeBalance(balance, locked, unlocked);
-    }
 
     /**
      * @notice Decreases locked balance without reverting on underflow
@@ -81,55 +62,6 @@ library BalanceUtils {
             balance.unlocked = newUnlocked;
         }
         return true;
-    }
-
-    /**
-     * @notice Gets the unlocked balance amount
-     * @param balance The Balance struct reference
-     * @return The unlocked balance amount
-     */
-    /* forgefmt: disable-next-item */
-    function getUnlocked(Balance storage balance) internal view returns (uint128) { return balance.unlocked; }
-
-    /**
-     * @notice Gets the locked balance amount
-     * @param balance The Balance struct reference
-     * @return The locked balance amount
-     */
-    /* forgefmt: disable-next-item */
-    function getLocked(Balance storage balance) internal view returns (uint128) { return balance.locked; }
-
-    /**
-     * @notice Load balance values using optimized storage operations
-     * @dev Uses assembly to read both values in a single storage read
-     * @param balance The Balance struct reference
-     * @return locked The locked balance
-     * @return unlocked The unlocked balance
-     */
-    /* forgefmt: disable-next-item */
-    function loadBalance(Balance storage balance) internal view returns (uint128 locked, uint128 unlocked) {
-        assembly {
-            let fullSlot := sload(balance.slot)
-            unlocked := shr(128, fullSlot)
-            locked := fullSlot
-        }
-    }
-
-    /**
-     * @notice Store balance values using optimized storage operations
-     * @dev Uses assembly to write both values in a single storage write
-     * @param balance The Balance struct reference
-     * @param locked The locked balance to store
-     * @param unlocked The unlocked balance to store
-     */
-    function storeBalance(
-        Balance storage balance,
-        uint128 locked,
-        uint128 unlocked
-    ) internal {
-        assembly {
-            sstore(balance.slot, or(shl(128, unlocked), locked))
-        }
     }
 
     /**
