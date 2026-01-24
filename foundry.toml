@@ -53,3 +53,14 @@ yul = true
 constantOptimizer = true
 [profile.default.optimizer_details.yulDetails]
 stackAllocation = true
+
+# Etherscan API configuration for contract verification
+[etherscan]
+ethereum = { key = "${ETHERSCAN_API_KEY}", url = "https://api.etherscan.io/api" }
+base = { key = "${BASESCAN_API_KEY}", url = "https://api.basescan.org/api" }
+optimism = { key = "${OPTIMISM_ETHERSCAN_API_KEY}", url = "https://api-optimistic.etherscan.io/api" }
+arbitrum = { key = "${ARBISCAN_API_KEY}", url = "https://api.arbiscan.io/api" }
+bsc = { key = "${BSCSCAN_API_KEY}", url = "https://api.bscscan.com/api" }
+plasma = { key = "${ETHERSCAN_API_KEY}", url = "https://api.plasmascan.to/api" }
+monad = { key = "${ETHERSCAN_API_KEY}", url = "https://api.monadscan.com/api" }
+stable = { key = "${ETHERSCAN_API_KEY}", url = "https://api.stablescan.xyz/api" }
