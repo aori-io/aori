@@ -222,6 +222,7 @@ error InvalidUserAddress();
 error AmountMustBeGreaterThanZero();
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+<<<<<<< HEAD
 /*                        FEE ERRORS                          */
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
@@ -234,6 +235,8 @@ error FeeTooHigh();
 error SlippageExceeded(uint256 minimum, uint256 actual);
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+=======
+>>>>>>> origin/features
 /*                       SWAP ERRORS                          */
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 

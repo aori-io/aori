@@ -7,7 +7,6 @@ import "../../types/AoriErrors.sol";
 /**
  * @notice Utility library for managing token balances
  * @dev Provides functions for locking, unlocking, and managing token balances
- * with optimized storage operations
  */
 library BalanceUtils {
     /**
@@ -18,7 +17,6 @@ library BalanceUtils {
      */
     /* forgefmt: disable-next-item */
     function lock(Balance storage balance, uint128 amount) internal { balance.locked += amount; }
-
 
     /**
      * @notice Decreases locked balance without reverting on underflow
