@@ -439,11 +439,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             revert InsufficientSrcHookOutput(hook.minPreferredTokenAmountOut, amountReceived);
         }
 
-<<<<<<< HEAD
         emit SrcHookExecuted(orderId, order.inputToken, hook.preferredToken, order.inputAmount, amountReceived, order.options.feeMbps);
-=======
-        emit SrcHookExecuted(orderId, order.inputToken, hook.preferredToken, order.inputAmount, amountReceived);
->>>>>>> origin/features
 
         _postDeposit(hook.preferredToken, amountReceived, order, orderId);
     }
@@ -493,16 +489,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         Order calldata order,
         SrcHook calldata hook
     ) external payable nonReentrant whenNotPaused {
-<<<<<<< HEAD
         order.validateNativeDeposit(msg.value, msg.sender);
         if (!order.isSingleChainSwap()) revert NotSingleChainOrder();
-=======
-        if (!order.inputToken.isNativeToken()) revert OrderMustSpecifyNativeToken();
-        if (msg.value != order.inputAmount) revert IncorrectNativeAmount(order.inputAmount, msg.value);
-        if (msg.sender != order.offerer) revert OnlyOffererCanDepositNativeTokens();
-        if (!order.isSingleChainSwap()) revert NotSingleChainOrder();
-
->>>>>>> origin/features
         bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, this.orderStatus, this.isSupportedChain);
 
         hook.validateSrcHook(this.isAllowedHook);
@@ -567,7 +555,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             revert InsufficientSrcHookOutput(order.outputAmount, amountReceived);
         }
 
-<<<<<<< HEAD
         // Calculate fee and amounts
         uint256 fee = (order.outputAmount * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR;
         uint256 recipientAmount = order.outputAmount - fee;
@@ -586,10 +573,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         if (surplus > 0) {
             $.balances[solver][order.outputToken].unlocked += uint128(surplus);
         }
-=======
-        // Distribute tokens: exact amount to recipient, surplus to solver
-        order.outputToken.distributeWithSurplus(order.recipient, order.outputAmount, solver, amountReceived);
->>>>>>> origin/features
 
         // Update state
         $.orders[orderId] = order;
@@ -651,17 +634,12 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             _postFill(orderId, order);
         }
 
-<<<<<<< HEAD
         // Transfer output to recipient, accrue surplus to solver
         order.outputToken.safeTransfer(order.recipient, order.outputAmount);
         uint256 surplus = amountReceived - order.outputAmount;
         if (surplus > 0) {
             _getAoriStorage().balances[msg.sender][order.outputToken].unlocked += uint128(surplus);
         }
-=======
-        // Distribute tokens: exact amount to recipient, surplus to solver
-        order.outputToken.distributeWithSurplus(order.recipient, order.outputAmount, address(0), amountReceived);
->>>>>>> origin/features
     }
 
     /**
