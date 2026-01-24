@@ -10,9 +10,11 @@ import "../../types/AoriErrors.sol";
  * @dev Provides reusable validation logic for orders across different contract functions
  */
 library ValidationUtils {
+    
     /// @dev 100000 = 100% in millibasis points
     uint256 internal constant MBPS_DIVISOR = 100_000;
 
+    // TODO: Make this constant mutable
     /// @dev Maximum fee: 5% = 5000 mbps
     uint16 internal constant MAX_FEE_MBPS = 5000;
     /**
