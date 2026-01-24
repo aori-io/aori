@@ -14,7 +14,7 @@ This folder contains Foundry broadcast logs for contract deployments.
 | Base | 8453 | Deployed |
 | Optimism | 10 | Deployed |
 | BSC | 56 | Deployed |
-| Arbitrum | 42161 | Pending (needs archive RPC) |
+| Arbitrum | 42161 | Deployed |
 | Plasma | 9745 | Deployed |
 | Monad | 143 | Deployed |
 | Stable | 988 | Deployed |
