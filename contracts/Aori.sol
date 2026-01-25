@@ -122,6 +122,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         }
 
         $.maxFeeMbps = 1000; // Default 1% max additional fee
+        $.protocolTreasury = _owner; // Default to owner, can be changed later
     }
 
     /**
