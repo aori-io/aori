@@ -38,6 +38,24 @@ interface IAori {
     event SolverRemoved(address indexed solver);
     event MaxFillsPerSettleUpdated(uint16 oldValue, uint16 newValue);
 
+    /// @notice Emitted when protocol fee is updated
+    /// @param feeMbps New protocol fee in millibasis points
+    event ProtocolFeeUpdated(uint16 feeMbps);
+
+    /// @notice Emitted when protocol treasury is updated
+    /// @param treasury New treasury address
+    event ProtocolTreasuryUpdated(address treasury);
+
+    /// @notice Emitted when maximum additional fee is updated
+    /// @param maxFeeMbps New maximum fee in millibasis points
+    event MaxFeeUpdated(uint16 maxFeeMbps);
+
+    /// @notice Emitted when accumulated protocol fees are claimed
+    /// @param token The token that was claimed
+    /// @param amount The amount claimed
+    /// @param treasury The treasury address that received the funds
+    event ProtocolFeesClaimed(address indexed token, uint256 amount, address indexed treasury);
+
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                          DST EVENTS                        */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
@@ -244,4 +262,38 @@ interface IAori {
         uint256 deadline,
         bytes calldata signature
     ) external;
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                    PROTOCOL FEE FUNCTIONS                   */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /// @notice Returns the current protocol fee configuration
+    /// @return feeMbps Protocol fee in millibasis points
+    /// @return treasury Address receiving protocol fees
+    function getProtocolConfig() external view returns (uint16 feeMbps, address treasury);
+
+    /// @notice Returns pending protocol fees for a token
+    /// @param token The token to check
+    /// @return amount The pending fee amount
+    function getPendingProtocolFees(address token) external view returns (uint256 amount);
+
+    /// @notice Sets the protocol fee (admin only, no cap)
+    /// @param feeMbps Fee in millibasis points
+    function setProtocolFee(uint16 feeMbps) external;
+
+    /// @notice Sets the protocol treasury address (admin only)
+    /// @param treasury Address to receive protocol fees
+    function setProtocolTreasury(address treasury) external;
+
+    /// @notice Claims accumulated protocol fees for a token (permissionless)
+    /// @param token The token to claim fees for
+    function claimProtocolFees(address token) external;
+
+    /// @notice Sets the maximum allowed additional fee (admin only)
+    /// @param maxFeeMbps Maximum fee in millibasis points
+    function setMaxFee(uint16 maxFeeMbps) external;
+
+    /// @notice Returns the current maximum allowed additional fee
+    /// @return maxFeeMbps Maximum fee in millibasis points
+    function getMaxFee() external view returns (uint16 maxFeeMbps);
 }

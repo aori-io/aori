@@ -123,6 +123,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         for (uint256 i = 0; i < _supportedChains.length; i++) {
             $.isSupportedChain[_supportedChains[i]] = true;
         }
+
+        $.maxFeeMbps = 1000; // Default 1% max additional fee
     }
 
     /**
@@ -225,6 +227,20 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     /* forgefmt: disable-next-item */
     function emergencyWithdrawFromUser(address token, uint256 amount, address user, bool isLocked, address recipient) external onlyOwner { AoriAdminLib.emergencyWithdrawFromUser(token, amount, user, isLocked, recipient); }
 
+    // Protocol fee admin functions delegated to AoriAdminLib
+    /* forgefmt: disable-next-item */
+    function setProtocolFee(uint16 feeMbps) external onlyOwner { AoriAdminLib.setProtocolFee(feeMbps); }
+    /* forgefmt: disable-next-item */
+    function setProtocolTreasury(address treasury) external onlyOwner { AoriAdminLib.setProtocolTreasury(treasury); }
+    /* forgefmt: disable-next-item */
+    function getProtocolConfig() external view returns (uint16 feeMbps, address treasury) { return AoriAdminLib.getProtocolConfig(); }
+    /* forgefmt: disable-next-item */
+    function getPendingProtocolFees(address token) external view returns (uint256) { return AoriAdminLib.getPendingProtocolFees(token); }
+    /* forgefmt: disable-next-item */
+    function setMaxFee(uint16 maxFeeMbps) external onlyOwner { AoriAdminLib.setMaxFee(maxFeeMbps); }
+    /* forgefmt: disable-next-item */
+    function getMaxFee() external view returns (uint16) { return AoriAdminLib.getMaxFee(); }
+
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                         MODIFIERS                          */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
@@ -254,7 +270,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     ) external nonReentrant whenNotPaused onlySolver {
         if (order.inputToken.isNativeToken()) revert UseDepositNativeForNativeTokens();
 
-        bytes32 orderId = order.validateDeposit(signature, _hashOrder712(order), ENDPOINT_ID, this.orderStatus, this.isSupportedChain);
+        bytes32 orderId = order.validateDeposit(signature, _hashOrder712(order), ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
 
         IERC20(order.inputToken).safeTransferFrom(order.offerer, address(this), order.inputAmount);
         _postDeposit(order.inputToken, order.inputAmount, order, orderId);
@@ -275,7 +291,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     ) external nonReentrant whenNotPaused onlySolver {
         if (order.inputToken.isNativeToken()) revert UseDepositNativeForNativeTokens();
 
-        bytes32 orderId = order.validateDeposit(signature, _hashOrder712(order), ENDPOINT_ID, this.orderStatus, this.isSupportedChain);
+        bytes32 orderId = order.validateDeposit(signature, _hashOrder712(order), ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
 
         // Execute hook to convert input tokens to preferred token
         (uint256 amountReceived, address tokenReceived) = _executeSrcHook(order, hook);
@@ -353,7 +369,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     function depositNative(Order calldata order) external payable nonReentrant whenNotPaused {
         order.validateNativeDeposit(msg.value, msg.sender);
 
-        bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, this.orderStatus, this.isSupportedChain);
+        bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
         _postDeposit(order.inputToken, order.inputAmount, order, orderId);
     }
 
@@ -369,7 +385,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         SrcHook calldata hook
     ) external payable nonReentrant whenNotPaused {
         order.validateNativeDeposit(msg.value, msg.sender);
-        bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, this.orderStatus, this.isSupportedChain);
+        bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
 
         // Execute hook to convert native tokens to preferred token
         (uint256 amountReceived, address tokenReceived) = _executeSrcHook(order, hook);
@@ -400,7 +416,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         if (order.inputToken.isNativeToken()) revert UseDepositNativeForNativeTokens();
         if (block.timestamp > deadline) revert Permit2SignatureExpired();
 
-        bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, this.orderStatus, this.isSupportedChain);
+        bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
 
         Permit2Lib.executeTransfer(order, address(this), nonce, deadline, signature);
 
@@ -427,7 +443,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         if (order.inputToken.isNativeToken()) revert UseDepositNativeForNativeTokens();
         if (block.timestamp > deadline) revert Permit2SignatureExpired();
 
-        bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, this.orderStatus, this.isSupportedChain);
+        bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
         hook.validateSrcHook(this.isAllowedHook);
 
         Permit2Lib.executeTransfer(order, hook.hookAddress, nonce, deadline, signature);
@@ -467,6 +483,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             signature,
             _hashOrder712(order),
             ENDPOINT_ID,
+            _getAoriStorage().maxFeeMbps,
             this.orderStatus,
             this.isSupportedChain
         );
@@ -491,7 +508,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     ) external payable nonReentrant whenNotPaused {
         order.validateNativeDeposit(msg.value, msg.sender);
         if (!order.isSingleChainSwap()) revert NotSingleChainOrder();
-        bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, this.orderStatus, this.isSupportedChain);
+        bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
 
         hook.validateSrcHook(this.isAllowedHook);
 
@@ -522,7 +539,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         if (block.timestamp > deadline) revert Permit2SignatureExpired();
         if (!order.isSingleChainSwap()) revert NotSingleChainOrder();
 
-        bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, this.orderStatus, this.isSupportedChain);
+        bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
         hook.validateSrcHook(this.isAllowedHook);
 
         Permit2Lib.executeTransfer(order, hook.hookAddress, nonce, deadline, signature);
@@ -555,23 +572,36 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             revert InsufficientSrcHookOutput(order.outputAmount, amountReceived);
         }
 
-        // Calculate fee and amounts
-        uint256 fee = (order.outputAmount * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR;
-        uint256 recipientAmount = order.outputAmount - fee;
+        // Calculate both fees
+        uint256 protocolFee = (order.outputAmount * $.protocolFeeMbps) / ValidationUtils.MBPS_DIVISOR;
+        uint256 additionalFee = (order.outputAmount * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR;
+        uint256 totalFee = protocolFee + additionalFee;
+        uint256 recipientAmount = order.outputAmount - totalFee;
         uint256 surplus = amountReceived - order.outputAmount;
 
-        // Recipient gets output minus fee (immediate transfer)
+        // Recipient gets output minus fees (immediate transfer)
         order.outputToken.safeTransfer(order.recipient, recipientAmount);
 
-        // Fee accrues to feeRecipient (or solver if address(0))
-        if (fee > 0) {
+        // Protocol fee - lazy accrual with overflow protection
+        if (protocolFee > 0) {
+            uint256 current = $.pendingProtocolFees[order.outputToken];
+            unchecked {
+                uint256 newAmount = current + protocolFee;
+                if (newAmount >= current) {
+                    $.pendingProtocolFees[order.outputToken] = newAmount;
+                }
+            }
+        }
+
+        // Additional fee accrues to feeRecipient (or solver if address(0))
+        if (additionalFee > 0) {
             address actualFeeRecipient = order.options.feeRecipient == address(0) ? solver : order.options.feeRecipient;
-            $.balances[actualFeeRecipient][order.outputToken].unlocked += uint128(fee);
+            $.balances[actualFeeRecipient][order.outputToken].unlocked += SafeCast.toUint128(additionalFee);
         }
 
         // Surplus accrues to solver
         if (surplus > 0) {
-            $.balances[solver][order.outputToken].unlocked += uint128(surplus);
+            $.balances[solver][order.outputToken].unlocked += SafeCast.toUint128(surplus);
         }
 
         // Update state
@@ -594,7 +624,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      */
     /* forgefmt: disable-next-item */
     function fill(Order calldata order) external payable nonReentrant whenNotPaused onlySolver {
-        bytes32 orderId = order.validateFill(msg.sender, ENDPOINT_ID, this.orderStatus);
+        bytes32 orderId = order.validateFill(msg.sender, ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus);
 
         // Validate payment method matches output token type
         order.outputToken.validateMsgValue(order.outputAmount, msg.value);
@@ -621,7 +651,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         Order calldata order,
         DstHook calldata hook
     ) external payable nonReentrant whenNotPaused onlySolver {
-        bytes32 orderId = order.validateFill(msg.sender, ENDPOINT_ID, this.orderStatus);
+        bytes32 orderId = order.validateFill(msg.sender, ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus);
 
         // Execute hook to convert preferred tokens to output tokens
         uint256 amountReceived = _executeDstHook(order, hook);
@@ -638,7 +668,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         order.outputToken.safeTransfer(order.recipient, order.outputAmount);
         uint256 surplus = amountReceived - order.outputAmount;
         if (surplus > 0) {
-            _getAoriStorage().balances[msg.sender][order.outputToken].unlocked += uint128(surplus);
+            _getAoriStorage().balances[msg.sender][order.outputToken].unlocked += SafeCast.toUint128(surplus);
         }
     }
 
@@ -729,28 +759,34 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
 
         Order memory order = $.orders[orderId];
 
-        // Calculate fee (order.inputAmount is the locked amount, already correct for srcHook)
-        uint256 fee = (uint256(order.inputAmount) * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR;
-        uint128 fillerAmount = order.inputAmount - uint128(fee);
+        // Calculate both fees (order.inputAmount is the locked amount, already correct for srcHook)
+        uint256 protocolFee = (uint256(order.inputAmount) * $.protocolFeeMbps) / ValidationUtils.MBPS_DIVISOR;
+        uint256 additionalFee = (uint256(order.inputAmount) * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR;
+        uint256 totalFee = protocolFee + additionalFee;
+        uint128 fillerAmount = order.inputAmount - SafeCast.toUint128(totalFee);
 
         address feeRecipient = order.options.feeRecipient == address(0) 
             ? filler 
             : order.options.feeRecipient;
 
         // Cache original balances for potential rollback
+        // Only cache feeRecipient separately if different from filler (gas optimization)
         Balance memory offererBalanceCache = $.balances[order.offerer][order.inputToken];
         Balance memory fillerBalanceCache = $.balances[filler][order.inputToken];
-        Balance memory feeRecipientBalanceCache = $.balances[feeRecipient][order.inputToken];
+        Balance memory feeRecipientBalanceCache;
+        if (feeRecipient != filler) {
+            feeRecipientBalanceCache = $.balances[feeRecipient][order.inputToken];
+        }
 
-        // Attempt atomic balance transfer: offerer locked → filler unlocked (minus fee) + feeRecipient
+        // Attempt atomic balance transfer: offerer locked → filler unlocked (minus fees) + feeRecipient
         bool successLock = $.balances[order.offerer][order.inputToken].decreaseLockedNoRevert(order.inputAmount);
         bool successFiller = $.balances[filler][order.inputToken].increaseUnlockedNoRevert(fillerAmount);
-        bool successFee = fee > 0 
-            ? $.balances[feeRecipient][order.inputToken].increaseUnlockedNoRevert(uint128(fee))
+        bool successAdditionalFee = additionalFee > 0 
+            ? $.balances[feeRecipient][order.inputToken].increaseUnlockedNoRevert(SafeCast.toUint128(additionalFee))
             : true;
 
         // If any operation failed, restore ALL original balances to maintain atomicity
-        if (!successLock || !successFiller || !successFee) {
+        if (!successLock || !successFiller || !successAdditionalFee) {
             $.balances[order.offerer][order.inputToken] = offererBalanceCache;
             $.balances[filler][order.inputToken] = fillerBalanceCache;
             if (feeRecipient != filler) {
@@ -758,6 +794,17 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             }
             emit SettleFailed(orderId);
             return; // Exit with no state changes
+        }
+
+        // Protocol fee - lazy accrual with overflow protection (no rollback needed, only written on success)
+        if (protocolFee > 0) {
+            uint256 current = $.pendingProtocolFees[order.inputToken];
+            unchecked {
+                uint256 newAmount = current + protocolFee;
+                if (newAmount >= current) {
+                    $.pendingProtocolFees[order.inputToken] = newAmount;
+                }
+            }
         }
 
         $.orderStatus[orderId] = OrderStatus.Settled;
@@ -808,23 +855,29 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     ) internal {
         AoriStorageData storage $ = _getAoriStorage();
 
-        // Calculate fee (order.inputAmount is the locked amount, already correct for srcHook)
-        uint256 fee = (uint256(order.inputAmount) * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR;
-        uint128 solverAmount = order.inputAmount - uint128(fee);
+        // Calculate both fees (order.inputAmount is the locked amount, already correct for srcHook)
+        uint256 protocolFee = (uint256(order.inputAmount) * $.protocolFeeMbps) / ValidationUtils.MBPS_DIVISOR;
+        uint256 additionalFee = (uint256(order.inputAmount) * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR;
+        uint256 totalFee = protocolFee + additionalFee;
+        uint128 solverAmount = order.inputAmount - SafeCast.toUint128(totalFee);
 
         // Decrease offerer's locked balance
         $.balances[order.offerer][order.inputToken].locked -= order.inputAmount;
 
-        // Credit solver (minus fee)
+        // Credit solver (minus fees)
         $.balances[solver][order.inputToken].unlocked += solverAmount;
 
-        // Credit feeRecipient
-        if (fee > 0) {
+        // Protocol fee - lazy accrual (direct += ok here, single operation can revert)
+        if (protocolFee > 0) {
+            $.pendingProtocolFees[order.inputToken] += protocolFee;
+        }
+
+        // Additional fee accrues to feeRecipient
+        if (additionalFee > 0) {
             address feeRecipient = order.options.feeRecipient == address(0) 
                 ? solver 
                 : order.options.feeRecipient;
-
-            $.balances[feeRecipient][order.inputToken].unlocked += uint128(fee);
+            $.balances[feeRecipient][order.inputToken].unlocked += SafeCast.toUint128(additionalFee);
         }
 
         $.orderStatus[orderId] = OrderStatus.Settled;
@@ -947,11 +1000,38 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         token.validateSufficientBalance(amount);
 
         // Update balance
-        $.balances[holder][token].unlocked = uint128(unlockedBalance - amount);
+        $.balances[holder][token].unlocked = SafeCast.toUint128(unlockedBalance - amount);
 
         // Transfer tokens to user
         token.safeTransfer(holder, amount);
         emit Withdraw(holder, token, amount);
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                   PROTOCOL FEE FUNCTIONS                   */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /**
+     * @notice Claims accumulated protocol fees for a token
+     * @dev Permissionless - anyone can trigger, but funds always go to treasury
+     * @param token The token to claim fees for
+     */
+    function claimProtocolFees(address token) external nonReentrant {
+        AoriStorageData storage $ = _getAoriStorage();
+
+        uint256 amount = $.pendingProtocolFees[token];
+        if (amount == 0) revert NoPendingFees();
+
+        address treasury = $.protocolTreasury;
+        if (treasury == address(0)) revert InvalidProtocolTreasury();
+
+        // Clear pending before transfer (CEI pattern)
+        $.pendingProtocolFees[token] = 0;
+
+        // Direct transfer to treasury (handles both native and ERC20)
+        TokenUtils.safeTransfer(token, treasury, amount);
+
+        emit ProtocolFeesClaimed(token, amount, treasury);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/

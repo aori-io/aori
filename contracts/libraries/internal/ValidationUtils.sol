@@ -16,10 +16,6 @@ library ValidationUtils {
     /// @dev 100000 = 100% in millibasis points
     uint256 internal constant MBPS_DIVISOR = 100_000;
 
-    // TODO: Make this constant mutable
-    /// @dev Maximum fee: 5% = 5000 mbps
-    uint16 internal constant MAX_FEE_MBPS = 5000;
-
     /**
      * @notice Validates native token deposit parameters
      * @dev Checks that input is native token, msg.value matches, and sender is offerer
@@ -41,9 +37,10 @@ library ValidationUtils {
      * @notice Validates basic order parameters that are common to all validation flows
      * @dev Checks offerer, recipient, time bounds, amounts, token addresses, and fee
      * @param order The order to validate
+     * @param maxFeeMbps The maximum allowed fee in millibasis points (from storage)
      */
     /* forgefmt: disable-next-item */
-    function validateCommonOrderParams(Order calldata order) internal view {
+    function validateCommonOrderParams(Order calldata order, uint16 maxFeeMbps) internal view {
         if (order.offerer == address(0)) revert InvalidOfferer();
         if (order.recipient == address(0)) revert InvalidRecipient();
         if (order.startTime >= order.endTime) revert InvalidEndTime(order.startTime, order.endTime);
@@ -52,7 +49,7 @@ library ValidationUtils {
         if (order.inputAmount == 0) revert InvalidInputAmount();
         if (order.outputAmount == 0) revert InvalidOutputAmount();
         if (order.inputToken == address(0) || order.outputToken == address(0)) revert InvalidToken();
-        if (order.options.feeMbps > MAX_FEE_MBPS) revert FeeTooHigh();
+        if (order.options.feeMbps > maxFeeMbps) revert FeeTooHigh();
     }
 
     /**
@@ -62,6 +59,7 @@ library ValidationUtils {
      * @param signature The EIP712 signature to verify
      * @param digest The EIP712 type hash digest of the order
      * @param endpointId The current chain's endpoint ID
+     * @param maxFeeMbps The maximum allowed fee in millibasis points
      * @param orderStatus The status mapping function to check order status
      * @param isSupportedChain A function to check if the destination chain is supported
      * @return orderId The calculated order hash
@@ -71,6 +69,7 @@ library ValidationUtils {
         bytes calldata signature,
         bytes32 digest,
         uint32 endpointId,
+        uint16 maxFeeMbps,
         function(bytes32) external view returns (OrderStatus) orderStatus,
         function(uint32) external view returns (bool) isSupportedChain
     ) internal view returns (bytes32 orderId) {
@@ -84,7 +83,7 @@ library ValidationUtils {
         }
 
         // Order parameter validation
-        validateCommonOrderParams(order);
+        validateCommonOrderParams(order, maxFeeMbps);
         if (order.srcEid != endpointId) revert ChainMismatch(endpointId, order.srcEid);
     }
 
@@ -93,6 +92,7 @@ library ValidationUtils {
      * @dev Used for depositNative and depositWithPermit2 which have their own auth mechanisms
      * @param order The order to validate
      * @param endpointId The current chain's endpoint ID
+     * @param maxFeeMbps The maximum allowed fee in millibasis points
      * @param orderStatus The status mapping function to check order status
      * @param isSupportedChain A function to check if the destination chain is supported
      * @return orderId The calculated order hash
@@ -100,6 +100,7 @@ library ValidationUtils {
     function validateDepositNoSig(
         Order calldata order,
         uint32 endpointId,
+        uint16 maxFeeMbps,
         function(bytes32) external view returns (OrderStatus) orderStatus,
         function(uint32) external view returns (bool) isSupportedChain
     ) internal view returns (bytes32 orderId) {
@@ -107,7 +108,7 @@ library ValidationUtils {
         if (orderStatus(orderId) != OrderStatus.Unknown) revert OrderAlreadyExists();
         if (!isSupportedChain(order.dstEid)) revert DestinationChainNotSupported(order.dstEid);
         if (order.srcEid != endpointId) revert ChainMismatch(endpointId, order.srcEid);
-        validateCommonOrderParams(order);
+        validateCommonOrderParams(order, maxFeeMbps);
     }
 
     /**
@@ -116,6 +117,7 @@ library ValidationUtils {
      * @param order The order to validate
      * @param solver The address attempting to fill the order
      * @param endpointId The current chain's endpoint ID
+     * @param maxFeeMbps The maximum allowed fee in millibasis points
      * @param orderStatus The status mapping function to check order status
      * @return orderId The calculated order hash
      */
@@ -123,10 +125,11 @@ library ValidationUtils {
         Order calldata order,
         address solver,
         uint32 endpointId,
+        uint16 maxFeeMbps,
         function(bytes32) external view returns (OrderStatus) orderStatus
     ) internal view returns (bytes32 orderId) {
         // Order parameter validation
-        validateCommonOrderParams(order);
+        validateCommonOrderParams(order, maxFeeMbps);
         if (order.dstEid != endpointId) revert ChainMismatch(endpointId, order.dstEid);
 
         // Solver authorization: if order specifies a solver, only that solver can fill

@@ -233,6 +233,15 @@ error FeeTooHigh();
 /// @param actual The actual output received
 error SlippageExceeded(uint256 minimum, uint256 actual);
 
+/// @notice Thrown when setting invalid protocol treasury address
+error InvalidProtocolTreasury();
+
+/// @notice Thrown when trying to claim with no pending fees
+error NoPendingFees();
+
+/// @notice Thrown when combined protocol fee and max additional fee would exceed 100%
+error CombinedFeesTooHigh();
+
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                       SWAP ERRORS                          */
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
