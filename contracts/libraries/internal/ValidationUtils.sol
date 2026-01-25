@@ -221,4 +221,17 @@ library ValidationUtils {
      */
     /* forgefmt: disable-next-item */
     function isSingleChainSwap(Order calldata order) internal pure returns (bool) { return order.srcEid == order.dstEid; }
+
+    /**
+     * @notice Validates a hook address is non-zero and whitelisted
+     * @param hookAddress The hook address to validate
+     * @param isAllowedHook Function to check hook whitelist
+     */
+    function validateHook(
+        address hookAddress,
+        function(address) external view returns (bool) isAllowedHook
+    ) internal view {
+        if (hookAddress == address(0)) revert MissingHook();
+        if (!isAllowedHook(hookAddress)) revert InvalidHookAddress();
+    }
 }

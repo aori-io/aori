@@ -22,7 +22,6 @@ import { PayloadType, PayloadPackUtils, PayloadUnpackUtils, PayloadSizeUtils } f
 import { ValidationUtils } from "./libraries/internal/ValidationUtils.sol";
 import { BalanceUtils } from "./libraries/internal/BalanceUtils.sol";
 import { ExecutionUtils } from "./libraries/internal/ExecutionUtils.sol";
-import { HookUtils } from "./libraries/internal/HookUtils.sol";
 import { TokenUtils } from "./libraries/internal/TokenUtils.sol";
 import { AoriStorage, AoriStorageData } from "./storage/AoriStorage.sol";
 import { ISignatureTransfer } from "@permit2/src/interfaces/ISignatureTransfer.sol";
@@ -61,8 +60,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     using PayloadPackUtils for bytes32[];
     using PayloadUnpackUtils for bytes;
     using PayloadSizeUtils for uint8;
-    using HookUtils for SrcHook;
-    using HookUtils for DstHook;
     using SafeERC20 for IERC20;
     using BalanceUtils for Balance;
     using ValidationUtils for Order;
@@ -316,7 +313,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         SrcHook calldata hook
     ) internal returns (uint256 amountReceived, address tokenReceived) {
         // Validate hook struct upfront
-        hook.validateSrcHook(this.isAllowedHook);
+        ValidationUtils.validateHook(hook.hookAddress, this.isAllowedHook);
 
         // Send input tokens to hook for conversion
         if (order.inputToken.isNativeToken()) {
@@ -444,7 +441,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         if (block.timestamp > deadline) revert Permit2SignatureExpired();
 
         bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
-        hook.validateSrcHook(this.isAllowedHook);
+        ValidationUtils.validateHook(hook.hookAddress, this.isAllowedHook);
 
         Permit2Lib.executeTransfer(order, hook.hookAddress, nonce, deadline, signature);
 
@@ -488,7 +485,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             this.isSupportedChain
         );
 
-        hook.validateSrcHook(this.isAllowedHook);
+        ValidationUtils.validateHook(hook.hookAddress, this.isAllowedHook);
 
         IERC20(order.inputToken).safeTransferFrom(order.offerer, hook.hookAddress, order.inputAmount);
 
@@ -510,7 +507,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         if (!order.isSingleChainSwap()) revert NotSingleChainOrder();
         bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
 
-        hook.validateSrcHook(this.isAllowedHook);
+        ValidationUtils.validateHook(hook.hookAddress, this.isAllowedHook);
 
         (bool success,) = payable(hook.hookAddress).call{ value: order.inputAmount }("");
         if (!success) revert NativeTransferFailed();
@@ -540,7 +537,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         if (!order.isSingleChainSwap()) revert NotSingleChainOrder();
 
         bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
-        hook.validateSrcHook(this.isAllowedHook);
+        ValidationUtils.validateHook(hook.hookAddress, this.isAllowedHook);
 
         Permit2Lib.executeTransfer(order, hook.hookAddress, nonce, deadline, signature);
 
@@ -683,7 +680,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         DstHook calldata hook
     ) internal returns (uint256 balChg) {
         // Validate hook struct upfront
-        hook.validateDstHook(this.isAllowedHook);
+        ValidationUtils.validateHook(hook.hookAddress, this.isAllowedHook);
 
         if (hook.preferredDstInputAmount > 0) {
             hook.preferredToken.validateMsgValue(hook.preferredDstInputAmount, msg.value);
