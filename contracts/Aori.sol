@@ -570,10 +570,11 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         }
 
         // Calculate both fees
-        uint256 protocolFee = (order.outputAmount * $.protocolFeeMbps) / ValidationUtils.MBPS_DIVISOR;
-        uint256 additionalFee = (order.outputAmount * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR;
-        uint256 totalFee = protocolFee + additionalFee;
-        uint256 recipientAmount = order.outputAmount - totalFee;
+        // Fee calculations use uint128 - safe because fee validations ensure totalFee <= outputAmount
+        uint128 protocolFee = uint128((uint256(order.outputAmount) * $.protocolFeeMbps) / ValidationUtils.MBPS_DIVISOR);
+        uint128 additionalFee = uint128((uint256(order.outputAmount) * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR);
+        uint128 totalFee = protocolFee + additionalFee;
+        uint128 recipientAmount = order.outputAmount - totalFee;
         uint256 surplus = amountReceived - order.outputAmount;
 
         // Recipient gets output minus fees (immediate transfer)
@@ -593,7 +594,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         // Additional fee accrues to feeRecipient (or solver if address(0))
         if (additionalFee > 0) {
             address actualFeeRecipient = order.options.feeRecipient == address(0) ? solver : order.options.feeRecipient;
-            $.balances[actualFeeRecipient][order.outputToken].unlocked += SafeCast.toUint128(additionalFee);
+            $.balances[actualFeeRecipient][order.outputToken].unlocked += additionalFee;
         }
 
         // Surplus accrues to solver
@@ -757,40 +758,49 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         Order memory order = $.orders[orderId];
 
         // Calculate both fees (order.inputAmount is the locked amount, already correct for srcHook)
-        uint256 protocolFee = (uint256(order.inputAmount) * $.protocolFeeMbps) / ValidationUtils.MBPS_DIVISOR;
-        uint256 additionalFee = (uint256(order.inputAmount) * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR;
-        uint256 totalFee = protocolFee + additionalFee;
-        uint128 fillerAmount = order.inputAmount - SafeCast.toUint128(totalFee);
+        // Fee calculations use uint128 - safe because fee validations ensure totalFee <= inputAmount
+        uint128 protocolFee = uint128((uint256(order.inputAmount) * $.protocolFeeMbps) / ValidationUtils.MBPS_DIVISOR);
+        uint128 additionalFee = uint128((uint256(order.inputAmount) * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR);
+        uint128 totalFee = protocolFee + additionalFee;
+        uint128 fillerAmount = order.inputAmount - totalFee;
 
         address feeRecipient = order.options.feeRecipient == address(0) 
             ? filler 
             : order.options.feeRecipient;
 
         // Cache original balances for potential rollback
-        // Only cache feeRecipient separately if different from filler (gas optimization)
         Balance memory offererBalanceCache = $.balances[order.offerer][order.inputToken];
         Balance memory fillerBalanceCache = $.balances[filler][order.inputToken];
-        Balance memory feeRecipientBalanceCache;
-        if (feeRecipient != filler) {
-            feeRecipientBalanceCache = $.balances[feeRecipient][order.inputToken];
-        }
 
-        // Attempt atomic balance transfer: offerer locked → filler unlocked (minus fees) + feeRecipient
+        // Attempt atomic balance transfer with soft-fail for batch safety
         bool successLock = $.balances[order.offerer][order.inputToken].decreaseLockedNoRevert(order.inputAmount);
-        bool successFiller = $.balances[filler][order.inputToken].increaseUnlockedNoRevert(fillerAmount);
-        bool successAdditionalFee = additionalFee > 0 
-            ? $.balances[feeRecipient][order.inputToken].increaseUnlockedNoRevert(SafeCast.toUint128(additionalFee))
-            : true;
-
-        // If any operation failed, restore ALL original balances to maintain atomicity
-        if (!successLock || !successFiller || !successAdditionalFee) {
-            $.balances[order.offerer][order.inputToken] = offererBalanceCache;
-            $.balances[filler][order.inputToken] = fillerBalanceCache;
-            if (feeRecipient != filler) {
-                $.balances[feeRecipient][order.inputToken] = feeRecipientBalanceCache;
+        
+        if (feeRecipient == filler) {
+            // Optimized path: single write for filler + additionalFee combined
+            uint128 totalToFiller = fillerAmount + additionalFee;
+            bool successFiller = $.balances[filler][order.inputToken].increaseUnlockedNoRevert(totalToFiller);
+            
+            if (!successLock || !successFiller) {
+                $.balances[order.offerer][order.inputToken] = offererBalanceCache;
+                $.balances[filler][order.inputToken] = fillerBalanceCache;
+                emit SettleFailed(orderId);
+                return;
             }
-            emit SettleFailed(orderId);
-            return; // Exit with no state changes
+        } else {
+            // Separate feeRecipient: need to cache and handle separately
+            Balance memory feeRecipientBalanceCache = $.balances[feeRecipient][order.inputToken];
+            bool successFiller = $.balances[filler][order.inputToken].increaseUnlockedNoRevert(fillerAmount);
+            bool successAdditionalFee = additionalFee > 0 
+                ? $.balances[feeRecipient][order.inputToken].increaseUnlockedNoRevert(additionalFee)
+                : true;
+
+            if (!successLock || !successFiller || !successAdditionalFee) {
+                $.balances[order.offerer][order.inputToken] = offererBalanceCache;
+                $.balances[filler][order.inputToken] = fillerBalanceCache;
+                $.balances[feeRecipient][order.inputToken] = feeRecipientBalanceCache;
+                emit SettleFailed(orderId);
+                return;
+            }
         }
 
         // Protocol fee - lazy accrual with overflow protection (no rollback needed, only written on success)
@@ -853,10 +863,11 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         AoriStorageData storage $ = _getAoriStorage();
 
         // Calculate both fees (order.inputAmount is the locked amount, already correct for srcHook)
-        uint256 protocolFee = (uint256(order.inputAmount) * $.protocolFeeMbps) / ValidationUtils.MBPS_DIVISOR;
-        uint256 additionalFee = (uint256(order.inputAmount) * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR;
-        uint256 totalFee = protocolFee + additionalFee;
-        uint128 solverAmount = order.inputAmount - SafeCast.toUint128(totalFee);
+        // Fee calculations use uint128 - safe because fee validations ensure totalFee <= inputAmount
+        uint128 protocolFee = uint128((uint256(order.inputAmount) * $.protocolFeeMbps) / ValidationUtils.MBPS_DIVISOR);
+        uint128 additionalFee = uint128((uint256(order.inputAmount) * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR);
+        uint128 totalFee = protocolFee + additionalFee;
+        uint128 solverAmount = order.inputAmount - totalFee;
 
         // Decrease offerer's locked balance
         $.balances[order.offerer][order.inputToken].locked -= order.inputAmount;
@@ -874,7 +885,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             address feeRecipient = order.options.feeRecipient == address(0) 
                 ? solver 
                 : order.options.feeRecipient;
-            $.balances[feeRecipient][order.inputToken].unlocked += SafeCast.toUint128(additionalFee);
+            $.balances[feeRecipient][order.inputToken].unlocked += additionalFee;
         }
 
         $.orderStatus[orderId] = OrderStatus.Settled;
