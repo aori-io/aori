@@ -568,7 +568,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         inputToken.approve(address(localAori), INPUT_AMOUNT);
 
         vm.expectEmit(true, false, false, true);
-        emit IAori.Deposit(orderId, order);
+        emit IAori.Deposit(orderId, order, 0);
 
         vm.prank(solverSC);
         localAori.deposit(order, signature);
