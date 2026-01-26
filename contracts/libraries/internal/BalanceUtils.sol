@@ -61,5 +61,4 @@ library BalanceUtils {
         }
         return true;
     }
-
 }
