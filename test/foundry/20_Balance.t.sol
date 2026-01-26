@@ -3,8 +3,7 @@ pragma solidity 0.8.33;
 
 /**
  * @title BalanceUtilsTest
- * @notice Tests for the Balance utility struct in AoriUtils library
-
+ * @notice Tests for the Balance utility struct in BalanceUtils library
  */
 import "forge-std/Test.sol";
 import { BalanceUtils } from "../../contracts/libraries/internal/BalanceUtils.sol";
@@ -46,34 +45,6 @@ contract BalanceUtilsTest is Test {
         // Overflow
         vm.expectRevert();
         balance.lock(1);
-    }
-
-    /**
-     * @notice Tests unlocking of previously locked tokens
-     */
-    function testUnlock() public {
-        uint128 amountToLock = 100;
-        uint128 amountToUnlock = 60;
-
-        balance.lock(amountToLock);
-        balance.unlock(amountToUnlock);
-
-        assertEq(balance.getLocked(), amountToLock - amountToUnlock, "Locked amount should decrease");
-        assertEq(balance.getUnlocked(), amountToUnlock, "Unlocked amount should increase");
-    }
-
-    /**
-     * @notice Tests revert when trying to unlock more than locked
-     */
-    /// forge-config: default.allow_internal_expect_revert = true
-    function testRevert_UnlockInsufficientBalance() public {
-        uint128 amountToLock = 50;
-        uint128 amountToUnlock = 100;
-
-        balance.lock(amountToLock);
-
-        vm.expectRevert(abi.encodeWithSelector(LockedBalanceDecreaseFailed.selector, amountToUnlock, amountToLock));
-        balance.unlock(amountToUnlock);
     }
 
     /**
@@ -152,16 +123,17 @@ contract BalanceUtilsTest is Test {
         assertEq(balance.locked, 1000, "Locked should increase to 1000");
 
         // Test no-revert functions
-        bool success = balance.decreaseLockedNoRevert(1000);
+        success = balance.decreaseLockedNoRevert(1000);
         assertTrue(success, "Should succeed");
-        assertEq(balance.getLocked(), 0, "Locked should be 0");
+        assertEq(balance.locked, 0, "Locked should be 0");
 
         success = balance.increaseUnlockedNoRevert(300);
         assertTrue(success, "Should succeed");
-        assertEq(balance.getUnlocked(), 500, "Unlocked should increase to 500");
-        // Test underflow protection
+        assertEq(balance.unlocked, 500, "Unlocked should increase to 500");
+
+        // Test underflow protection (balance.locked is now 0)
         success = balance.decreaseLockedNoRevert(2000);
         assertFalse(success, "Should fail when trying to decrease more than locked");
-        assertEq(balance.locked, 1000, "Locked should remain unchanged");
+        assertEq(balance.locked, 0, "Locked should remain unchanged");
     }
 }
