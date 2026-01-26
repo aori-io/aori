@@ -183,4 +183,57 @@ interface IAori {
      * @param amountOut The amount of output tokens received from hook execution
      */
     event DstHookExecuted(bytes32 indexed orderId, address indexed tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                       SWAP FUNCTIONS                        */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /**
+     * @notice Emitted when an atomic single-chain swap is executed
+     * @param orderId The unique order identifier
+     * @param order The order details
+     * @param amountReceived The amount of output tokens received from hook
+     */
+    event Swap(bytes32 indexed orderId, Order order, uint256 amountReceived);
+
+    /**
+     * @notice Execute atomic single-chain swap with ERC20 input
+     * @dev Only for single-chain orders (srcEid == dstEid). Input tokens converted to output via hook.
+     * @param order The order details
+     * @param signature User's EIP-712 signature
+     * @param hook The source hook for token conversion
+     */
+    function swap(
+        Order calldata order,
+        bytes calldata signature,
+        SrcHook calldata hook
+    ) external;
+
+    /**
+     * @notice Execute atomic single-chain swap with native token input
+     * @dev Offerer must be msg.sender. Native tokens sent to hook for conversion.
+     * @param order The order details (inputToken must be NATIVE_TOKEN)
+     * @param hook The source hook for token conversion
+     */
+    function swapNative(
+        Order calldata order,
+        SrcHook calldata hook
+    ) external payable;
+
+    /**
+     * @notice Execute atomic single-chain swap with Permit2
+     * @dev Tokens transferred directly to hook via Permit2
+     * @param order The order details
+     * @param hook The source hook for token conversion
+     * @param nonce Permit2 nonce
+     * @param deadline Permit2 signature deadline
+     * @param signature User's Permit2 signature
+     */
+    function swapWithPermit2(
+        Order calldata order,
+        SrcHook calldata hook,
+        uint256 nonce,
+        uint256 deadline,
+        bytes calldata signature
+    ) external;
 }
