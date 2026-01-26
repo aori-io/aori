@@ -48,6 +48,34 @@ contract BalanceUtilsTest is Test {
     }
 
     /**
+     * @notice Tests unlocking of previously locked tokens
+     */
+    function testUnlock() public {
+        uint128 amountToLock = 100;
+        uint128 amountToUnlock = 60;
+
+        balance.lock(amountToLock);
+        balance.unlock(amountToUnlock);
+
+        assertEq(balance.getLocked(), amountToLock - amountToUnlock, "Locked amount should decrease");
+        assertEq(balance.getUnlocked(), amountToUnlock, "Unlocked amount should increase");
+    }
+
+    /**
+     * @notice Tests revert when trying to unlock more than locked
+     */
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testRevert_UnlockInsufficientBalance() public {
+        uint128 amountToLock = 50;
+        uint128 amountToUnlock = 100;
+
+        balance.lock(amountToLock);
+
+        vm.expectRevert(abi.encodeWithSelector(LockedBalanceDecreaseFailed.selector, amountToUnlock, amountToLock));
+        balance.unlock(amountToUnlock);
+    }
+
+    /**
      * @notice Tests non-reverting locked balance decrease
      */
     function testDecreaseLockedNoRevert() public {
