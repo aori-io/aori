@@ -26,6 +26,7 @@ struct Order {
     uint32 dstEid;            // Destination chain endpoint ID
     address offerer;          // User who created the order
     address recipient;        // Address to receive output tokens
+    Options options;
 }
 ```
 
