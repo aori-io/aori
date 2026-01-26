@@ -3,7 +3,8 @@ pragma solidity 0.8.33;
 
 /**
  * @title BalanceUtilsTest
- * @notice Tests for the Balance utility struct in BalanceUtils library
+ * @notice Tests for the Balance utility struct in AoriUtils library
+
  */
 import "forge-std/Test.sol";
 import { BalanceUtils } from "../../contracts/libraries/internal/BalanceUtils.sol";
@@ -150,6 +151,14 @@ contract BalanceUtilsTest is Test {
         balance.lock(700);
         assertEq(balance.locked, 1000, "Locked should increase to 1000");
 
+        // Test no-revert functions
+        bool success = balance.decreaseLockedNoRevert(1000);
+        assertTrue(success, "Should succeed");
+        assertEq(balance.getLocked(), 0, "Locked should be 0");
+
+        success = balance.increaseUnlockedNoRevert(300);
+        assertTrue(success, "Should succeed");
+        assertEq(balance.getUnlocked(), 500, "Unlocked should increase to 500");
         // Test underflow protection
         success = balance.decreaseLockedNoRevert(2000);
         assertFalse(success, "Should fail when trying to decrease more than locked");
