@@ -15,6 +15,10 @@ import { AoriStorage, AoriStorageData } from "./storage/AoriStorage.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { BalanceUtils } from "./libraries/internal/BalanceUtils.sol";
 import { AoriAdminLib } from "./libraries/external/AoriAdminLib.sol";
+import { SwapLib } from "./libraries/external/SwapLib.sol";
+import { SettleLib } from "./libraries/external/SettleLib.sol";
+import { HookExecLib } from "./libraries/external/HookExecLib.sol";
+import { DepositLib } from "./libraries/external/DepositLib.sol";
 import { TokenUtils } from "./libraries/internal/TokenUtils.sol";
 import { Permit2Lib } from "./libraries/internal/Permit2Lib.sol";
 import { EIP712 } from "solady/src/utils/EIP712.sol";
@@ -295,63 +299,16 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         _postDeposit(tokenReceived, amountReceived, order, orderId);
     }
 
-    /**
-     * @notice Executes a source hook to convert input tokens to preferred token
-     * @dev Sends input tokens (native or ERC20) to hook, executes conversion to preferred token.
-     *      Works for both single-chain and cross-chain orders using deposit-then-fill flow.
-     *      For atomic single-chain swaps, use swap() with _executeSwap() instead.
-     * @param order The order details
-     * @param hook The source hook configuration
-     * @return amountReceived The amount of tokens received from the hook
-     * @return tokenReceived The token address that was received (hook.preferredToken)
-     */
-    function _executeSrcHook(
-        Order calldata order,
-        SrcHook calldata hook
-    ) internal returns (uint256 amountReceived, address tokenReceived) {
-        // Validate hook struct upfront
-        ValidationUtils.validateHook(hook.hookAddress, this.isAllowedHook);
-
-        // Send input tokens to hook for conversion
-        if (order.inputToken.isNativeToken()) {
-            // Native tokens already received via msg.value, send to hook
-            (bool success,) = payable(hook.hookAddress).call{ value: order.inputAmount }("");
-            if (!success) revert NativeTransferFailed();
-        } else {
-            // Pull ERC20 tokens from offerer to hook
-            IERC20(order.inputToken).safeTransferFrom(order.offerer, hook.hookAddress, order.inputAmount);
-        }
-
-        // Convert to preferred token
-        amountReceived = ExecutionUtils.observeBalChg(hook.hookAddress, hook.instructions, hook.preferredToken);
-
-        if (amountReceived < hook.minPreferredTokenAmountOut) {
-            revert InsufficientSrcHookOutput(hook.minPreferredTokenAmountOut, amountReceived);
-        }
-        tokenReceived = hook.preferredToken;
+    /// @notice Executes source hook via library (saves bytecode)
+    /* forgefmt: disable-next-item */
+    function _executeSrcHook(Order calldata order, SrcHook calldata hook) internal returns (uint256, address) {
+        return HookExecLib.executeSrcHook(order, hook, this.isAllowedHook);
     }
 
-    /**
-     * @notice Posts a deposit and updates the order status
-     * @param depositToken The token address to deposit
-     * @param depositAmount The amount of tokens to deposit
-     * @param order The order details
-     * @param orderId The unique identifier for the order
-     */
-    function _postDeposit(
-        address depositToken,
-        uint256 depositAmount,
-        Order calldata order,
-        bytes32 orderId
-    ) internal {
-        AoriStorageData storage $ = _getAoriStorage();
-        $.balances[order.offerer][depositToken].lock(SafeCast.toUint128(depositAmount));
-        $.orderStatus[orderId] = OrderStatus.Active;
-        $.orders[orderId] = order;
-        $.orders[orderId].inputToken = depositToken;
-        $.orders[orderId].inputAmount = SafeCast.toUint128(depositAmount);
-
-        emit Deposit(orderId, order, order.options.feeMbps);
+    /// @notice Posts deposit via library (saves bytecode)
+    /* forgefmt: disable-next-item */
+    function _postDeposit(address depositToken, uint256 depositAmount, Order calldata order, bytes32 orderId) internal {
+        DepositLib.postDeposit(depositToken, depositAmount, order, orderId);
     }
 
     /**
@@ -542,69 +499,10 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         _executeSwap(orderId, order, hook, solver);
     }
 
-    /**
-     * @notice Core swap execution logic shared by all swap variants
-     * @dev Executes hook, validates output, distributes tokens, updates state
-     * @param orderId The computed order hash
-     * @param order The order details
-     * @param hook The source hook for token conversion
-     * @param solver The solver address (for surplus distribution)
-     * @return amountReceived The amount of output tokens received from hook
-     */
-    function _executeSwap(
-        bytes32 orderId,
-        Order calldata order,
-        SrcHook calldata hook,
-        address solver
-    ) internal returns (uint256 amountReceived) {
-        AoriStorageData storage $ = _getAoriStorage();
-
-        // Execute hook - converts input to output
-        amountReceived = ExecutionUtils.observeBalChg(hook.hookAddress, hook.instructions, order.outputToken);
-
-        if (amountReceived < order.outputAmount) {
-            revert InsufficientSrcHookOutput(order.outputAmount, amountReceived);
-        }
-
-        // Calculate both fees
-        // Fee calculations use uint128 - safe because fee validations ensure totalFee <= outputAmount
-        uint128 protocolFee = uint128((uint256(order.outputAmount) * $.protocolFeeMbps) / ValidationUtils.MBPS_DIVISOR);
-        uint128 additionalFee = uint128((uint256(order.outputAmount) * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR);
-        uint128 totalFee = protocolFee + additionalFee;
-        uint128 recipientAmount = order.outputAmount - totalFee;
-        uint256 surplus = amountReceived - order.outputAmount;
-
-        // Recipient gets output minus fees (immediate transfer)
-        order.outputToken.safeTransfer(order.recipient, recipientAmount);
-
-        // Protocol fee - lazy accrual with overflow protection
-        if (protocolFee > 0) {
-            uint256 current = $.pendingProtocolFees[order.outputToken];
-            unchecked {
-                uint256 newAmount = current + protocolFee;
-                if (newAmount >= current) {
-                    $.pendingProtocolFees[order.outputToken] = newAmount;
-                }
-            }
-        }
-
-        // Additional fee accrues to feeRecipient (or solver if address(0))
-        if (additionalFee > 0) {
-            address actualFeeRecipient = order.options.feeRecipient == address(0) ? solver : order.options.feeRecipient;
-            $.balances[actualFeeRecipient][order.outputToken].unlocked += additionalFee;
-        }
-
-        // Surplus accrues to solver
-        if (surplus > 0) {
-            $.balances[solver][order.outputToken].unlocked += SafeCast.toUint128(surplus);
-        }
-
-        // Update state
-        $.orders[orderId] = order;
-        $.orderStatus[orderId] = OrderStatus.Settled;
-
-        // Emit event
-        emit Swap(orderId, order, amountReceived);
+    /// @notice Executes swap via library (saves bytecode)
+    /* forgefmt: disable-next-item */
+    function _executeSwap(bytes32 orderId, Order calldata order, SrcHook calldata hook, address solver) internal returns (uint256) {
+        return SwapLib.executeSwap(orderId, order, hook, solver);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -667,45 +565,15 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         }
     }
 
-    /**
-     * @notice Executes a destination hook and handles token conversion
-     * @param order The order details
-     * @param hook The destination hook configuration
-     * @return balChg The balance change observed from the hook execution
-     */
-    function _executeDstHook(
-        Order calldata order,
-        DstHook calldata hook
-    ) internal returns (uint256 balChg) {
-        // Validate hook struct upfront
-        ValidationUtils.validateHook(hook.hookAddress, this.isAllowedHook);
-
-        if (hook.preferredDstInputAmount > 0) {
-            hook.preferredToken.validateMsgValue(hook.preferredDstInputAmount, msg.value);
-            hook.preferredToken.safeTransferFrom(msg.sender, hook.hookAddress, hook.preferredDstInputAmount);
-        } else {
-            // Hook expects no input tokens - ensure no ETH was mistakenly sent
-            if (msg.value != 0) revert UnexpectedNativeTokens();
-        }
-
-        balChg = ExecutionUtils.observeBalChg(hook.hookAddress, hook.instructions, order.outputToken);
-        if (balChg < order.outputAmount) revert InsufficientDstHookOutput(order.outputAmount, balChg);
+    /// @notice Executes destination hook via library (saves bytecode)
+    /* forgefmt: disable-next-item */
+    function _executeDstHook(Order calldata order, DstHook calldata hook) internal returns (uint256) {
+        return HookExecLib.executeDstHook(order, hook, msg.value, msg.sender, this.isAllowedHook);
     }
 
-    /**
-     * @notice Processes an order after successful filling
-     * @param orderId The unique identifier for the order
-     * @param order The order details that were filled
-     */
-    function _postFill(
-        bytes32 orderId,
-        Order calldata order
-    ) internal {
-        AoriStorageData storage $ = _getAoriStorage();
-        $.orderStatus[orderId] = OrderStatus.Filled;
-        $.srcEidToFillerFills[order.srcEid][msg.sender].push(orderId);
-        emit Fill(orderId, order);
-    }
+    /// @notice Posts fill via library (saves bytecode)
+    /* forgefmt: disable-next-item */
+    function _postFill(bytes32 orderId, Order calldata order) internal { DepositLib.postFill(orderId, order, msg.sender, order.srcEid); }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                            SETTLE                          */
@@ -735,85 +603,9 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         emit SettleSent(srcEid, filler, payload, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 
-    /**
-     * @notice Settles a single order by transferring tokens from offerer to filler
-     * @dev Moves tokens from offerer's locked balance to filler's unlocked balance.
-     *      Uses cache-and-restore pattern to ensure true atomicity - if any step fails,
-     *      all balance changes are reverted to prevent accounting inconsistencies.
-     * @param orderId The hash of the order to settle
-     * @param filler The filler address who will receive the tokens
-     */
-    function _settleOrder(
-        bytes32 orderId,
-        address filler
-    ) internal {
-        AoriStorageData storage $ = _getAoriStorage();
-        if ($.orderStatus[orderId] != OrderStatus.Active) {
-            return; // Skip non-active orders
-        }
-
-        Order memory order = $.orders[orderId];
-
-        // Calculate both fees (order.inputAmount is the locked amount, already correct for srcHook)
-        // Fee calculations use uint128 - safe because fee validations ensure totalFee <= inputAmount
-        uint128 protocolFee = uint128((uint256(order.inputAmount) * $.protocolFeeMbps) / ValidationUtils.MBPS_DIVISOR);
-        uint128 additionalFee = uint128((uint256(order.inputAmount) * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR);
-        uint128 totalFee = protocolFee + additionalFee;
-        uint128 fillerAmount = order.inputAmount - totalFee;
-
-        address feeRecipient = order.options.feeRecipient == address(0) 
-            ? filler 
-            : order.options.feeRecipient;
-
-        // Cache original balances for potential rollback
-        Balance memory offererBalanceCache = $.balances[order.offerer][order.inputToken];
-        Balance memory fillerBalanceCache = $.balances[filler][order.inputToken];
-
-        // Attempt atomic balance transfer with soft-fail for batch safety
-        bool successLock = $.balances[order.offerer][order.inputToken].decreaseLockedNoRevert(order.inputAmount);
-        
-        if (feeRecipient == filler) {
-            // Optimized path: single write for filler + additionalFee combined
-            uint128 totalToFiller = fillerAmount + additionalFee;
-            bool successFiller = $.balances[filler][order.inputToken].increaseUnlockedNoRevert(totalToFiller);
-            
-            if (!successLock || !successFiller) {
-                $.balances[order.offerer][order.inputToken] = offererBalanceCache;
-                $.balances[filler][order.inputToken] = fillerBalanceCache;
-                emit SettleFailed(orderId);
-                return;
-            }
-        } else {
-            // Separate feeRecipient: need to cache and handle separately
-            Balance memory feeRecipientBalanceCache = $.balances[feeRecipient][order.inputToken];
-            bool successFiller = $.balances[filler][order.inputToken].increaseUnlockedNoRevert(fillerAmount);
-            bool successAdditionalFee = additionalFee > 0 
-                ? $.balances[feeRecipient][order.inputToken].increaseUnlockedNoRevert(additionalFee)
-                : true;
-
-            if (!successLock || !successFiller || !successAdditionalFee) {
-                $.balances[order.offerer][order.inputToken] = offererBalanceCache;
-                $.balances[filler][order.inputToken] = fillerBalanceCache;
-                $.balances[feeRecipient][order.inputToken] = feeRecipientBalanceCache;
-                emit SettleFailed(orderId);
-                return;
-            }
-        }
-
-        // Protocol fee - lazy accrual with overflow protection (no rollback needed, only written on success)
-        if (protocolFee > 0) {
-            uint256 current = $.pendingProtocolFees[order.inputToken];
-            unchecked {
-                uint256 newAmount = current + protocolFee;
-                if (newAmount >= current) {
-                    $.pendingProtocolFees[order.inputToken] = newAmount;
-                }
-            }
-        }
-
-        $.orderStatus[orderId] = OrderStatus.Settled;
-        emit Settle(orderId);
-    }
+    /// @notice Settles order via library (saves bytecode)
+    /* forgefmt: disable-next-item */
+    function _settleOrder(bytes32 orderId, address filler) internal { SettleLib.settleOrder(orderId, filler); }
 
     /**
      * @notice Handles settlement of filled orders
@@ -843,52 +635,9 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         }
     }
 
-    /**
-     * @notice Handles settlement of same-chain swaps with fee distribution
-     * @dev Performs atomic settlement within the same transaction for same-chain orders.
-     *      Moves tokens from offerer's locked balance to solver's unlocked balance minus fee.
-     *      Fee accrues to feeRecipient's unlocked balance.
-     * @param orderId The unique identifier for the order
-     * @param order The order details
-     * @param solver The address of the solver who filled the order
-     */
-    function _settleSingleChainSwap(
-        bytes32 orderId,
-        Order memory order,
-        address solver
-    ) internal {
-        AoriStorageData storage $ = _getAoriStorage();
-
-        // Calculate both fees (order.inputAmount is the locked amount, already correct for srcHook)
-        // Fee calculations use uint128 - safe because fee validations ensure totalFee <= inputAmount
-        uint128 protocolFee = uint128((uint256(order.inputAmount) * $.protocolFeeMbps) / ValidationUtils.MBPS_DIVISOR);
-        uint128 additionalFee = uint128((uint256(order.inputAmount) * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR);
-        uint128 totalFee = protocolFee + additionalFee;
-        uint128 solverAmount = order.inputAmount - totalFee;
-
-        // Decrease offerer's locked balance
-        $.balances[order.offerer][order.inputToken].locked -= order.inputAmount;
-
-        // Credit solver (minus fees)
-        $.balances[solver][order.inputToken].unlocked += solverAmount;
-
-        // Protocol fee - lazy accrual (direct += ok here, single operation can revert)
-        if (protocolFee > 0) {
-            $.pendingProtocolFees[order.inputToken] += protocolFee;
-        }
-
-        // Additional fee accrues to feeRecipient
-        if (additionalFee > 0) {
-            address feeRecipient = order.options.feeRecipient == address(0) 
-                ? solver 
-                : order.options.feeRecipient;
-            $.balances[feeRecipient][order.inputToken].unlocked += additionalFee;
-        }
-
-        $.orderStatus[orderId] = OrderStatus.Settled;
-        emit Fill(orderId, order);
-        emit Settle(orderId);
-    }
+    /// @notice Settles single-chain swap via library (saves bytecode)
+    /* forgefmt: disable-next-item */
+    function _settleSingleChainSwap(bytes32 orderId, Order memory order, address solver) internal { SettleLib.settleSingleChainSwap(orderId, order, solver); }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                            CANCEL                          */
@@ -1016,28 +765,9 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     /*                   PROTOCOL FEE FUNCTIONS                   */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    /**
-     * @notice Claims accumulated protocol fees for a token
-     * @dev Permissionless - anyone can trigger, but funds always go to treasury
-     * @param token The token to claim fees for
-     */
-    function claimProtocolFees(address token) external nonReentrant {
-        AoriStorageData storage $ = _getAoriStorage();
-
-        uint256 amount = $.pendingProtocolFees[token];
-        if (amount == 0) revert NoPendingFees();
-
-        address treasury = $.protocolTreasury;
-        if (treasury == address(0)) revert InvalidProtocolTreasury();
-
-        // Clear pending before transfer (CEI pattern)
-        $.pendingProtocolFees[token] = 0;
-
-        // Direct transfer to treasury (handles both native and ERC20)
-        TokenUtils.safeTransfer(token, treasury, amount);
-
-        emit ProtocolFeesClaimed(token, amount, treasury);
-    }
+    /// @notice Claims accumulated protocol fees for a token (permissionless, goes to treasury)
+    /* forgefmt: disable-next-item */
+    function claimProtocolFees(address token) external nonReentrant { AoriAdminLib.claimProtocolFees(token); }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                   LAYERZERO FUNCTIONS                      */

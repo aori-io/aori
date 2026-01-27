@@ -1,0 +1,139 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.33;
+
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { Order, OrderStatus, Balance } from "../../types/AoriTypes.sol";
+import { AoriStorageData } from "../../storage/AoriStorage.sol";
+import { ValidationUtils } from "../internal/ValidationUtils.sol";
+import { BalanceUtils } from "../internal/BalanceUtils.sol";
+import "../../types/AoriErrors.sol";
+
+/**
+ * @title SettleLib
+ * @notice External library containing settlement logic for the Aori protocol
+ * @dev Functions are called via DELEGATECALL, running in Aori's storage context.
+ */
+library SettleLib {
+    using BalanceUtils for Balance;
+
+    // keccak256(abi.encode(uint256(keccak256("aori.storage.v1")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 private constant AORI_STORAGE_LOCATION = 0x476c06ce9bda338755e203b7f327971f808163bb891bef1bf37f35e88d0aae00;
+
+    event Settle(bytes32 indexed orderId);
+    event SettleFailed(bytes32 indexed orderId);
+    event Fill(bytes32 indexed orderId, Order order);
+
+    function _getAoriStorage() private pure returns (AoriStorageData storage $) {
+        assembly {
+            $.slot := AORI_STORAGE_LOCATION
+        }
+    }
+
+    /**
+     * @notice Settles a single order by transferring tokens from offerer to filler
+     * @dev Moves tokens from offerer's locked balance to filler's unlocked balance.
+     * @param orderId The hash of the order to settle
+     * @param filler The filler address who will receive the tokens
+     */
+    function settleOrder(bytes32 orderId, address filler) external {
+        AoriStorageData storage $ = _getAoriStorage();
+        if ($.orderStatus[orderId] != OrderStatus.Active) {
+            return; // Skip non-active orders
+        }
+
+        Order memory order = $.orders[orderId];
+
+        // Calculate both fees
+        uint128 protocolFee = uint128((uint256(order.inputAmount) * $.protocolFeeMbps) / ValidationUtils.MBPS_DIVISOR);
+        uint128 additionalFee = uint128((uint256(order.inputAmount) * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR);
+        uint128 totalFee = protocolFee + additionalFee;
+        uint128 fillerAmount = order.inputAmount - totalFee;
+
+        address feeRecipient = order.options.feeRecipient == address(0) ? filler : order.options.feeRecipient;
+
+        // Cache original balances for potential rollback
+        Balance memory offererBalanceCache = $.balances[order.offerer][order.inputToken];
+        Balance memory fillerBalanceCache = $.balances[filler][order.inputToken];
+
+        // Attempt atomic balance transfer with soft-fail for batch safety
+        bool successLock = $.balances[order.offerer][order.inputToken].decreaseLockedNoRevert(order.inputAmount);
+
+        if (feeRecipient == filler) {
+            // Optimized path: single write for filler + additionalFee combined
+            uint128 totalToFiller = fillerAmount + additionalFee;
+            bool successFiller = $.balances[filler][order.inputToken].increaseUnlockedNoRevert(totalToFiller);
+
+            if (!successLock || !successFiller) {
+                $.balances[order.offerer][order.inputToken] = offererBalanceCache;
+                $.balances[filler][order.inputToken] = fillerBalanceCache;
+                emit SettleFailed(orderId);
+                return;
+            }
+        } else {
+            // Separate feeRecipient: need to cache and handle separately
+            Balance memory feeRecipientBalanceCache = $.balances[feeRecipient][order.inputToken];
+            bool successFiller = $.balances[filler][order.inputToken].increaseUnlockedNoRevert(fillerAmount);
+            bool successAdditionalFee =
+                additionalFee > 0 ? $.balances[feeRecipient][order.inputToken].increaseUnlockedNoRevert(additionalFee) : true;
+
+            if (!successLock || !successFiller || !successAdditionalFee) {
+                $.balances[order.offerer][order.inputToken] = offererBalanceCache;
+                $.balances[filler][order.inputToken] = fillerBalanceCache;
+                $.balances[feeRecipient][order.inputToken] = feeRecipientBalanceCache;
+                emit SettleFailed(orderId);
+                return;
+            }
+        }
+
+        // Protocol fee - lazy accrual with overflow protection
+        if (protocolFee > 0) {
+            uint256 current = $.pendingProtocolFees[order.inputToken];
+            unchecked {
+                uint256 newAmount = current + protocolFee;
+                if (newAmount >= current) {
+                    $.pendingProtocolFees[order.inputToken] = newAmount;
+                }
+            }
+        }
+
+        $.orderStatus[orderId] = OrderStatus.Settled;
+        emit Settle(orderId);
+    }
+
+    /**
+     * @notice Handles settlement of same-chain swaps with fee distribution
+     * @param orderId The unique identifier for the order
+     * @param order The order details
+     * @param solver The address of the solver who filled the order
+     */
+    function settleSingleChainSwap(bytes32 orderId, Order memory order, address solver) external {
+        AoriStorageData storage $ = _getAoriStorage();
+
+        // Calculate both fees
+        uint128 protocolFee = uint128((uint256(order.inputAmount) * $.protocolFeeMbps) / ValidationUtils.MBPS_DIVISOR);
+        uint128 additionalFee = uint128((uint256(order.inputAmount) * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR);
+        uint128 totalFee = protocolFee + additionalFee;
+        uint128 solverAmount = order.inputAmount - totalFee;
+
+        // Decrease offerer's locked balance
+        $.balances[order.offerer][order.inputToken].locked -= order.inputAmount;
+
+        // Credit solver (minus fees)
+        $.balances[solver][order.inputToken].unlocked += solverAmount;
+
+        // Protocol fee - lazy accrual
+        if (protocolFee > 0) {
+            $.pendingProtocolFees[order.inputToken] += protocolFee;
+        }
+
+        // Additional fee accrues to feeRecipient
+        if (additionalFee > 0) {
+            address feeRecipient = order.options.feeRecipient == address(0) ? solver : order.options.feeRecipient;
+            $.balances[feeRecipient][order.inputToken].unlocked += additionalFee;
+        }
+
+        $.orderStatus[orderId] = OrderStatus.Settled;
+        emit Fill(orderId, order);
+        emit Settle(orderId);
+    }
+}

@@ -191,6 +191,32 @@ library AoriAdminLib {
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                   CLAIM PROTOCOL FEES                      */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    event ProtocolFeesClaimed(address indexed token, uint256 amount, address indexed treasury);
+
+    /// @notice Claims accumulated protocol fees for a token
+    /// @dev Permissionless - anyone can trigger, but funds always go to treasury
+    function claimProtocolFees(address token) external {
+        AoriStorageData storage $ = _getAoriStorage();
+
+        uint256 amount = $.pendingProtocolFees[token];
+        if (amount == 0) revert NoPendingFees();
+
+        address treasury = $.protocolTreasury;
+        if (treasury == address(0)) revert InvalidProtocolTreasury();
+
+        // Clear pending before transfer (CEI pattern)
+        $.pendingProtocolFees[token] = 0;
+
+        // Direct transfer to treasury
+        _transfer(token, treasury, amount);
+
+        emit ProtocolFeesClaimed(token, amount, treasury);
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    INTERNAL HELPERS                        */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
