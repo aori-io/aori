@@ -34,7 +34,7 @@ library AoriAdminLib {
     event Cancel(bytes32 indexed orderId);
     event Withdraw(address indexed holder, address indexed token, uint256 amount);
     event ProtocolFeeUpdated(uint16 feeMbps);
-    event ProtocolTreasuryUpdated(address treasury);
+    event ProtocolTreasuryUpdated(address indexed treasury);
     event MaxFeeUpdated(uint16 maxFeeMbps);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/

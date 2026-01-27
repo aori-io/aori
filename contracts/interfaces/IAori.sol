@@ -44,7 +44,7 @@ interface IAori {
 
     /// @notice Emitted when protocol treasury is updated
     /// @param treasury New treasury address
-    event ProtocolTreasuryUpdated(address treasury);
+    event ProtocolTreasuryUpdated(address indexed treasury);
 
     /// @notice Emitted when maximum additional fee is updated
     /// @param maxFeeMbps New maximum fee in millibasis points
