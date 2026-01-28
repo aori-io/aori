@@ -222,6 +222,27 @@ error InvalidUserAddress();
 error AmountMustBeGreaterThanZero();
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+/*                        FEE ERRORS                          */
+/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+/// @notice Thrown when fee exceeds maximum allowed (5%)
+error FeeTooHigh();
+
+/// @notice Thrown when actual output doesn't meet minimum required
+/// @param minimum The minimum acceptable output
+/// @param actual The actual output received
+error SlippageExceeded(uint256 minimum, uint256 actual);
+
+/// @notice Thrown when setting invalid protocol treasury address
+error InvalidProtocolTreasury();
+
+/// @notice Thrown when trying to claim with no pending fees
+error NoPendingFees();
+
+/// @notice Thrown when combined protocol fee and max additional fee would exceed 100%
+error CombinedFeesTooHigh();
+
+/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                       SWAP ERRORS                          */
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 

@@ -76,29 +76,6 @@ library TokenUtils {
     }
 
     /**
-     * @notice Distributes tokens to recipient and surplus to solver
-     * @param token The token to distribute
-     * @param recipient The primary recipient
-     * @param recipientAmount The exact amount for recipient
-     * @param solver The solver to receive surplus (or address(0) for msg.sender)
-     * @param totalAmount The total amount received
-     */
-    function distributeWithSurplus(
-        address token,
-        address recipient,
-        uint256 recipientAmount,
-        address solver,
-        uint256 totalAmount
-    ) internal {
-        safeTransfer(token, recipient, recipientAmount);
-        uint256 surplus = totalAmount - recipientAmount;
-        if (surplus > 0) {
-            address surplusRecipient = solver == address(0) ? msg.sender : solver;
-            safeTransfer(token, surplusRecipient, surplus);
-        }
-    }
-
-    /**
      * @notice Validates msg.value matches expected amount for token type
      * @param token The token address (use NATIVE_TOKEN for ETH)
      * @param expectedAmount The expected amount

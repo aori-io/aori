@@ -61,35 +61,4 @@ library BalanceUtils {
         }
         return true;
     }
-
-    /**
-     * @notice Validates a decrease in locked balance with a corresponding increase in unlocked balance with revert
-     * @dev Verifies that the token accounting was performed correctly during transfer operations
-     * @param _balance The Balance struct reference (not used, but needed for extension method pattern)
-     * @param initialOffererLocked The offerer's initial locked balance
-     * @param finalOffererLocked The offerer's final locked balance
-     * @param initialSolverUnlocked The solver's initial unlocked balance
-     * @param finalSolverUnlocked The solver's final unlocked balance
-     * @param transferAmount The amount that should have been transferred
-     */
-    function validateBalanceTransferOrRevert(
-        Balance storage _balance,
-        uint128 initialOffererLocked,
-        uint128 finalOffererLocked,
-        uint128 initialSolverUnlocked,
-        uint128 finalSolverUnlocked,
-        uint128 transferAmount
-    ) internal pure {
-        // Verify offerer's locked balance decreased by exactly the transfer amount
-        uint128 expectedOffererLocked = finalOffererLocked + transferAmount;
-        if (initialOffererLocked != expectedOffererLocked) {
-            revert BalanceInconsistency(initialOffererLocked, expectedOffererLocked);
-        }
-
-        // Verify solver's unlocked balance increased by exactly the transfer amount
-        uint128 expectedSolverUnlocked = initialSolverUnlocked + transferAmount;
-        if (finalSolverUnlocked != expectedSolverUnlocked) {
-            revert BalanceInconsistency(expectedSolverUnlocked, finalSolverUnlocked);
-        }
-    }
 }
