@@ -36,7 +36,7 @@ interface IAori {
     event HookRemoved(address indexed hook);
     event SolverAdded(address indexed solver);
     event SolverRemoved(address indexed solver);
-    event MaxFillsPerSettleUpdated(uint16 oldValue, uint16 newValue);
+    event MaxFillsPerSettleSet(uint16 newValue);
 
     /// @notice Emitted when protocol fee is updated
     /// @param feeMbps New protocol fee in millibasis points

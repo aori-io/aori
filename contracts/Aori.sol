@@ -234,6 +234,11 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     function setMaxFee(uint16 maxFeeMbps) external onlyOwner { AoriAdminLib.setMaxFee(maxFeeMbps); }
     /* forgefmt: disable-next-item */
     function getMaxFee() external view returns (uint16) { return AoriAdminLib.getMaxFee(); }
+    /* forgefmt: disable-next-item */
+    function setMaxFillsPerSettle(uint16 maxFills) external onlyOwner { AoriAdminLib.setMaxFillsPerSettle(maxFills); }
+    /* forgefmt: disable-next-item */
+    function getMaxFillsPerSettle() external view returns (uint16) { return AoriAdminLib.getMaxFillsPerSettle(); }
+
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                         MODIFIERS                          */
