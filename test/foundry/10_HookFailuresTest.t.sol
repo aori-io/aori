@@ -86,7 +86,7 @@ contract HookFailuresTest is TestUtils {
         outputToken.approve(address(remoteAori), order.outputAmount);
 
         vm.prank(solver);
-        vm.expectRevert(abi.encodeWithSelector(InsufficientDstHookOutput.selector, order.outputAmount, 1e18));
+        vm.expectRevert(abi.encodeWithSelector(SlippageExceeded.selector, order.outputAmount, 1e18));
         remoteAori.fill(order, dstData);
     }
 
