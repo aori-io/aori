@@ -10,9 +10,6 @@ import { OrderStatus } from "./AoriTypes.sol";
 /// @notice Thrown when owner address is zero during initialization
 error InvalidOwner();
 
-/// @notice Thrown when max fills per settle is set to zero
-error InvalidMaxFillsPerSettle();
-
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                     ORDER VALIDATION                       */
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/

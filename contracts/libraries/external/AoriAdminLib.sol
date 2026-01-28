@@ -181,6 +181,19 @@ library AoriAdminLib {
         return _getAoriStorage().maxFeeMbps;
     }
 
+    /// @notice Sets the maximum fills per settle batch
+    /// @param maxFills New maximum fills per settle
+    function setMaxFillsPerSettle(uint16 maxFills) external {
+        if (maxFills == 0) revert AmountMustBeGreaterThanZero();
+        _getAoriStorage().maxFillsPerSettle = maxFills;
+        emit IAori.MaxFillsPerSettleSet(maxFills);
+    }
+
+    /// @notice Returns the current maximum fills per settle
+    function getMaxFillsPerSettle() external view returns (uint16) {
+        return _getAoriStorage().maxFillsPerSettle;
+    }
+
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    INTERNAL HELPERS                        */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
