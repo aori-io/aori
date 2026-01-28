@@ -147,7 +147,9 @@ library AoriAdminLib {
 
     /// @notice Sets the protocol fee (governance controlled, no cap)
     /// @param feeMbps Fee in millibasis points
-    function setProtocolFee(uint16 feeMbps) external {
+    function setProtocolFee(
+        uint16 feeMbps
+    ) external {
         AoriStorageData storage $ = _getAoriStorage();
         // Ensure protocol + max additional fee never exceeds 100%
         if (uint256(feeMbps) + uint256($.maxFeeMbps) > 100_000) revert CombinedFeesTooHigh();
@@ -157,7 +159,9 @@ library AoriAdminLib {
 
     /// @notice Sets the protocol treasury address
     /// @param treasury Address to receive protocol fees (can be EOA, multisig, DAO, or revenue-sharing contract)
-    function setProtocolTreasury(address treasury) external {
+    function setProtocolTreasury(
+        address treasury
+    ) external {
         if (treasury == address(0)) revert InvalidProtocolTreasury();
         AoriStorageData storage $ = _getAoriStorage();
         $.protocolTreasury = treasury;
@@ -171,13 +175,17 @@ library AoriAdminLib {
     }
 
     /// @notice Returns pending protocol fees for a token
-    function getPendingProtocolFees(address token) external view returns (uint256) {
+    function getPendingProtocolFees(
+        address token
+    ) external view returns (uint256) {
         return _getAoriStorage().pendingProtocolFees[token];
     }
 
     /// @notice Sets the maximum allowed additional fee
     /// @param maxFeeMbps Maximum fee in millibasis points
-    function setMaxFee(uint16 maxFeeMbps) external {
+    function setMaxFee(
+        uint16 maxFeeMbps
+    ) external {
         AoriStorageData storage $ = _getAoriStorage();
         // Ensure protocol + max additional fee never exceeds 100%
         if (uint256($.protocolFeeMbps) + uint256(maxFeeMbps) > 100_000) revert CombinedFeesTooHigh();
@@ -198,7 +206,9 @@ library AoriAdminLib {
 
     /// @notice Claims accumulated protocol fees for a token
     /// @dev Permissionless - anyone can trigger, but funds always go to treasury
-    function claimProtocolFees(address token) external {
+    function claimProtocolFees(
+        address token
+    ) external {
         AoriStorageData storage $ = _getAoriStorage();
 
         uint256 amount = $.pendingProtocolFees[token];

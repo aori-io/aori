@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.33;
 
-import { OAppUpgradeable, Origin, MessagingFee, MessagingReceipt } from "@layerzerolabs/oapp-evm-upgradeable/contracts/oapp/OAppUpgradeable.sol";
+import {
+    OAppUpgradeable,
+    Origin,
+    MessagingFee,
+    MessagingReceipt
+} from "@layerzerolabs/oapp-evm-upgradeable/contracts/oapp/OAppUpgradeable.sol";
 import { PayloadType, PayloadPackUtils, PayloadUnpackUtils, PayloadSizeUtils } from "./libraries/internal/PayloadUtils.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
@@ -15,10 +20,7 @@ import { AoriStorage, AoriStorageData } from "./storage/AoriStorage.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { BalanceUtils } from "./libraries/internal/BalanceUtils.sol";
 import { AoriAdminLib } from "./libraries/external/AoriAdminLib.sol";
-import { SwapLib } from "./libraries/external/SwapLib.sol";
-import { SettleLib } from "./libraries/external/SettleLib.sol";
-import { HookExecLib } from "./libraries/external/HookExecLib.sol";
-import { DepositLib } from "./libraries/external/DepositLib.sol";
+import { AoriCoreLib } from "./libraries/external/AoriCoreLib.sol";
 import { TokenUtils } from "./libraries/internal/TokenUtils.sol";
 import { Permit2Lib } from "./libraries/internal/Permit2Lib.sol";
 import { EIP712 } from "solady/src/utils/EIP712.sol";
@@ -26,7 +28,6 @@ import { ECDSA } from "solady/src/utils/ECDSA.sol";
 import { IAori } from "./interfaces/IAori.sol";
 import "./types/AoriErrors.sol";
 import "./types/AoriTypes.sol";
-
 
 /**
  *                                @@@@@@@@@@@
@@ -268,7 +269,9 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     ) external nonReentrant whenNotPaused onlySolver {
         if (order.inputToken.isNativeToken()) revert UseDepositNativeForNativeTokens();
 
-        bytes32 orderId = order.validateDeposit(signature, _hashOrder712(order), ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
+        bytes32 orderId = order.validateDeposit(
+            signature, _hashOrder712(order), ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain
+        );
 
         IERC20(order.inputToken).safeTransferFrom(order.offerer, address(this), order.inputAmount);
         _postDeposit(order.inputToken, order.inputAmount, order, orderId);
@@ -289,7 +292,9 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     ) external nonReentrant whenNotPaused onlySolver {
         if (order.inputToken.isNativeToken()) revert UseDepositNativeForNativeTokens();
 
-        bytes32 orderId = order.validateDeposit(signature, _hashOrder712(order), ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
+        bytes32 orderId = order.validateDeposit(
+            signature, _hashOrder712(order), ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain
+        );
 
         // Execute hook to convert input tokens to preferred token
         (uint256 amountReceived, address tokenReceived) = _executeSrcHook(order, hook);
@@ -302,13 +307,23 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     /// @notice Executes source hook via library (saves bytecode)
     /* forgefmt: disable-next-item */
     function _executeSrcHook(Order calldata order, SrcHook calldata hook) internal returns (uint256, address) {
-        return HookExecLib.executeSrcHook(order, hook, this.isAllowedHook);
+        return AoriCoreLib.executeSrcHook(order, hook, this.isAllowedHook);
     }
 
-    /// @notice Posts deposit via library (saves bytecode)
-    /* forgefmt: disable-next-item */
-    function _postDeposit(address depositToken, uint256 depositAmount, Order calldata order, bytes32 orderId) internal {
-        DepositLib.postDeposit(depositToken, depositAmount, order, orderId);
+    /// @notice Posts deposit - kept inline (called every deposit)
+    function _postDeposit(
+        address depositToken,
+        uint256 depositAmount,
+        Order calldata order,
+        bytes32 orderId
+    ) internal {
+        AoriStorageData storage $ = _getAoriStorage();
+        $.balances[order.offerer][depositToken].lock(SafeCast.toUint128(depositAmount));
+        $.orderStatus[orderId] = OrderStatus.Active;
+        $.orders[orderId] = order;
+        $.orders[orderId].inputToken = depositToken;
+        $.orders[orderId].inputAmount = SafeCast.toUint128(depositAmount);
+        emit Deposit(orderId, order, order.options.feeMbps);
     }
 
     /**
@@ -431,12 +446,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         if (!order.isSingleChainSwap()) revert NotSingleChainOrder();
 
         bytes32 orderId = order.validateDeposit(
-            signature,
-            _hashOrder712(order),
-            ENDPOINT_ID,
-            _getAoriStorage().maxFeeMbps,
-            this.orderStatus,
-            this.isSupportedChain
+            signature, _hashOrder712(order), ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain
         );
 
         ValidationUtils.validateHook(hook.hookAddress, this.isAllowedHook);
@@ -502,7 +512,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     /// @notice Executes swap via library (saves bytecode)
     /* forgefmt: disable-next-item */
     function _executeSwap(bytes32 orderId, Order calldata order, SrcHook calldata hook, address solver) internal returns (uint256) {
-        return SwapLib.executeSwap(orderId, order, hook, solver);
+        return AoriCoreLib.executeSwap(orderId, order, hook, solver);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -568,12 +578,19 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     /// @notice Executes destination hook via library (saves bytecode)
     /* forgefmt: disable-next-item */
     function _executeDstHook(Order calldata order, DstHook calldata hook) internal returns (uint256) {
-        return HookExecLib.executeDstHook(order, hook, msg.value, msg.sender, this.isAllowedHook);
+        return AoriCoreLib.executeDstHook(order, hook, msg.value, msg.sender, this.isAllowedHook);
     }
 
-    /// @notice Posts fill via library (saves bytecode)
-    /* forgefmt: disable-next-item */
-    function _postFill(bytes32 orderId, Order calldata order) internal { DepositLib.postFill(orderId, order, msg.sender, order.srcEid); }
+    /// @notice Posts fill - kept inline (called every fill)
+    function _postFill(
+        bytes32 orderId,
+        Order calldata order
+    ) internal {
+        AoriStorageData storage $ = _getAoriStorage();
+        $.orderStatus[orderId] = OrderStatus.Filled;
+        $.srcEidToFillerFills[order.srcEid][msg.sender].push(orderId);
+        emit Fill(orderId, order);
+    }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                            SETTLE                          */
@@ -603,41 +620,13 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         emit SettleSent(srcEid, filler, payload, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 
-    /// @notice Settles order via library (saves bytecode)
+    /// @notice Handles settlement via library - entire batch in one DELEGATECALL (saves gas vs 100+ calls)
     /* forgefmt: disable-next-item */
-    function _settleOrder(bytes32 orderId, address filler) internal { SettleLib.settleOrder(orderId, filler); }
-
-    /**
-     * @notice Handles settlement of filled orders
-     * @param payload The settlement payload containing order hashes and filler information
-     * @param senderEid The source endpoint ID
-     * @dev Skips orders that were filled on the wrong chain and emits an event
-     */
-    function _handleSettlement(
-        bytes calldata payload,
-        uint32 senderEid
-    ) internal {
-        payload.validateSettlementLen();
-        (address filler, uint16 fillCount) = payload.unpackSettlementHeader();
-        payload.validateSettlementLen(fillCount);
-
-        AoriStorageData storage $ = _getAoriStorage();
-        for (uint256 i = 0; i < fillCount; ++i) {
-            bytes32 orderId = payload.unpackSettlementBodyAt(i);
-            Order memory order = $.orders[orderId];
-
-            if (order.dstEid != senderEid) {
-                emit SettlementFailed(orderId, order.dstEid, senderEid);
-                continue;
-            }
-
-            _settleOrder(orderId, filler);
-        }
-    }
+    function _handleSettlement(bytes calldata payload, uint32 senderEid) internal { AoriCoreLib.handleSettlement(payload, senderEid); }
 
     /// @notice Settles single-chain swap via library (saves bytecode)
     /* forgefmt: disable-next-item */
-    function _settleSingleChainSwap(bytes32 orderId, Order memory order, address solver) internal { SettleLib.settleSingleChainSwap(orderId, order, solver); }
+    function _settleSingleChainSwap(bytes32 orderId, Order memory order, address solver) internal { AoriCoreLib.settleSingleChainSwap(orderId, order, solver); }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                            CANCEL                          */
@@ -687,32 +676,9 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         emit CancelSent(orderId, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 
-    /**
-     * @notice Internal function to cancel an order and return tokens to offerer
-     * @dev Updates order status, decreases locked balance, and transfers tokens back.
-     * @param orderId The hash of the order to cancel
-     */
+    /// @notice Cancels order via library (saves bytecode - cancellations are rare)
     /* forgefmt: disable-next-item */
-    function _cancel(bytes32 orderId) internal {
-        AoriStorageData storage $ = _getAoriStorage();
-        if ($.orderStatus[orderId] != OrderStatus.Active) revert CanOnlyCancelActiveOrders();
-
-        Order memory order = $.orders[orderId];
-        uint128 amountToReturn = order.inputAmount;
-        address tokenAddress = order.inputToken;
-        address recipient = order.offerer;
-
-        // Validate contract has sufficient tokens
-        tokenAddress.validateSufficientBalance(amountToReturn);
-
-        // Update state first
-        $.orderStatus[orderId] = OrderStatus.Cancelled;
-        $.balances[recipient][tokenAddress].locked -= amountToReturn;
-
-        // Transfer tokens back to offerer
-        tokenAddress.safeTransfer(recipient, amountToReturn);
-        emit Cancel(orderId);
-    }
+    function _cancel(bytes32 orderId) internal { AoriCoreLib.cancelOrder(orderId); }
 
     /**
      * @notice Handles cancellation payload from source chain

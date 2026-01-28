@@ -198,7 +198,9 @@ interface IAori {
      * @param amountOut The amount of tokens received from hook execution
      * @param feeMbps The fee in millibasis points (for solver unlock calculation)
      */
-    event SrcHookExecuted(bytes32 indexed orderId, address indexed tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut, uint16 feeMbps);
+    event SrcHookExecuted(
+        bytes32 indexed orderId, address indexed tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut, uint16 feeMbps
+    );
 
     /**
      * @notice Emitted when a destination hook is executed during fill
@@ -275,23 +277,33 @@ interface IAori {
     /// @notice Returns pending protocol fees for a token
     /// @param token The token to check
     /// @return amount The pending fee amount
-    function getPendingProtocolFees(address token) external view returns (uint256 amount);
+    function getPendingProtocolFees(
+        address token
+    ) external view returns (uint256 amount);
 
     /// @notice Sets the protocol fee (admin only, no cap)
     /// @param feeMbps Fee in millibasis points
-    function setProtocolFee(uint16 feeMbps) external;
+    function setProtocolFee(
+        uint16 feeMbps
+    ) external;
 
     /// @notice Sets the protocol treasury address (admin only)
     /// @param treasury Address to receive protocol fees
-    function setProtocolTreasury(address treasury) external;
+    function setProtocolTreasury(
+        address treasury
+    ) external;
 
     /// @notice Claims accumulated protocol fees for a token (permissionless)
     /// @param token The token to claim fees for
-    function claimProtocolFees(address token) external;
+    function claimProtocolFees(
+        address token
+    ) external;
 
     /// @notice Sets the maximum allowed additional fee (admin only)
     /// @param maxFeeMbps Maximum fee in millibasis points
-    function setMaxFee(uint16 maxFeeMbps) external;
+    function setMaxFee(
+        uint16 maxFeeMbps
+    ) external;
 
     /// @notice Returns the current maximum allowed additional fee
     /// @return maxFeeMbps Maximum fee in millibasis points
