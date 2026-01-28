@@ -7,6 +7,7 @@ import { Order, OrderStatus, Balance } from "../../types/AoriTypes.sol";
 import "../../types/AoriErrors.sol";
 import { AoriStorageData } from "../../storage/AoriStorage.sol";
 import { TokenUtils } from "../internal/TokenUtils.sol";
+import { IAori } from "../../interfaces/IAori.sol";
 
 /**
  * @title AoriAdminLib
@@ -26,16 +27,6 @@ library AoriAdminLib {
 
     // keccak256(abi.encode(uint256(keccak256("aori.storage.v1")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 private constant AORI_STORAGE_LOCATION = 0x476c06ce9bda338755e203b7f327971f808163bb891bef1bf37f35e88d0aae00;
-
-    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                          EVENTS                            */
-    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-    event Cancel(bytes32 indexed orderId);
-    event Withdraw(address indexed holder, address indexed token, uint256 amount);
-    event ProtocolFeeUpdated(uint16 feeMbps);
-    event ProtocolTreasuryUpdated(address indexed treasury);
-    event MaxFeeUpdated(uint16 maxFeeMbps);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    STORAGE ACCESSOR                        */
@@ -83,8 +74,8 @@ library AoriAdminLib {
         // Transfer tokens to recipient
         _transfer(tokenAddress, recipient, amountToReturn);
 
-        emit Cancel(orderId);
-        emit Withdraw(recipient, tokenAddress, amountToReturn);
+        emit IAori.Cancel(orderId);
+        emit IAori.Withdraw(recipient, tokenAddress, amountToReturn);
     }
 
     /**
@@ -100,7 +91,7 @@ library AoriAdminLib {
     ) external {
         if (recipient == address(0)) revert InvalidRecipient();
         _transfer(token, recipient, amount);
-        emit Withdraw(recipient, token, amount);
+        emit IAori.Withdraw(recipient, token, amount);
     }
 
     // TODO: Rename this function
@@ -138,7 +129,7 @@ library AoriAdminLib {
 
         // Transfer tokens
         _transfer(token, recipient, amount);
-        emit Withdraw(user, token, amount);
+        emit IAori.Withdraw(user, token, amount);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -152,7 +143,7 @@ library AoriAdminLib {
         // Ensure protocol + max additional fee never exceeds 100%
         if (uint256(feeMbps) + uint256($.maxFeeMbps) > 100_000) revert CombinedFeesTooHigh();
         $.protocolFeeMbps = feeMbps;
-        emit ProtocolFeeUpdated(feeMbps);
+        emit IAori.ProtocolFeeUpdated(feeMbps);
     }
 
     /// @notice Sets the protocol treasury address
@@ -161,7 +152,7 @@ library AoriAdminLib {
         if (treasury == address(0)) revert InvalidProtocolTreasury();
         AoriStorageData storage $ = _getAoriStorage();
         $.protocolTreasury = treasury;
-        emit ProtocolTreasuryUpdated(treasury);
+        emit IAori.ProtocolTreasuryUpdated(treasury);
     }
 
     /// @notice Returns current protocol fee configuration
@@ -182,7 +173,7 @@ library AoriAdminLib {
         // Ensure protocol + max additional fee never exceeds 100%
         if (uint256($.protocolFeeMbps) + uint256(maxFeeMbps) > 100_000) revert CombinedFeesTooHigh();
         $.maxFeeMbps = maxFeeMbps;
-        emit MaxFeeUpdated(maxFeeMbps);
+        emit IAori.MaxFeeUpdated(maxFeeMbps);
     }
 
     /// @notice Returns the current maximum allowed additional fee
