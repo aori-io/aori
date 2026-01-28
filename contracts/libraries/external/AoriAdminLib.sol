@@ -33,6 +33,9 @@ library AoriAdminLib {
 
     event Cancel(bytes32 indexed orderId);
     event Withdraw(address indexed holder, address indexed token, uint256 amount);
+    event ProtocolFeeUpdated(uint16 feeMbps);
+    event ProtocolTreasuryUpdated(address indexed treasury);
+    event MaxFeeUpdated(uint16 maxFeeMbps);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    STORAGE ACCESSOR                        */
@@ -100,6 +103,7 @@ library AoriAdminLib {
         emit Withdraw(recipient, token, amount);
     }
 
+    // TODO: Rename this function
     /**
      * @notice Emergency function to extract tokens from a user's balance
      * @param token The token address to withdraw
@@ -135,6 +139,55 @@ library AoriAdminLib {
         // Transfer tokens
         _transfer(token, recipient, amount);
         emit Withdraw(user, token, amount);
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                   PROTOCOL FEE FUNCTIONS                   */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /// @notice Sets the protocol fee (governance controlled, no cap)
+    /// @param feeMbps Fee in millibasis points
+    function setProtocolFee(uint16 feeMbps) external {
+        AoriStorageData storage $ = _getAoriStorage();
+        // Ensure protocol + max additional fee never exceeds 100%
+        if (uint256(feeMbps) + uint256($.maxFeeMbps) > 100_000) revert CombinedFeesTooHigh();
+        $.protocolFeeMbps = feeMbps;
+        emit ProtocolFeeUpdated(feeMbps);
+    }
+
+    /// @notice Sets the protocol treasury address
+    /// @param treasury Address to receive protocol fees (can be EOA, multisig, DAO, or revenue-sharing contract)
+    function setProtocolTreasury(address treasury) external {
+        if (treasury == address(0)) revert InvalidProtocolTreasury();
+        AoriStorageData storage $ = _getAoriStorage();
+        $.protocolTreasury = treasury;
+        emit ProtocolTreasuryUpdated(treasury);
+    }
+
+    /// @notice Returns current protocol fee configuration
+    function getProtocolConfig() external view returns (uint16 feeMbps, address treasury) {
+        AoriStorageData storage $ = _getAoriStorage();
+        return ($.protocolFeeMbps, $.protocolTreasury);
+    }
+
+    /// @notice Returns pending protocol fees for a token
+    function getPendingProtocolFees(address token) external view returns (uint256) {
+        return _getAoriStorage().pendingProtocolFees[token];
+    }
+
+    /// @notice Sets the maximum allowed additional fee
+    /// @param maxFeeMbps Maximum fee in millibasis points
+    function setMaxFee(uint16 maxFeeMbps) external {
+        AoriStorageData storage $ = _getAoriStorage();
+        // Ensure protocol + max additional fee never exceeds 100%
+        if (uint256($.protocolFeeMbps) + uint256(maxFeeMbps) > 100_000) revert CombinedFeesTooHigh();
+        $.maxFeeMbps = maxFeeMbps;
+        emit MaxFeeUpdated(maxFeeMbps);
+    }
+
+    /// @notice Returns the current maximum allowed additional fee
+    function getMaxFee() external view returns (uint16) {
+        return _getAoriStorage().maxFeeMbps;
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/

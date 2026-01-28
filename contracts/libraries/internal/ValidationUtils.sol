@@ -3,6 +3,7 @@ pragma solidity 0.8.33;
 
 import { SignatureCheckerLib } from "solady/src/utils/SignatureCheckerLib.sol";
 import { Order, OrderStatus } from "../../types/AoriTypes.sol";
+import { TokenUtils } from "./TokenUtils.sol";
 import "../../types/AoriErrors.sol";
 
 /**
@@ -10,13 +11,36 @@ import "../../types/AoriErrors.sol";
  * @dev Provides reusable validation logic for orders across different contract functions
  */
 library ValidationUtils {
+    using TokenUtils for address;
+
+    /// @dev 100000 = 100% in millibasis points
+    uint256 internal constant MBPS_DIVISOR = 100_000;
+
+    /**
+     * @notice Validates native token deposit parameters
+     * @dev Checks that input is native token, msg.value matches, and sender is offerer
+     * @param order The order to validate
+     * @param msgValue The msg.value sent with the transaction
+     * @param sender The msg.sender of the transaction
+     */
+    function validateNativeDeposit(
+        Order calldata order,
+        uint256 msgValue,
+        address sender
+    ) internal view {
+        if (!order.inputToken.isNativeToken()) revert OrderMustSpecifyNativeToken();
+        if (msgValue != order.inputAmount) revert IncorrectNativeAmount(order.inputAmount, msgValue);
+        if (sender != order.offerer) revert OnlyOffererCanDepositNativeTokens();
+    }
+
     /**
      * @notice Validates basic order parameters that are common to all validation flows
-     * @dev Checks offerer, recipient, time bounds, amounts, and token addresses
+     * @dev Checks offerer, recipient, time bounds, amounts, token addresses, and fee
      * @param order The order to validate
+     * @param maxFeeMbps The maximum allowed fee in millibasis points (from storage)
      */
     /* forgefmt: disable-next-item */
-    function validateCommonOrderParams(Order calldata order) internal view {
+    function validateCommonOrderParams(Order calldata order, uint16 maxFeeMbps) internal view {
         if (order.offerer == address(0)) revert InvalidOfferer();
         if (order.recipient == address(0)) revert InvalidRecipient();
         if (order.startTime >= order.endTime) revert InvalidEndTime(order.startTime, order.endTime);
@@ -25,6 +49,7 @@ library ValidationUtils {
         if (order.inputAmount == 0) revert InvalidInputAmount();
         if (order.outputAmount == 0) revert InvalidOutputAmount();
         if (order.inputToken == address(0) || order.outputToken == address(0)) revert InvalidToken();
+        if (order.options.feeMbps > maxFeeMbps) revert FeeTooHigh();
     }
 
     /**
@@ -34,6 +59,7 @@ library ValidationUtils {
      * @param signature The EIP712 signature to verify
      * @param digest The EIP712 type hash digest of the order
      * @param endpointId The current chain's endpoint ID
+     * @param maxFeeMbps The maximum allowed fee in millibasis points
      * @param orderStatus The status mapping function to check order status
      * @param isSupportedChain A function to check if the destination chain is supported
      * @return orderId The calculated order hash
@@ -43,6 +69,7 @@ library ValidationUtils {
         bytes calldata signature,
         bytes32 digest,
         uint32 endpointId,
+        uint16 maxFeeMbps,
         function(bytes32) external view returns (OrderStatus) orderStatus,
         function(uint32) external view returns (bool) isSupportedChain
     ) internal view returns (bytes32 orderId) {
@@ -56,7 +83,7 @@ library ValidationUtils {
         }
 
         // Order parameter validation
-        validateCommonOrderParams(order);
+        validateCommonOrderParams(order, maxFeeMbps);
         if (order.srcEid != endpointId) revert ChainMismatch(endpointId, order.srcEid);
     }
 
@@ -65,6 +92,7 @@ library ValidationUtils {
      * @dev Used for depositNative and depositWithPermit2 which have their own auth mechanisms
      * @param order The order to validate
      * @param endpointId The current chain's endpoint ID
+     * @param maxFeeMbps The maximum allowed fee in millibasis points
      * @param orderStatus The status mapping function to check order status
      * @param isSupportedChain A function to check if the destination chain is supported
      * @return orderId The calculated order hash
@@ -72,6 +100,7 @@ library ValidationUtils {
     function validateDepositNoSig(
         Order calldata order,
         uint32 endpointId,
+        uint16 maxFeeMbps,
         function(bytes32) external view returns (OrderStatus) orderStatus,
         function(uint32) external view returns (bool) isSupportedChain
     ) internal view returns (bytes32 orderId) {
@@ -79,7 +108,7 @@ library ValidationUtils {
         if (orderStatus(orderId) != OrderStatus.Unknown) revert OrderAlreadyExists();
         if (!isSupportedChain(order.dstEid)) revert DestinationChainNotSupported(order.dstEid);
         if (order.srcEid != endpointId) revert ChainMismatch(endpointId, order.srcEid);
-        validateCommonOrderParams(order);
+        validateCommonOrderParams(order, maxFeeMbps);
     }
 
     /**
@@ -88,6 +117,7 @@ library ValidationUtils {
      * @param order The order to validate
      * @param solver The address attempting to fill the order
      * @param endpointId The current chain's endpoint ID
+     * @param maxFeeMbps The maximum allowed fee in millibasis points
      * @param orderStatus The status mapping function to check order status
      * @return orderId The calculated order hash
      */
@@ -95,10 +125,11 @@ library ValidationUtils {
         Order calldata order,
         address solver,
         uint32 endpointId,
+        uint16 maxFeeMbps,
         function(bytes32) external view returns (OrderStatus) orderStatus
     ) internal view returns (bytes32 orderId) {
         // Order parameter validation
-        validateCommonOrderParams(order);
+        validateCommonOrderParams(order, maxFeeMbps);
         if (order.dstEid != endpointId) revert ChainMismatch(endpointId, order.dstEid);
 
         // Solver authorization: if order specifies a solver, only that solver can fill
@@ -190,4 +221,17 @@ library ValidationUtils {
      */
     /* forgefmt: disable-next-item */
     function isSingleChainSwap(Order calldata order) internal pure returns (bool) { return order.srcEid == order.dstEid; }
+
+    /**
+     * @notice Validates a hook address is non-zero and whitelisted
+     * @param hookAddress The hook address to validate
+     * @param isAllowedHook Function to check hook whitelist
+     */
+    function validateHook(
+        address hookAddress,
+        function(address) external view returns (bool) isAllowedHook
+    ) internal view {
+        if (hookAddress == address(0)) revert MissingHook();
+        if (!isAllowedHook(hookAddress)) revert InvalidHookAddress();
+    }
 }

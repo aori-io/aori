@@ -400,7 +400,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
 
         // Phase 1: Deposit should emit Deposit event
         vm.expectEmit(true, false, false, true);
-        emit IAori.Deposit(orderId, order);
+        emit IAori.Deposit(orderId, order, 0);
 
         vm.prank(userSC);
         localAori.depositNative{ value: INPUT_AMOUNT }(order);
