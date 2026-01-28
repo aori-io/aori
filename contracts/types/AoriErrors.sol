@@ -104,11 +104,6 @@ error NonZeroBalanceRequired();
 /// @param available The available locked balance
 error LockedBalanceDecreaseFailed(uint128 attempted, uint128 available);
 
-/// @notice Thrown when balance consistency check fails
-/// @param expected The expected balance
-/// @param actual The actual balance
-error BalanceInconsistency(uint256 expected, uint256 actual);
-
 /// @notice Thrown when contract doesn't have enough balance
 /// @param token The token address (NATIVE_TOKEN for native)
 error InsufficientContractBalance(address token);
@@ -133,11 +128,6 @@ error HookDecreasedContractBalance();
 /// @param expected The expected output amount
 /// @param received The actual amount received
 error InsufficientSrcHookOutput(uint256 expected, uint256 received);
-
-/// @notice Thrown when destination hook doesn't provide enough output tokens
-/// @param expected The expected output amount
-/// @param received The actual amount received
-error InsufficientDstHookOutput(uint256 expected, uint256 received);
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                      SOLVER ERRORS                         */
