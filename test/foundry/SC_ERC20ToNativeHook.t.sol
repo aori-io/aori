@@ -337,21 +337,17 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         vm.prank(userSC);
         inputToken.approve(address(localAori), INPUT_AMOUNT);
 
-        // Expect SrcHookExecuted event
+        // Expect Deposit event (srcHook converted inputToken to NATIVE_TOKEN)
         vm.expectEmit(true, true, false, true);
-        emit IAori.SrcHookExecuted(expectedOrderId, address(inputToken), NATIVE_TOKEN, INPUT_AMOUNT, HOOK_OUTPUT, 0);
+        emit IAori.Deposit(expectedOrderId, order, NATIVE_TOKEN, HOOK_OUTPUT);
 
-        // Expect Deposit event
-        vm.expectEmit(true, false, false, true);
-        emit IAori.Deposit(expectedOrderId, order, 0);
-
-        // Expect Fill event
-        vm.expectEmit(true, false, false, true);
-        emit IAori.Fill(expectedOrderId, order);
+        // Expect Fill event (no dstHook in this test)
+        vm.expectEmit(true, true, false, true);
+        emit IAori.Fill(expectedOrderId, address(0), 0, 0);
 
         // Expect Settle event (for single-chain atomic settlement)
-        vm.expectEmit(true, false, false, false);
-        emit IAori.Settle(expectedOrderId);
+        vm.expectEmit(true, true, false, false);
+        emit IAori.Settle(expectedOrderId, solverSC, 0, 0, address(0), 0);
 
         vm.prank(solverSC);
         localAori.deposit(order, signature, srcHook);
