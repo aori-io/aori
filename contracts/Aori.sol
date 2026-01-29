@@ -10,7 +10,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { ISignatureTransfer } from "@permit2/src/interfaces/ISignatureTransfer.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { ValidationUtils } from "./libraries/internal/ValidationUtils.sol";
-import { ExecutionUtils } from "./libraries/internal/ExecutionUtils.sol";
+import { AoriExecutionLib } from "./libraries/external/AoriExecutionLib.sol";
 import { AoriStorage, AoriStorageData } from "./storage/AoriStorage.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { BalanceUtils } from "./libraries/internal/BalanceUtils.sol";
@@ -303,10 +303,10 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         if (order.isSingleChainSwap()) {
             // Atomic path: execute swap with slippage + fee logic
             address solver = order.options.solver == address(0) ? msg.sender : order.options.solver;
-            _executeSwap(orderId, order, hook, solver);
+            AoriExecutionLib.executeSwap(orderId, order, hook, solver);
         } else {
             // Non-atomic path: convert to preferredToken, lock for settlement
-            uint256 amountReceived = ExecutionUtils.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut);
+            uint256 amountReceived = AoriExecutionLib.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut);
 
             _postDeposit(hook.preferredToken, amountReceived, order, orderId, hook.preferredToken, amountReceived);
         }
@@ -374,10 +374,10 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         if (order.isSingleChainSwap()) {
             // Atomic path: execute swap with slippage + fee logic
             address solver = order.options.solver == address(0) ? msg.sender : order.options.solver;
-            _executeSwap(orderId, order, hook, solver);
+            AoriExecutionLib.executeSwap(orderId, order, hook, solver);
         } else {
             // Non-atomic path: convert to preferredToken, lock for settlement
-            uint256 amountReceived = ExecutionUtils.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut);
+            uint256 amountReceived = AoriExecutionLib.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut);
 
             _postDeposit(hook.preferredToken, amountReceived, order, orderId, hook.preferredToken, amountReceived);
         }
@@ -440,10 +440,10 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         if (order.isSingleChainSwap()) {
             // Atomic path: execute swap with slippage + fee logic
             address solver = order.options.solver == address(0) ? msg.sender : order.options.solver;
-            _executeSwap(orderId, order, hook, solver);
+            AoriExecutionLib.executeSwap(orderId, order, hook, solver);
         } else {
             // Non-atomic path: convert to preferredToken, lock for settlement
-            uint256 amountReceived = ExecutionUtils.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut);
+            uint256 amountReceived = AoriExecutionLib.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut);
 
             _postDeposit(hook.preferredToken, amountReceived, order, orderId, hook.preferredToken, amountReceived);
         }
@@ -452,83 +452,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                         ATOMIC SWAP                        */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-    /**
-     * @notice Core swap execution logic shared by all swap variants
-     * @dev Executes hook, validates output, distributes tokens, updates state
-     * @param orderId The computed order hash
-     * @param order The order details
-     * @param hook The source hook for token conversion
-     * @param solver The solver address (for surplus distribution)
-     * @return amountReceived The amount of output tokens received from hook
-     */
-    function _executeSwap(
-        bytes32 orderId,
-        Order calldata order,
-        SrcHook calldata hook,
-        address solver
-    ) internal returns (uint256 amountReceived) {
-        AoriStorageData storage $ = _getAoriStorage();
-
-        // Calculate minimum acceptable output (returns outputAmount when slippageMbps = 0)
-        uint256 minOutput = (uint256(order.outputAmount) * (ValidationUtils.MBPS_DIVISOR - order.options.slippageMbps)) / ValidationUtils.MBPS_DIVISOR;
-
-        // Execute hook - converts input to output, validates minOutput
-        amountReceived = ExecutionUtils.executeHook(hook.hookAddress, hook.instructions, order.outputToken, minOutput);
-
-        // Fee basis: if slippageMbps > 0, recipient captures surplus so fee on actual; otherwise fee on signed amount
-        uint256 feeBasis = order.options.slippageMbps > 0 ? amountReceived : order.outputAmount;
-
-        // Fee calculations use uint128 - safe because fee validations ensure totalFee <= feeBasis
-        uint128 protocolFee = uint128((feeBasis * $.protocolFeeMbps) / ValidationUtils.MBPS_DIVISOR);
-        uint128 additionalFee = uint128((feeBasis * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR);
-        uint128 totalFee = protocolFee + additionalFee;
-        uint128 recipientAmount = SafeCast.toUint128(feeBasis) - totalFee;
-
-        // Surplus: if slippageMbps = 0, solver gets surplus; if > 0, recipient already received it via feeBasis
-        uint256 surplus = order.options.slippageMbps > 0 ? 0 : amountReceived - order.outputAmount;
-
-        // Recipient gets output minus fees (immediate transfer)
-        order.outputToken.safeTransfer(order.recipient, recipientAmount);
-
-        // Protocol fee - lazy accrual with overflow protection
-        if (protocolFee > 0) {
-            uint256 current = $.pendingProtocolFees[order.outputToken];
-            unchecked {
-                uint256 newAmount = current + protocolFee;
-                if (newAmount >= current) {
-                    $.pendingProtocolFees[order.outputToken] = newAmount;
-                }
-            }
-        }
-
-        // Additional fee accrues to feeRecipient (or solver if address(0))
-        if (additionalFee > 0) {
-            address actualFeeRecipient = order.options.feeRecipient == address(0) ? solver : order.options.feeRecipient;
-            $.balances[actualFeeRecipient][order.outputToken].unlocked += additionalFee;
-        }
-
-        // Surplus accrues to solver (only when slippageMbps = 0)
-        if (surplus > 0) {
-            $.balances[solver][order.outputToken].unlocked += SafeCast.toUint128(surplus);
-        }
-
-        // Update state
-        $.orders[orderId] = order;
-        $.orderStatus[orderId] = OrderStatus.Settled;
-
-        // Emit events - srcHook converted inputToken to outputToken
-        emit Deposit(orderId, order, hook.preferredToken, amountReceived);
-        emit Fill(orderId, address(0), 0, 0);
-        emit Settle(
-            orderId, 
-            solver, 
-            SafeCast.toUint128(surplus), 
-            protocolFee, 
-            order.options.feeRecipient == address(0) ? solver : order.options.feeRecipient, 
-            additionalFee
-        );
-    }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                             FILL                           */
@@ -584,7 +507,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         uint256 minOutput = (uint256(order.outputAmount) * (ValidationUtils.MBPS_DIVISOR - order.options.slippageMbps)) / ValidationUtils.MBPS_DIVISOR;
 
         // Execute hook to convert preferred tokens to output tokens, validates minOutput
-        uint256 amountReceived = ExecutionUtils.executeHook(hook.hookAddress, hook.instructions, order.outputToken, minOutput);
+        uint256 amountReceived = AoriExecutionLib.executeHook(hook.hookAddress, hook.instructions, order.outputToken, minOutput);
 
         // Update contract state
         if (order.isSingleChainSwap()) {
