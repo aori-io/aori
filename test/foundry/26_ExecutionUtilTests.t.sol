@@ -2,38 +2,32 @@
 pragma solidity 0.8.33;
 
 /**
- * ExecutionUtilsTest - Tests for the ExecutionUtils library
+ * AoriExecutionLibTest - Tests for the AoriExecutionLib library
  *
  * Test cases:
- * 1. test_executeHook_positiveChange - Tests balance increase tracking
- * 2. test_executeHook_noChange - Tests no balance change tracking
- * 3. test_executeHook_negativeChange - Tests balance decrease tracking
- * 4. test_executeHook_zeroToken - Tests balance tracking with zero token address
- * 5. test_executeHook_revertingCall - Tests handling of reverting external calls
- * 6. test_executeHook_largeChange - Tests balance tracking with large values
- * 7. test_executeHook_maxValue - Tests balance tracking with max uint256 value
- * 8. test_integration_executeHook_sequence - Tests multiple operations in sequence
+ * 1. test_executeHook_noChange - Tests no balance change tracking
+ * 2. test_executeHook_negativeChange - Tests balance decrease tracking (should revert)
+ * 3. test_executeHook_zeroToken - Tests balance tracking with zero token address
+ * 4. test_executeHook_revertingCall - Tests handling of reverting external calls
  *
- * This test file verifies that the ExecutionUtils library correctly executes hooks
+ * This test file verifies that the AoriExecutionLib library correctly executes hooks
  * and tracks token balance changes. The tests cover various scenarios including positive,
  * negative, and zero balance changes, as well as error conditions and edge cases.
  */
 import "forge-std/Test.sol";
 import "./TestUtils.sol";
-import { ExecutionUtils } from "../../contracts/libraries/internal/ExecutionUtils.sol";
+import { AoriExecutionLib } from "../../contracts/libraries/external/AoriExecutionLib.sol";
 import "../Mock/MockERC20.sol";
 import "../Mock/ExecutionMockHook.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "forge-std/console.sol"; // Add console logging
+import "forge-std/console.sol";
 import "../../contracts/types/AoriErrors.sol";
 
 /**
  * @title ExecutionTestWrapper
- * @notice Test wrapper for the ExecutionUtils library functions
+ * @notice Test wrapper for the AoriExecutionLib library functions
  */
 contract ExecutionTestWrapper {
-    using ExecutionUtils for address;
-
     /**
      * @notice Wrapper for executeHook function
      * @param target The target contract to call
@@ -47,14 +41,12 @@ contract ExecutionTestWrapper {
         address observedToken
     ) external returns (uint256) {
         // Pass minAmount = 0 to skip validation for tests
-        return ExecutionUtils.executeHook(target, data, observedToken, 0);
+        return AoriExecutionLib.executeHook(target, data, observedToken, 0);
     }
 }
 
-// Define this contract outside ExecutionUtilsTest
+// Define this contract outside the test
 contract ObserveTestWrapper {
-    using ExecutionUtils for address;
-
     function observeSelfChange(
         address target,
         bytes calldata data,
@@ -78,10 +70,10 @@ contract ObserveTestWrapper {
 }
 
 /**
- * @title ExecutionUtilsTest
- * @notice Test suite for the ExecutionUtils library in AoriUtils.sol
+ * @title AoriExecutionLibTest
+ * @notice Test suite for the AoriExecutionLib external library
  */
-contract ExecutionUtilsTest is Test {
+contract AoriExecutionLibTest is Test {
     // Test contracts
     ExecutionTestWrapper public wrapper;
     MockERC20 public token;

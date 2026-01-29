@@ -16,6 +16,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { BalanceUtils } from "./libraries/internal/BalanceUtils.sol";
 import { AoriAdminLib } from "./libraries/external/AoriAdminLib.sol";
 import { AoriCancelLib } from "./libraries/external/AoriCancelLib.sol";
+import { AoriSettleLib } from "./libraries/external/AoriSettleLib.sol";
 import { TokenUtils } from "./libraries/internal/TokenUtils.sol";
 import { Permit2Lib } from "./libraries/internal/Permit2Lib.sol";
 import { EIP712 } from "solady/src/utils/EIP712.sol";
@@ -472,7 +473,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
 
         // Update contract state
         if (order.isSingleChainSwap()) {
-            _settleSingleChainSwap(orderId, order, msg.sender, address(0), 0, 0);
+            AoriSettleLib.settleSingleChainSwap(orderId, order, msg.sender, address(0), 0, 0);
         } else {
             _postFill(orderId, order, address(0), 0, 0);
         }
@@ -511,7 +512,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
 
         // Update contract state
         if (order.isSingleChainSwap()) {
-            _settleSingleChainSwap(orderId, order, msg.sender, hook.preferredToken, hook.preferredDstInputAmount, amountReceived);
+            AoriSettleLib.settleSingleChainSwap(orderId, order, msg.sender, hook.preferredToken, hook.preferredDstInputAmount, amountReceived);
         } else {
             _postFill(orderId, order, hook.preferredToken, hook.preferredDstInputAmount, amountReceived);
         }
@@ -576,165 +577,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         emit SettleSent(srcEid, filler, payload, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 
-    /**
-     * @notice Settles a single order by transferring tokens from offerer to filler
-     * @dev Moves tokens from offerer's locked balance to filler's unlocked balance.
-     *      Uses cache-and-restore pattern to ensure true atomicity - if any step fails,
-     *      all balance changes are reverted to prevent accounting inconsistencies.
-     * @param orderId The hash of the order to settle
-     * @param filler The filler address who will receive the tokens
-     */
-    function _settleOrder(
-        bytes32 orderId,
-        address filler
-    ) internal {
-        AoriStorageData storage $ = _getAoriStorage();
-        if ($.orderStatus[orderId] != OrderStatus.Active) {
-            return; // Skip non-active orders
-        }
-
-        Order memory order = $.orders[orderId];
-
-        // Calculate both fees (order.inputAmount is the locked amount, already correct for srcHook)
-        // Fee calculations use uint128 - safe because fee validations ensure totalFee <= inputAmount
-        uint128 protocolFee = uint128((uint256(order.inputAmount) * $.protocolFeeMbps) / ValidationUtils.MBPS_DIVISOR);
-        uint128 additionalFee = uint128((uint256(order.inputAmount) * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR);
-        uint128 totalFee = protocolFee + additionalFee;
-        uint128 fillerAmount = order.inputAmount - totalFee;
-
-        address feeRecipient = order.options.feeRecipient == address(0) 
-            ? filler 
-            : order.options.feeRecipient;
-
-        // Cache original balances for potential rollback
-        Balance memory offererBalanceCache = $.balances[order.offerer][order.inputToken];
-        Balance memory fillerBalanceCache = $.balances[filler][order.inputToken];
-
-        // Attempt atomic balance transfer with soft-fail for batch safety
-        bool successLock = $.balances[order.offerer][order.inputToken].decreaseLockedNoRevert(order.inputAmount);
-        
-        if (feeRecipient == filler) {
-            // Optimized path: single write for filler + additionalFee combined
-            uint128 totalToFiller = fillerAmount + additionalFee;
-            bool successFiller = $.balances[filler][order.inputToken].increaseUnlockedNoRevert(totalToFiller);
-            
-            if (!successLock || !successFiller) {
-                $.balances[order.offerer][order.inputToken] = offererBalanceCache;
-                $.balances[filler][order.inputToken] = fillerBalanceCache;
-                emit SettleFailed(orderId);
-                return;
-            }
-        } else {
-            // Separate feeRecipient: need to cache and handle separately
-            Balance memory feeRecipientBalanceCache = $.balances[feeRecipient][order.inputToken];
-            bool successFiller = $.balances[filler][order.inputToken].increaseUnlockedNoRevert(fillerAmount);
-            bool successAdditionalFee = additionalFee > 0 
-                ? $.balances[feeRecipient][order.inputToken].increaseUnlockedNoRevert(additionalFee)
-                : true;
-
-            if (!successLock || !successFiller || !successAdditionalFee) {
-                $.balances[order.offerer][order.inputToken] = offererBalanceCache;
-                $.balances[filler][order.inputToken] = fillerBalanceCache;
-                $.balances[feeRecipient][order.inputToken] = feeRecipientBalanceCache;
-                emit SettleFailed(orderId);
-                return;
-            }
-        }
-
-        // Protocol fee - lazy accrual with overflow protection (no rollback needed, only written on success)
-        if (protocolFee > 0) {
-            uint256 current = $.pendingProtocolFees[order.inputToken];
-            unchecked {
-                uint256 newAmount = current + protocolFee;
-                if (newAmount >= current) {
-                    $.pendingProtocolFees[order.inputToken] = newAmount;
-                }
-            }
-        }
-
-        $.orderStatus[orderId] = OrderStatus.Settled;
-        emit Settle(orderId, filler, fillerAmount, protocolFee, feeRecipient, additionalFee);
-    }
-
-    /**
-     * @notice Handles settlement of filled orders
-     * @param payload The settlement payload containing order hashes and filler information
-     * @param senderEid The source endpoint ID
-     * @dev Skips orders that were filled on the wrong chain and emits an event
-     */
-    function _handleSettlement(
-        bytes calldata payload,
-        uint32 senderEid
-    ) internal {
-        payload.validateSettlementLen();
-        (address filler, uint16 fillCount) = payload.unpackSettlementHeader();
-        payload.validateSettlementLen(fillCount);
-
-        AoriStorageData storage $ = _getAoriStorage();
-        for (uint256 i = 0; i < fillCount; ++i) {
-            bytes32 orderId = payload.unpackSettlementBodyAt(i);
-            Order memory order = $.orders[orderId];
-
-            if (order.dstEid != senderEid) {
-                emit SettlementFailed(orderId, order.dstEid, senderEid);
-                continue;
-            }
-
-            _settleOrder(orderId, filler);
-        }
-    }
-
-    /**
-     * @notice Handles settlement of same-chain swaps with fee distribution
-     * @dev Performs atomic settlement within the same transaction for same-chain orders.
-     *      Moves tokens from offerer's locked balance to solver's unlocked balance minus fee.
-     *      Fee accrues to feeRecipient's unlocked balance.
-     * @param orderId The unique identifier for the order
-     * @param order The order details
-     * @param solver The address of the solver who filled the order
-     * @param dstHookTokenIn The token used in dstHook (address(0) if no hook)
-     * @param dstHookAmountIn The amount sent to dstHook (0 if no hook)
-     * @param dstHookAmountOut The amount received from dstHook (0 if no hook)
-     */
-    function _settleSingleChainSwap(
-        bytes32 orderId,
-        Order memory order,
-        address solver,
-        address dstHookTokenIn,
-        uint256 dstHookAmountIn,
-        uint256 dstHookAmountOut
-    ) internal {
-        AoriStorageData storage $ = _getAoriStorage();
-
-        // Calculate both fees (order.inputAmount is the locked amount, already correct for srcHook)
-        // Fee calculations use uint128 - safe because fee validations ensure totalFee <= inputAmount
-        uint128 protocolFee = uint128((uint256(order.inputAmount) * $.protocolFeeMbps) / ValidationUtils.MBPS_DIVISOR);
-        uint128 additionalFee = uint128((uint256(order.inputAmount) * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR);
-        uint128 totalFee = protocolFee + additionalFee;
-        uint128 solverAmount = order.inputAmount - totalFee;
-
-        // Decrease offerer's locked balance
-        $.balances[order.offerer][order.inputToken].locked -= order.inputAmount;
-
-        // Credit solver (minus fees)
-        $.balances[solver][order.inputToken].unlocked += solverAmount;
-
-        // Protocol fee - lazy accrual (direct += ok here, single operation can revert)
-        if (protocolFee > 0) {
-            $.pendingProtocolFees[order.inputToken] += protocolFee;
-        }
-
-        // Additional fee accrues to feeRecipient
-        address feeRecipient = order.options.feeRecipient == address(0) ? solver : order.options.feeRecipient;
-        if (additionalFee > 0) {
-            $.balances[feeRecipient][order.inputToken].unlocked += additionalFee;
-        }
-
-        $.orderStatus[orderId] = OrderStatus.Settled;
-        emit Fill(orderId, dstHookTokenIn, dstHookAmountIn, dstHookAmountOut);
-        emit Settle(orderId, solver, solverAmount, protocolFee, feeRecipient, additionalFee);
-    }
-
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                            CANCEL                          */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
@@ -780,10 +622,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      * @param payload The cancellation payload containing the order hash
      */
     /* forgefmt: disable-next-item */
-    function _handleCancellation(bytes calldata payload) internal {
-        AoriCancelLib.handleCancellation(payload);
-    }
-
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                          WITHDRAW                          */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
@@ -847,9 +685,9 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     ) internal {
         PayloadType msgType = payload.getType();
         if (msgType == PayloadType.Cancellation) {
-            _handleCancellation(payload);
+            AoriCancelLib.handleCancellation(payload);
         } else if (msgType == PayloadType.Settlement) {
-            _handleSettlement(payload, srcEid);
+            AoriSettleLib.handleSettlement(payload, srcEid);
         } else {
             revert InvalidMessageType();
         }
