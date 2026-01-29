@@ -6,7 +6,7 @@ pragma solidity 0.8.33;
  * @notice Tests for the Balance utility struct in BalanceUtils library
  */
 import "forge-std/Test.sol";
-import { BalanceUtils } from "../../contracts/libraries/internal/BalanceUtils.sol";
+import { BalanceUtils } from "../../contracts/utils/BalanceUtils.sol";
 import "../../contracts/types/AoriErrors.sol";
 import { Balance } from "../../contracts/types/AoriTypes.sol";
 

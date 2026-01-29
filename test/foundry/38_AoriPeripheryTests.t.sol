@@ -2,34 +2,27 @@
 pragma solidity 0.8.33;
 
 /**
- * AoriPeripheryTests - Tests for the AoriPeriphery aggregation contract
+ * AoriLensTests - Tests for the AoriLens view and aggregation contract
  *
  * Test cases cover:
- * 1. getPendingSettle() - Aggregating pending fills across multiple srcEids
- * 2. getOrdersInputTotals() - Aggregating input token totals for orders
- * 3. Edge cases: empty arrays, large arrays, non-existent data
+ * 1. Raw storage reads (orders, balances, fills)
+ * 2. getPendingSettle() - Aggregating pending fills across multiple srcEids
+ * 3. getOrdersInputTotals() - Aggregating input token totals for orders
+ * 4. Edge cases: empty arrays, large arrays, non-existent data
  */
 import "./TestUtils.sol";
-import { AoriPeriphery } from "../../contracts/periphery/AoriPeriphery.sol";
 import { AoriLens } from "../../contracts/periphery/AoriLens.sol";
 import { Order } from "../../contracts/types/AoriTypes.sol";
 import "../../contracts/types/AoriErrors.sol";
 
-contract AoriPeripheryTests is TestUtils {
+contract AoriLensTests is TestUtils {
     using OptionsBuilder for bytes;
-
-    AoriPeriphery public localPeriphery;
-    AoriPeriphery public remotePeriphery;
 
     Order internal testOrder;
     bytes32 internal testOrderHash;
 
     function setUp() public override {
         super.setUp();
-
-        // Deploy periphery contracts
-        localPeriphery = new AoriPeriphery(address(localLens));
-        remotePeriphery = new AoriPeriphery(address(remoteLens));
 
         // Create and deposit a test order
         testOrder = createValidOrder(1);
@@ -49,19 +42,19 @@ contract AoriPeripheryTests is TestUtils {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     /**
-     * @notice Test constructor stores correct lens address
+     * @notice Test constructor stores correct aori address
      */
-    function testConstructor_StoresLensAddress() public view {
-        assertEq(address(localPeriphery.lens()), address(localLens), "Should store local lens");
-        assertEq(address(remotePeriphery.lens()), address(remoteLens), "Should store remote lens");
+    function testConstructor_StoresAoriAddress() public view {
+        assertEq(address(localLens.aori()), address(localAori), "Should store local aori");
+        assertEq(address(remoteLens.aori()), address(remoteAori), "Should store remote aori");
     }
 
     /**
      * @notice Test constructor reverts with zero address
      */
     function testConstructor_RevertsZeroAddress() public {
-        vm.expectRevert(InvalidAoriAddress.selector);
-        new AoriPeriphery(address(0));
+        vm.expectRevert("Invalid Aori address");
+        new AoriLens(address(0));
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -75,7 +68,7 @@ contract AoriPeripheryTests is TestUtils {
         uint32[] memory srcEids = new uint32[](1);
         srcEids[0] = localEid;
 
-        bytes32[][] memory results = remotePeriphery.getPendingSettle(srcEids, solver);
+        bytes32[][] memory results = remoteLens.getPendingSettle(srcEids, solver);
 
         assertEq(results.length, 1, "Should return one array");
         assertEq(results[0].length, 0, "Should have no fills");
@@ -97,7 +90,7 @@ contract AoriPeripheryTests is TestUtils {
         uint32[] memory srcEids = new uint32[](1);
         srcEids[0] = localEid;
 
-        bytes32[][] memory results = remotePeriphery.getPendingSettle(srcEids, solver);
+        bytes32[][] memory results = remoteLens.getPendingSettle(srcEids, solver);
         bytes32 expectedHash = remoteAori.hash(testOrder);
 
         assertEq(results.length, 1);
@@ -135,7 +128,7 @@ contract AoriPeripheryTests is TestUtils {
         uint32[] memory srcEids = new uint32[](1);
         srcEids[0] = localEid;
 
-        bytes32[][] memory results = remotePeriphery.getPendingSettle(srcEids, solver);
+        bytes32[][] memory results = remoteLens.getPendingSettle(srcEids, solver);
 
         assertEq(results.length, 1, "Should return one array");
         assertEq(results[0].length, 2, "Should have two fills");
@@ -161,7 +154,7 @@ contract AoriPeripheryTests is TestUtils {
         srcEids[1] = 999; // Non-existent
         srcEids[2] = 888; // Non-existent
 
-        bytes32[][] memory results = remotePeriphery.getPendingSettle(srcEids, solver);
+        bytes32[][] memory results = remoteLens.getPendingSettle(srcEids, solver);
 
         assertEq(results.length, 3, "Should return three arrays");
         assertEq(results[0].length, 1, "First srcEid should have one fill");
@@ -175,7 +168,7 @@ contract AoriPeripheryTests is TestUtils {
     function testGetPendingSettle_EmptyArray() public view {
         uint32[] memory srcEids = new uint32[](0);
 
-        bytes32[][] memory results = remotePeriphery.getPendingSettle(srcEids, solver);
+        bytes32[][] memory results = remoteLens.getPendingSettle(srcEids, solver);
 
         assertEq(results.length, 0, "Should return empty array");
     }
@@ -198,7 +191,7 @@ contract AoriPeripheryTests is TestUtils {
         uint32[] memory srcEids = new uint32[](1);
         srcEids[0] = localEid;
 
-        bytes32[][] memory results = remotePeriphery.getPendingSettle(srcEids, address(0x999));
+        bytes32[][] memory results = remoteLens.getPendingSettle(srcEids, address(0x999));
 
         assertEq(results[0].length, 0, "Wrong filler should have no fills");
     }
@@ -228,7 +221,7 @@ contract AoriPeripheryTests is TestUtils {
         uint32[] memory srcEids = new uint32[](1);
         srcEids[0] = localEid;
 
-        bytes32[][] memory results = remotePeriphery.getPendingSettle(srcEids, solver);
+        bytes32[][] memory results = remoteLens.getPendingSettle(srcEids, solver);
 
         assertEq(results[0].length, 0, "Should have no pending fills after settle");
     }
@@ -245,7 +238,7 @@ contract AoriPeripheryTests is TestUtils {
         bytes32[] memory orderHashes = new bytes32[](1);
         orderHashes[0] = testOrderHash;
 
-        (address[] memory tokens, uint256[] memory amounts) = localPeriphery.getOrdersInputTotals(orderHashes);
+        (address[] memory tokens, uint256[] memory amounts) = localLens.getOrdersInputTotals(orderHashes);
 
         assertEq(tokens.length, 1, "Should have one token");
         assertEq(amounts.length, 1, "Should have one amount");
@@ -275,7 +268,7 @@ contract AoriPeripheryTests is TestUtils {
         orderHashes[0] = testOrderHash;
         orderHashes[1] = orderHash2;
 
-        (address[] memory tokens, uint256[] memory amounts) = localPeriphery.getOrdersInputTotals(orderHashes);
+        (address[] memory tokens, uint256[] memory amounts) = localLens.getOrdersInputTotals(orderHashes);
 
         assertEq(tokens.length, 1, "Should aggregate to one token");
         assertEq(amounts[0], testOrder.inputAmount + order2.inputAmount, "Should sum both amounts");
@@ -287,7 +280,7 @@ contract AoriPeripheryTests is TestUtils {
     function testGetOrdersInputTotals_EmptyArray() public view {
         bytes32[] memory orderHashes = new bytes32[](0);
 
-        (address[] memory tokens, uint256[] memory amounts) = localPeriphery.getOrdersInputTotals(orderHashes);
+        (address[] memory tokens, uint256[] memory amounts) = localLens.getOrdersInputTotals(orderHashes);
 
         assertEq(tokens.length, 0, "Should return empty tokens array");
         assertEq(amounts.length, 0, "Should return empty amounts array");
@@ -300,7 +293,7 @@ contract AoriPeripheryTests is TestUtils {
         bytes32[] memory orderHashes = new bytes32[](1);
         orderHashes[0] = keccak256("fake_order");
 
-        (address[] memory tokens, uint256[] memory amounts) = localPeriphery.getOrdersInputTotals(orderHashes);
+        (address[] memory tokens, uint256[] memory amounts) = localLens.getOrdersInputTotals(orderHashes);
 
         // Non-existent order returns zeros, which means inputToken = address(0)
         // The function adds address(0) as a unique token with amount 0
@@ -317,7 +310,7 @@ contract AoriPeripheryTests is TestUtils {
         orderHashes[0] = testOrderHash;
         orderHashes[1] = keccak256("fake_order");
 
-        (address[] memory tokens, uint256[] memory amounts) = localPeriphery.getOrdersInputTotals(orderHashes);
+        (address[] memory tokens, uint256[] memory amounts) = localLens.getOrdersInputTotals(orderHashes);
 
         // Should have two unique tokens: the real inputToken and address(0) from fake order
         assertEq(tokens.length, 2, "Should have two unique tokens");
@@ -332,7 +325,7 @@ contract AoriPeripheryTests is TestUtils {
         orderHashes[1] = testOrderHash;
         orderHashes[2] = testOrderHash;
 
-        (address[] memory tokens, uint256[] memory amounts) = localPeriphery.getOrdersInputTotals(orderHashes);
+        (address[] memory tokens, uint256[] memory amounts) = localLens.getOrdersInputTotals(orderHashes);
 
         assertEq(tokens.length, 1, "Should aggregate to one token");
         assertEq(amounts[0], testOrder.inputAmount * 3, "Should triple the amount");
@@ -375,7 +368,7 @@ contract AoriPeripheryTests is TestUtils {
             orderHashes[i] = localAori.hash(order);
         }
 
-        (address[] memory resultTokens, uint256[] memory resultAmounts) = localPeriphery.getOrdersInputTotals(orderHashes);
+        (address[] memory resultTokens, uint256[] memory resultAmounts) = localLens.getOrdersInputTotals(orderHashes);
 
         // Should cap at 20 unique tokens
         assertEq(resultTokens.length, 20, "Should cap at 20 tokens");
@@ -421,7 +414,7 @@ contract AoriPeripheryTests is TestUtils {
         orderHashes[0] = testOrderHash;
         orderHashes[1] = orderHash2;
 
-        (address[] memory tokens, uint256[] memory amounts) = localPeriphery.getOrdersInputTotals(orderHashes);
+        (address[] memory tokens, uint256[] memory amounts) = localLens.getOrdersInputTotals(orderHashes);
 
         assertEq(tokens.length, 2, "Should have two unique tokens");
 
@@ -486,7 +479,7 @@ contract AoriPeripheryTests is TestUtils {
         uint32[] memory srcEids = new uint32[](1);
         srcEids[0] = localEid;
 
-        bytes32[][] memory results = remotePeriphery.getPendingSettle(srcEids, solver);
+        bytes32[][] memory results = remoteLens.getPendingSettle(srcEids, solver);
 
         assertEq(results[0].length, numFills, "Fill count mismatch");
         // Verify length matches lens
@@ -552,7 +545,7 @@ contract AoriPeripheryTests is TestUtils {
         hashes[0] = localAori.hash(order1);
         hashes[1] = localAori.hash(order2);
 
-        (address[] memory tokens, uint256[] memory amounts) = localPeriphery.getOrdersInputTotals(hashes);
+        (address[] memory tokens, uint256[] memory amounts) = localLens.getOrdersInputTotals(hashes);
 
         // Both orders use same converted token, should aggregate
         assertEq(tokens.length, 1, "Should aggregate to one token");
@@ -586,7 +579,7 @@ contract AoriPeripheryTests is TestUtils {
         srcEids[1] = localEid; // Valid one
         srcEids[2] = randomEid2;
 
-        bytes32[][] memory results = remotePeriphery.getPendingSettle(srcEids, solver);
+        bytes32[][] memory results = remoteLens.getPendingSettle(srcEids, solver);
 
         assertEq(results.length, 3);
         assertEq(results[0].length, 0, "Random srcEid should have no fills");

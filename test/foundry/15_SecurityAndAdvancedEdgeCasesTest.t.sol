@@ -18,7 +18,7 @@ pragma solidity 0.8.33;
  */
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import "./TestUtils.sol";
-import { TokenUtils, NATIVE_TOKEN } from "../../contracts/libraries/internal/TokenUtils.sol";
+import { TokenUtils, NATIVE_TOKEN } from "../../contracts/utils/TokenUtils.sol";
 import { Aori, IAori } from "../../contracts/Aori.sol";
 import "../../contracts/types/AoriErrors.sol";
 
