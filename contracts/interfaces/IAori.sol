@@ -6,20 +6,34 @@ import { Order, OrderStatus, SrcHook, DstHook } from "../types/AoriTypes.sol";
 
 interface IAori {
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                          SRC EVENTS                        */
+    /*                        ORDER EVENTS                        */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    /**
-     * @notice Emitted when an order is deposited
-     * @param orderId The unique order identifier
-     * @param order The order details
-     * @param feeMbps The fee in millibasis points (for solver unlock calculation)
-     */
-    event Deposit(bytes32 indexed orderId, Order order, uint16 feeMbps);
+    event Deposit(
+        bytes32 indexed orderId, 
+        Order order,
+        address indexed srcHookTokenOut,
+        uint256 srcHookAmountOut
+    );
+
+    event Fill(
+        bytes32 indexed orderId, 
+        address indexed dstHookTokenIn,
+        uint256 dstHookAmountIn,
+        uint256 dstHookAmountOut
+    );
+
+    event Settle(
+        bytes32 indexed orderId,
+        address indexed solver,
+        uint256 solverUnlockedAmount,
+        uint256 protocolFee,
+        address feeRecipient,
+        uint256 additionalFee
+    );
+    
     event Cancel(bytes32 indexed orderId);
-    event Settle(bytes32 indexed orderId);
     event SettleFailed(bytes32 indexed orderId);
-    event Withdraw(address indexed holder, address indexed token, uint256 amount);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    CHAIN MANAGEMENT EVENTS                  */
@@ -31,7 +45,8 @@ interface IAori {
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                      ADMIN EVENTS                          */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
+    
+    event Withdraw(address indexed holder, address indexed token, uint256 amount);
     event HookAdded(address indexed hook);
     event HookRemoved(address indexed hook);
     event SolverAdded(address indexed solver);
@@ -57,10 +72,8 @@ interface IAori {
     event ProtocolFeesClaimed(address indexed token, uint256 amount, address indexed treasury);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                          DST EVENTS                        */
+    /*                          LZ EVENTS                        */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-    event Fill(bytes32 indexed orderId, Order order);
 
     /**
      * @notice Emitted when an order is cancelled from the destination chain
@@ -185,30 +198,6 @@ interface IAori {
     /* forgefmt: disable-next-item */
     function hash(Order calldata order) external pure returns (bytes32);
 
-    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                        HOOK EVENTS                         */
-    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-    /**
-     * @notice Emitted when a source hook is executed during deposit
-     * @param orderId The hash of the order being processed
-     * @param tokenIn The input token sent to the hook (order.inputToken)
-     * @param tokenOut The output token received from the hook (outputToken or preferredToken)
-     * @param amountIn The input amount sent to the hook (order.inputAmount)
-     * @param amountOut The amount of tokens received from hook execution
-     * @param feeMbps The fee in millibasis points (for solver unlock calculation)
-     */
-    event SrcHookExecuted(bytes32 indexed orderId, address indexed tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut, uint16 feeMbps);
-
-    /**
-     * @notice Emitted when a destination hook is executed during fill
-     * @param orderId The hash of the order being processed
-     * @param tokenIn The input token sent to the hook (hook.preferredToken)
-     * @param tokenOut The output token received from the hook (order.outputToken)
-     * @param amountIn The input amount sent to the hook (hook.preferredDstInputAmount)
-     * @param amountOut The amount of output tokens received from hook execution
-     */
-    event DstHookExecuted(bytes32 indexed orderId, address indexed tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                       SWAP FUNCTIONS                        */

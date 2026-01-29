@@ -275,7 +275,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         bytes32 orderId = order.validateDeposit(signature, _hashOrder712(order), ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
 
         IERC20(order.inputToken).safeTransferFrom(order.offerer, address(this), order.inputAmount);
-        _postDeposit(order.inputToken, order.inputAmount, order, orderId);
+        _postDeposit(order.inputToken, order.inputAmount, order, orderId, address(0), 0);
     }
 
     /**
@@ -308,9 +308,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             // Non-atomic path: convert to preferredToken, lock for settlement
             uint256 amountReceived = ExecutionUtils.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut);
 
-            emit SrcHookExecuted(orderId, order.inputToken, hook.preferredToken, order.inputAmount, amountReceived, order.options.feeMbps);
-
-            _postDeposit(hook.preferredToken, amountReceived, order, orderId);
+            _postDeposit(hook.preferredToken, amountReceived, order, orderId, hook.preferredToken, amountReceived);
         }
     }
 
@@ -320,12 +318,16 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      * @param depositAmount The amount of tokens to deposit
      * @param order The order details
      * @param orderId The unique identifier for the order
+     * @param srcHookTokenOut The token received from srcHook (address(0) if no hook)
+     * @param srcHookAmountOut The amount received from srcHook (0 if no hook)
      */
     function _postDeposit(
         address depositToken,
         uint256 depositAmount,
         Order calldata order,
-        bytes32 orderId
+        bytes32 orderId,
+        address srcHookTokenOut,
+        uint256 srcHookAmountOut
     ) internal {
         AoriStorageData storage $ = _getAoriStorage();
         $.balances[order.offerer][depositToken].lock(SafeCast.toUint128(depositAmount));
@@ -334,7 +336,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         $.orders[orderId].inputToken = depositToken;
         $.orders[orderId].inputAmount = SafeCast.toUint128(depositAmount);
 
-        emit Deposit(orderId, order, order.options.feeMbps);
+        emit Deposit(orderId, order, srcHookTokenOut, srcHookAmountOut);
     }
 
     /**
@@ -347,7 +349,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         order.validateNativeDeposit(msg.value, msg.sender);
 
         bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
-        _postDeposit(order.inputToken, order.inputAmount, order, orderId);
+        _postDeposit(order.inputToken, order.inputAmount, order, orderId, address(0), 0);
     }
 
     /**
@@ -377,9 +379,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             // Non-atomic path: convert to preferredToken, lock for settlement
             uint256 amountReceived = ExecutionUtils.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut);
 
-            emit SrcHookExecuted(orderId, order.inputToken, hook.preferredToken, order.inputAmount, amountReceived, order.options.feeMbps);
-
-            _postDeposit(hook.preferredToken, amountReceived, order, orderId);
+            _postDeposit(hook.preferredToken, amountReceived, order, orderId, hook.preferredToken, amountReceived);
         }
     }
 
@@ -408,7 +408,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
 
         Permit2Lib.executeTransfer(order, address(this), nonce, deadline, signature);
 
-        _postDeposit(order.inputToken, order.inputAmount, order, orderId);
+        _postDeposit(order.inputToken, order.inputAmount, order, orderId, address(0), 0);
     }
 
     /**
@@ -445,9 +445,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             // Non-atomic path: convert to preferredToken, lock for settlement
             uint256 amountReceived = ExecutionUtils.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut);
 
-            emit SrcHookExecuted(orderId, order.inputToken, hook.preferredToken, order.inputAmount, amountReceived, order.options.feeMbps);
-
-            _postDeposit(hook.preferredToken, amountReceived, order, orderId);
+            _postDeposit(hook.preferredToken, amountReceived, order, orderId, hook.preferredToken, amountReceived);
         }
     }
 
@@ -519,8 +517,17 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         $.orders[orderId] = order;
         $.orderStatus[orderId] = OrderStatus.Settled;
 
-        // Emit event
-        emit Swap(orderId, order, amountReceived);
+        // Emit events - srcHook converted inputToken to outputToken
+        emit Deposit(orderId, order, hook.preferredToken, amountReceived);
+        emit Fill(orderId, address(0), 0, 0);
+        emit Settle(
+            orderId, 
+            solver, 
+            SafeCast.toUint128(surplus), 
+            protocolFee, 
+            order.options.feeRecipient == address(0) ? solver : order.options.feeRecipient, 
+            additionalFee
+        );
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -542,9 +549,9 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
 
         // Update contract state
         if (order.isSingleChainSwap()) {
-            _settleSingleChainSwap(orderId, order, msg.sender);
+            _settleSingleChainSwap(orderId, order, msg.sender, address(0), 0, 0);
         } else {
-            _postFill(orderId, order);
+            _postFill(orderId, order, address(0), 0, 0);
         }
 
         // Transfer tokens to recipient
@@ -578,13 +585,12 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
 
         // Execute hook to convert preferred tokens to output tokens, validates minOutput
         uint256 amountReceived = ExecutionUtils.executeHook(hook.hookAddress, hook.instructions, order.outputToken, minOutput);
-        emit DstHookExecuted(orderId, hook.preferredToken, order.outputToken, hook.preferredDstInputAmount, amountReceived);
 
         // Update contract state
         if (order.isSingleChainSwap()) {
-            _settleSingleChainSwap(orderId, order, msg.sender);
+            _settleSingleChainSwap(orderId, order, msg.sender, hook.preferredToken, hook.preferredDstInputAmount, amountReceived);
         } else {
-            _postFill(orderId, order);
+            _postFill(orderId, order, hook.preferredToken, hook.preferredDstInputAmount, amountReceived);
         }
 
         // Determine who gets surplus: slippageMbps > 0 → recipient, slippageMbps = 0 → solver
@@ -602,15 +608,21 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      * @notice Processes an order after successful filling
      * @param orderId The unique identifier for the order
      * @param order The order details that were filled
+     * @param dstHookTokenIn The token used in dstHook (address(0) if no hook)
+     * @param dstHookAmountIn The amount sent to dstHook (0 if no hook)
+     * @param dstHookAmountOut The amount received from dstHook (0 if no hook)
      */
     function _postFill(
         bytes32 orderId,
-        Order calldata order
+        Order calldata order,
+        address dstHookTokenIn,
+        uint256 dstHookAmountIn,
+        uint256 dstHookAmountOut
     ) internal {
         AoriStorageData storage $ = _getAoriStorage();
         $.orderStatus[orderId] = OrderStatus.Filled;
         $.srcEidToFillerFills[order.srcEid][msg.sender].push(orderId);
-        emit Fill(orderId, order);
+        emit Fill(orderId, dstHookTokenIn, dstHookAmountIn, dstHookAmountOut);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -718,7 +730,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         }
 
         $.orderStatus[orderId] = OrderStatus.Settled;
-        emit Settle(orderId);
+        emit Settle(orderId, filler, fillerAmount, protocolFee, feeRecipient, additionalFee);
     }
 
     /**
@@ -757,11 +769,17 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      * @param orderId The unique identifier for the order
      * @param order The order details
      * @param solver The address of the solver who filled the order
+     * @param dstHookTokenIn The token used in dstHook (address(0) if no hook)
+     * @param dstHookAmountIn The amount sent to dstHook (0 if no hook)
+     * @param dstHookAmountOut The amount received from dstHook (0 if no hook)
      */
     function _settleSingleChainSwap(
         bytes32 orderId,
         Order memory order,
-        address solver
+        address solver,
+        address dstHookTokenIn,
+        uint256 dstHookAmountIn,
+        uint256 dstHookAmountOut
     ) internal {
         AoriStorageData storage $ = _getAoriStorage();
 
@@ -784,16 +802,14 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         }
 
         // Additional fee accrues to feeRecipient
+        address feeRecipient = order.options.feeRecipient == address(0) ? solver : order.options.feeRecipient;
         if (additionalFee > 0) {
-            address feeRecipient = order.options.feeRecipient == address(0) 
-                ? solver 
-                : order.options.feeRecipient;
             $.balances[feeRecipient][order.inputToken].unlocked += additionalFee;
         }
 
         $.orderStatus[orderId] = OrderStatus.Settled;
-        emit Fill(orderId, order);
-        emit Settle(orderId);
+        emit Fill(orderId, dstHookTokenIn, dstHookAmountIn, dstHookAmountOut);
+        emit Settle(orderId, solver, solverAmount, protocolFee, feeRecipient, additionalFee);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
