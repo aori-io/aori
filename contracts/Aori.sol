@@ -576,6 +576,13 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         uint256 amountReceived = ExecutionUtils.executeHook(hook.hookAddress, hook.instructions, order.outputToken, minOutput);
         emit DstHookExecuted(orderId, hook.preferredToken, order.outputToken, hook.preferredDstInputAmount, amountReceived);
 
+        // Calculate and validate minimum output (returns outputAmount when slippageMbps = 0)
+        uint256 minOutput = (uint256(order.outputAmount) * (ValidationUtils.MBPS_DIVISOR - order.options.slippageMbps)) / ValidationUtils.MBPS_DIVISOR;
+
+        if (amountReceived < minOutput) {
+            revert SlippageExceeded(minOutput, amountReceived);
+        }
+
         // Update contract state
         if (order.isSingleChainSwap()) {
             _settleSingleChainSwap(orderId, order, msg.sender);
