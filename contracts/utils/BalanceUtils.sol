@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.33;
 
-import { Balance } from "../../types/AoriTypes.sol";
-import "../../types/AoriErrors.sol";
+import { Balance } from "../types/AoriTypes.sol";
+import "../types/AoriErrors.sol";
 
 /**
  * @notice Utility library for managing token balances

@@ -2,21 +2,21 @@
 pragma solidity 0.8.33;
 
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import { Order, OrderStatus, SrcHook } from "../../types/AoriTypes.sol";
-import "../../types/AoriErrors.sol";
-import { AoriStorageData } from "../../storage/AoriStorage.sol";
-import { TokenUtils } from "../internal/TokenUtils.sol";
-import { ValidationUtils } from "../internal/ValidationUtils.sol";
-import { IAori } from "../../interfaces/IAori.sol";
+import { Order, OrderStatus, SrcHook } from "../types/AoriTypes.sol";
+import "../types/AoriErrors.sol";
+import { AoriStorageData } from "../storage/AoriStorage.sol";
+import { TokenUtils } from "../utils/TokenUtils.sol";
+import { HookUtils } from "../utils/HookUtils.sol";
+import { ValidationUtils } from "../utils/ValidationUtils.sol";
+import { IAori } from "../interfaces/IAori.sol";
 
 /**
- * @title AoriExecutionLib
- * @notice External library containing hook execution logic for the Aori protocol
+ * @title AoriAtomicSwapLib
+ * @notice External library containing atomic swap logic for the Aori protocol
  * @dev Functions are called via DELEGATECALL, running in Aori's storage context.
- *      This saves bytecode in the main Aori contract while only adding DELEGATECALL
- *      overhead for orders that use hooks (not the standard hot path).
+ *      This saves bytecode in the main Aori contract for the complex atomic swap logic.
  */
-library AoriExecutionLib {
+library AoriAtomicSwapLib {
     using TokenUtils for address;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -34,49 +34,6 @@ library AoriExecutionLib {
         assembly {
             $.slot := AORI_STORAGE_LOCATION
         }
-    }
-
-    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                     HOOK EXECUTION                         */
-    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-    /**
-     * @notice Internal hook execution logic shared by external functions
-     * @dev Measures balance change and validates minimum output
-     */
-    function _executeHook(
-        address target,
-        bytes calldata data,
-        address outputToken,
-        uint256 minAmount
-    ) internal returns (uint256 amountReceived) {
-        uint256 balBefore = TokenUtils.balanceOf(outputToken, address(this));
-        (bool success,) = target.call(data);
-        if (!success) revert HookCallFailed();
-        uint256 balAfter = TokenUtils.balanceOf(outputToken, address(this));
-
-        if (balAfter < balBefore) revert HookDecreasedContractBalance();
-
-        amountReceived = balAfter - balBefore;
-        if (amountReceived < minAmount) revert SlippageExceeded(minAmount, amountReceived);
-    }
-
-    /**
-     * @notice Executes a hook call, measures token balance change, and validates minimum output
-     * @dev External wrapper for _executeHook, called via DELEGATECALL from Aori
-     * @param target The hook contract address to call
-     * @param data The calldata (hook instructions) to send to the target
-     * @param outputToken The token address to observe balance changes for
-     * @param minAmount Minimum acceptable output (reverts if below)
-     * @return amountReceived The amount of tokens received from hook execution
-     */
-    function executeHook(
-        address target,
-        bytes calldata data,
-        address outputToken,
-        uint256 minAmount
-    ) external returns (uint256 amountReceived) {
-        return _executeHook(target, data, outputToken, minAmount);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -104,7 +61,7 @@ library AoriExecutionLib {
         uint256 minOutput = (uint256(order.outputAmount) * (ValidationUtils.MBPS_DIVISOR - order.options.slippageMbps)) / ValidationUtils.MBPS_DIVISOR;
 
         // Execute hook - converts input to output, validates minOutput
-        amountReceived = _executeHook(hook.hookAddress, hook.instructions, order.outputToken, minOutput);
+        amountReceived = HookUtils.executeHook(hook.hookAddress, hook.instructions, order.outputToken, minOutput);
 
         // Fee basis: if slippageMbps > 0, recipient captures surplus so fee on actual; otherwise fee on signed amount
         uint256 feeBasis = order.options.slippageMbps > 0 ? amountReceived : order.outputAmount;
@@ -159,5 +116,4 @@ library AoriExecutionLib {
             additionalFee
         );
     }
-
 }

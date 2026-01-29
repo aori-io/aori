@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.33;
 
-import { Order, OrderStatus, Balance } from "../../types/AoriTypes.sol";
-import "../../types/AoriErrors.sol";
-import { AoriStorageData } from "../../storage/AoriStorage.sol";
-import { ValidationUtils } from "../internal/ValidationUtils.sol";
-import { BalanceUtils } from "../internal/BalanceUtils.sol";
-import { PayloadUtils } from "../internal/PayloadUtils.sol";
-import { IAori } from "../../interfaces/IAori.sol";
+import { Order, OrderStatus, Balance } from "../types/AoriTypes.sol";
+import "../types/AoriErrors.sol";
+import { AoriStorageData } from "../storage/AoriStorage.sol";
+import { ValidationUtils } from "../utils/ValidationUtils.sol";
+import { BalanceUtils } from "../utils/BalanceUtils.sol";
+import { PayloadUtils } from "../utils/PayloadUtils.sol";
+import { IAori } from "../interfaces/IAori.sol";
 
 /**
  * @title AoriSettleLib

@@ -4,11 +4,11 @@ pragma solidity 0.8.33;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import { Order, OrderStatus, Balance } from "../../types/AoriTypes.sol";
-import "../../types/AoriErrors.sol";
-import { AoriStorageData } from "../../storage/AoriStorage.sol";
-import { TokenUtils } from "../internal/TokenUtils.sol";
-import { IAori } from "../../interfaces/IAori.sol";
+import { Order, OrderStatus, Balance } from "../types/AoriTypes.sol";
+import "../types/AoriErrors.sol";
+import { AoriStorageData } from "../storage/AoriStorage.sol";
+import { TokenUtils } from "../utils/TokenUtils.sol";
+import { IAori } from "../interfaces/IAori.sol";
 
 /**
  * @title AoriAdminLib

@@ -2,23 +2,24 @@
 pragma solidity 0.8.33;
 
 import { OAppUpgradeable, Origin, MessagingFee, MessagingReceipt } from "@layerzerolabs/oapp-evm-upgradeable/contracts/oapp/OAppUpgradeable.sol";
-import { PayloadType, PayloadUtils } from "./libraries/internal/PayloadUtils.sol";
+import { PayloadType, PayloadUtils } from "./utils/PayloadUtils.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ISignatureTransfer } from "@permit2/src/interfaces/ISignatureTransfer.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import { ValidationUtils } from "./libraries/internal/ValidationUtils.sol";
-import { AoriExecutionLib } from "./libraries/external/AoriExecutionLib.sol";
+import { ValidationUtils } from "./utils/ValidationUtils.sol";
+import { AoriAtomicSwapLib } from "./lib/AoriAtomicSwapLib.sol";
+import { HookUtils } from "./utils/HookUtils.sol";
 import { AoriStorage, AoriStorageData } from "./storage/AoriStorage.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { BalanceUtils } from "./libraries/internal/BalanceUtils.sol";
-import { AoriAdminLib } from "./libraries/external/AoriAdminLib.sol";
-import { AoriCancelLib } from "./libraries/external/AoriCancelLib.sol";
-import { AoriSettleLib } from "./libraries/external/AoriSettleLib.sol";
-import { TokenUtils } from "./libraries/internal/TokenUtils.sol";
-import { Permit2Lib } from "./libraries/internal/Permit2Lib.sol";
+import { BalanceUtils } from "./utils/BalanceUtils.sol";
+import { AoriAdminLib } from "./lib/AoriAdminLib.sol";
+import { AoriCancelLib } from "./lib/AoriCancelLib.sol";
+import { AoriSettleLib } from "./lib/AoriSettleLib.sol";
+import { TokenUtils } from "./utils/TokenUtils.sol";
+import { Permit2Lib } from "./utils/Permit2Lib.sol";
 import { EIP712 } from "solady/src/utils/EIP712.sol";
 import { ECDSA } from "solady/src/utils/ECDSA.sol";
 import { IAori } from "./interfaces/IAori.sol";
@@ -304,10 +305,10 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         if (order.isSingleChainSwap()) {
             // Atomic path: execute swap with slippage + fee logic
             address solver = order.options.solver == address(0) ? msg.sender : order.options.solver;
-            AoriExecutionLib.executeSwap(orderId, order, hook, solver);
+            AoriAtomicSwapLib.executeSwap(orderId, order, hook, solver);
         } else {
             // Non-atomic path: convert to preferredToken, lock for settlement
-            uint256 amountReceived = AoriExecutionLib.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut);
+            uint256 amountReceived = HookUtils.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut);
 
             _postDeposit(hook.preferredToken, amountReceived, order, orderId, hook.preferredToken, amountReceived);
         }
@@ -375,10 +376,10 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         if (order.isSingleChainSwap()) {
             // Atomic path: execute swap with slippage + fee logic
             address solver = order.options.solver == address(0) ? msg.sender : order.options.solver;
-            AoriExecutionLib.executeSwap(orderId, order, hook, solver);
+            AoriAtomicSwapLib.executeSwap(orderId, order, hook, solver);
         } else {
             // Non-atomic path: convert to preferredToken, lock for settlement
-            uint256 amountReceived = AoriExecutionLib.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut);
+            uint256 amountReceived = HookUtils.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut);
 
             _postDeposit(hook.preferredToken, amountReceived, order, orderId, hook.preferredToken, amountReceived);
         }
@@ -441,10 +442,10 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         if (order.isSingleChainSwap()) {
             // Atomic path: execute swap with slippage + fee logic
             address solver = order.options.solver == address(0) ? msg.sender : order.options.solver;
-            AoriExecutionLib.executeSwap(orderId, order, hook, solver);
+            AoriAtomicSwapLib.executeSwap(orderId, order, hook, solver);
         } else {
             // Non-atomic path: convert to preferredToken, lock for settlement
-            uint256 amountReceived = AoriExecutionLib.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut);
+            uint256 amountReceived = HookUtils.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut);
 
             _postDeposit(hook.preferredToken, amountReceived, order, orderId, hook.preferredToken, amountReceived);
         }
@@ -508,7 +509,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         uint256 minOutput = (uint256(order.outputAmount) * (ValidationUtils.MBPS_DIVISOR - order.options.slippageMbps)) / ValidationUtils.MBPS_DIVISOR;
 
         // Execute hook to convert preferred tokens to output tokens, validates minOutput
-        uint256 amountReceived = AoriExecutionLib.executeHook(hook.hookAddress, hook.instructions, order.outputToken, minOutput);
+        uint256 amountReceived = HookUtils.executeHook(hook.hookAddress, hook.instructions, order.outputToken, minOutput);
 
         // Update contract state
         if (order.isSingleChainSwap()) {
