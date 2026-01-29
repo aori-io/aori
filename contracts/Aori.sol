@@ -15,6 +15,7 @@ import { AoriStorage, AoriStorageData } from "./storage/AoriStorage.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { BalanceUtils } from "./libraries/internal/BalanceUtils.sol";
 import { AoriAdminLib } from "./libraries/external/AoriAdminLib.sol";
+import { AoriCancelLib } from "./libraries/external/AoriCancelLib.sol";
 import { TokenUtils } from "./libraries/internal/TokenUtils.sol";
 import { Permit2Lib } from "./libraries/internal/Permit2Lib.sol";
 import { EIP712 } from "solady/src/utils/EIP712.sol";
@@ -809,11 +810,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      */
     /* forgefmt: disable-next-item */
     function cancel(bytes32 orderId) external nonReentrant whenNotPaused {
-        Order memory order = _getAoriStorage().orders[orderId];
-
-        order.validateSourceChainCancel(orderId, ENDPOINT_ID, this.orderStatus, msg.sender, this.isAllowedSolver);
-
-        _cancel(orderId);
+        AoriCancelLib.cancelSingleChain(orderId, ENDPOINT_ID, msg.sender, this.orderStatus, this.isAllowedSolver);
     }
 
     /**
@@ -832,53 +829,20 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         Order calldata orderToCancel,
         bytes calldata extraOptions
     ) external payable nonReentrant whenNotPaused {
-        if (hash(orderToCancel) != orderId) revert OrderDataMismatch();
-
-        orderToCancel.validateCancel(orderId, ENDPOINT_ID, this.orderStatus, msg.sender, this.isAllowedSolver);
-
-        _getAoriStorage().orderStatus[orderId] = OrderStatus.Cancelled;
-
-        bytes memory payload = PayloadUtils.packCancellation(orderId);
+        bytes memory payload = AoriCancelLib.validateAndPrepareCrossChainCancel(
+            orderId, orderToCancel, ENDPOINT_ID, msg.sender, this.orderStatus, this.isAllowedSolver
+        );
         MessagingReceipt memory receipt = __lzSend(orderToCancel.srcEid, payload, extraOptions);
         emit CancelSent(orderId, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 
     /**
-     * @notice Internal function to cancel an order and return tokens to offerer
-     * @dev Updates order status, decreases locked balance, and transfers tokens back.
-     * @param orderId The hash of the order to cancel
-     */
-    /* forgefmt: disable-next-item */
-    function _cancel(bytes32 orderId) internal {
-        AoriStorageData storage $ = _getAoriStorage();
-        if ($.orderStatus[orderId] != OrderStatus.Active) revert CanOnlyCancelActiveOrders();
-
-        Order memory order = $.orders[orderId];
-        uint128 amountToReturn = order.inputAmount;
-        address tokenAddress = order.inputToken;
-        address recipient = order.offerer;
-
-        // Validate contract has sufficient tokens
-        tokenAddress.validateSufficientBalance(amountToReturn);
-
-        // Update state first
-        $.orderStatus[orderId] = OrderStatus.Cancelled;
-        $.balances[recipient][tokenAddress].locked -= amountToReturn;
-
-        // Transfer tokens back to offerer
-        tokenAddress.safeTransfer(recipient, amountToReturn);
-        emit Cancel(orderId);
-    }
-
-    /**
-     * @notice Handles cancellation payload from source chain
+     * @notice Handles cancellation payload from LayerZero
      * @param payload The cancellation payload containing the order hash
      */
     /* forgefmt: disable-next-item */
     function _handleCancellation(bytes calldata payload) internal {
-        payload.validateCancellationLen();
-        bytes32 orderId = payload.unpackCancellation();
-        _cancel(orderId);
+        AoriCancelLib.handleCancellation(payload);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -891,30 +855,9 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
      * @param token The token address to withdraw
      * @param amount The amount to withdraw (use 0 to withdraw full balance)
      */
-    function withdraw(
-        address token,
-        uint256 amount
-    ) external nonReentrant whenNotPaused {
-        address holder = msg.sender;
-        AoriStorageData storage $ = _getAoriStorage();
-        uint256 unlockedBalance = $.balances[holder][token].unlocked;
-        if (unlockedBalance == 0) revert NonZeroBalanceRequired();
-
-        // Default to full balance if amount is 0
-        if (amount == 0) {
-            amount = unlockedBalance;
-        } else {
-            if (unlockedBalance < amount) revert InsufficientUnlockedBalance();
-        }
-
-        token.validateSufficientBalance(amount);
-
-        // Update balance
-        $.balances[holder][token].unlocked = SafeCast.toUint128(unlockedBalance - amount);
-
-        // Transfer tokens to user
-        token.safeTransfer(holder, amount);
-        emit Withdraw(holder, token, amount);
+    /* forgefmt: disable-next-item */
+    function withdraw(address token, uint256 amount) external nonReentrant whenNotPaused {
+        AoriAdminLib.withdraw(token, amount, msg.sender);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/

@@ -3,6 +3,7 @@ pragma solidity 0.8.33;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { Order, OrderStatus, Balance } from "../../types/AoriTypes.sol";
 import "../../types/AoriErrors.sol";
 import { AoriStorageData } from "../../storage/AoriStorage.sol";
@@ -216,6 +217,42 @@ library AoriAdminLib {
         _transfer(token, treasury, amount);
 
         emit IAori.ProtocolFeesClaimed(token, amount, treasury);
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                         WITHDRAW                           */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /**
+     * @notice Allows users to withdraw their unlocked token balances
+     * @param token The token address to withdraw
+     * @param amount The amount to withdraw (use 0 to withdraw full balance)
+     * @param holder The address of the user withdrawing
+     */
+    function withdraw(
+        address token,
+        uint256 amount,
+        address holder
+    ) external {
+        AoriStorageData storage $ = _getAoriStorage();
+        uint256 unlockedBalance = $.balances[holder][token].unlocked;
+        if (unlockedBalance == 0) revert NonZeroBalanceRequired();
+
+        // Default to full balance if amount is 0
+        if (amount == 0) {
+            amount = unlockedBalance;
+        } else {
+            if (unlockedBalance < amount) revert InsufficientUnlockedBalance();
+        }
+
+        token.validateSufficientBalance(amount);
+
+        // Update balance
+        $.balances[holder][token].unlocked = SafeCast.toUint128(unlockedBalance - amount);
+
+        // Transfer tokens to user
+        token.safeTransfer(holder, amount);
+        emit IAori.Withdraw(holder, token, amount);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
