@@ -106,9 +106,7 @@ library AoriSettleLib {
         bytes calldata payload,
         uint32 senderEid
     ) external {
-        payload.validateSettlementLen();
-        (address filler, uint16 fillCount) = payload.unpackSettlementHeader();
-        payload.validateSettlementLen(fillCount);
+        (address filler, uint16 fillCount) = payload.validateAndUnpackSettlement();
 
         AoriStorageData storage $ = _getAoriStorage();
         for (uint256 i = 0; i < fillCount; ++i) {

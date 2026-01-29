@@ -189,6 +189,34 @@ library PayloadUtils {
     }
 
     /**
+     * @notice Validates and unpacks a settlement payload in a single operation
+     * @dev Consolidates validateSettlementLen() + unpackSettlementHeader() + validateSettlementLen(fillCount)
+     *      More gas efficient at runtime by avoiding multiple function calls
+     * @param payload The settlement payload to validate and unpack
+     * @return filler The filler address
+     * @return fillCount The number of fills in the payload
+     */
+    function validateAndUnpackSettlement(
+        bytes calldata payload
+    ) internal pure returns (address filler, uint16 fillCount) {
+        // Validate minimum header length (1 byte type + 20 bytes filler + 2 bytes fillCount = 23)
+        if (payload.length < 23) revert InvalidPayloadLength(23, payload.length);
+
+        // Unpack filler address using assembly for gas efficiency
+        assembly {
+            let word := calldataload(add(payload.offset, 1))
+            filler := shr(96, word)
+        }
+
+        // Unpack fill count
+        fillCount = (uint16(uint8(payload[21])) << 8) | uint16(uint8(payload[22]));
+
+        // Validate exact payload length matches fill count
+        uint256 expectedLen = 23 + uint256(fillCount) * 32;
+        if (payload.length != expectedLen) revert InvalidPayloadLength(expectedLen, payload.length);
+    }
+
+    /**
      * @notice Unpacks an order hash from a specific position in the settlement payload body
      * @dev Extracts the order hash at the specified index
      * @param payload The settlement payload to unpack
