@@ -239,7 +239,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     /* forgefmt: disable-next-item */
     function getMaxFillsPerSettle() external view returns (uint16) { return AoriAdminLib.getMaxFillsPerSettle(); }
 
-
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                         MODIFIERS                          */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
@@ -567,17 +566,24 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         // Execute hook - converts input to output
         amountReceived = ExecutionUtils.observeBalChg(hook.hookAddress, hook.instructions, order.outputToken);
 
-        if (amountReceived < order.outputAmount) {
-            revert InsufficientSrcHookOutput(order.outputAmount, amountReceived);
+        // Calculate minimum acceptable output (returns outputAmount when slippageMbps = 0)
+        uint256 minOutput = (uint256(order.outputAmount) * (ValidationUtils.MBPS_DIVISOR - order.options.slippageMbps)) / ValidationUtils.MBPS_DIVISOR;
+
+        if (amountReceived < minOutput) {
+            revert SlippageExceeded(minOutput, amountReceived);
         }
 
-        // Calculate both fees
-        // Fee calculations use uint128 - safe because fee validations ensure totalFee <= outputAmount
-        uint128 protocolFee = uint128((uint256(order.outputAmount) * $.protocolFeeMbps) / ValidationUtils.MBPS_DIVISOR);
-        uint128 additionalFee = uint128((uint256(order.outputAmount) * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR);
+        // Fee basis: if slippageMbps > 0, recipient captures surplus so fee on actual; otherwise fee on signed amount
+        uint256 feeBasis = order.options.slippageMbps > 0 ? amountReceived : order.outputAmount;
+
+        // Fee calculations use uint128 - safe because fee validations ensure totalFee <= feeBasis
+        uint128 protocolFee = uint128((feeBasis * $.protocolFeeMbps) / ValidationUtils.MBPS_DIVISOR);
+        uint128 additionalFee = uint128((feeBasis * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR);
         uint128 totalFee = protocolFee + additionalFee;
-        uint128 recipientAmount = order.outputAmount - totalFee;
-        uint256 surplus = amountReceived - order.outputAmount;
+        uint128 recipientAmount = SafeCast.toUint128(feeBasis) - totalFee;
+
+        // Surplus: if slippageMbps = 0, solver gets surplus; if > 0, recipient already received it via feeBasis
+        uint256 surplus = order.options.slippageMbps > 0 ? 0 : amountReceived - order.outputAmount;
 
         // Recipient gets output minus fees (immediate transfer)
         order.outputToken.safeTransfer(order.recipient, recipientAmount);
@@ -599,7 +605,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             $.balances[actualFeeRecipient][order.outputToken].unlocked += additionalFee;
         }
 
-        // Surplus accrues to solver
+        // Surplus accrues to solver (only when slippageMbps = 0)
         if (surplus > 0) {
             $.balances[solver][order.outputToken].unlocked += SafeCast.toUint128(surplus);
         }
@@ -657,6 +663,13 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         uint256 amountReceived = _executeDstHook(order, hook);
         emit DstHookExecuted(orderId, hook.preferredToken, order.outputToken, hook.preferredDstInputAmount, amountReceived);
 
+        // Calculate and validate minimum output (returns outputAmount when slippageMbps = 0)
+        uint256 minOutput = (uint256(order.outputAmount) * (ValidationUtils.MBPS_DIVISOR - order.options.slippageMbps)) / ValidationUtils.MBPS_DIVISOR;
+
+        if (amountReceived < minOutput) {
+            revert SlippageExceeded(minOutput, amountReceived);
+        }
+
         // Update contract state
         if (order.isSingleChainSwap()) {
             _settleSingleChainSwap(orderId, order, msg.sender);
@@ -664,16 +677,20 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
             _postFill(orderId, order);
         }
 
-        // Transfer output to recipient, accrue surplus to solver
-        order.outputToken.safeTransfer(order.recipient, order.outputAmount);
-        uint256 surplus = amountReceived - order.outputAmount;
-        if (surplus > 0) {
+        // Determine who gets surplus: slippageMbps > 0 → recipient, slippageMbps = 0 → solver
+        uint256 recipientAmount = order.options.slippageMbps > 0 ? amountReceived : order.outputAmount;
+        order.outputToken.safeTransfer(order.recipient, recipientAmount);
+
+        // Surplus to solver only when slippageMbps = 0
+        if (order.options.slippageMbps == 0 && amountReceived > order.outputAmount) {
+            uint256 surplus = amountReceived - order.outputAmount;
             _getAoriStorage().balances[msg.sender][order.outputToken].unlocked += SafeCast.toUint128(surplus);
         }
     }
 
     /**
      * @notice Executes a destination hook and handles token conversion
+     * @dev Validation of output amount moved to caller for slippage-aware minOutput calculation
      * @param order The order details
      * @param hook The destination hook configuration
      * @return balChg The balance change observed from the hook execution
@@ -694,7 +711,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         }
 
         balChg = ExecutionUtils.observeBalChg(hook.hookAddress, hook.instructions, order.outputToken);
-        if (balChg < order.outputAmount) revert InsufficientDstHookOutput(order.outputAmount, balChg);
+        // Output validation moved to caller for slippage-aware minOutput check
     }
 
     /**
