@@ -28,7 +28,7 @@ uint256 constant CANCELLATION_PAYLOAD_SIZE = 33;
 function settlementPayloadSize(uint256 fillCount) pure returns (uint256) { return 1 + 20 + 2 + (fillCount * 32); }
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-/*                    PAYLOAD PACKING                        */
+/*                      PAYLOAD UTILS                         */
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
 /**
@@ -36,7 +36,11 @@ function settlementPayloadSize(uint256 fillCount) pure returns (uint256) { retur
  * @dev Provides functions to create properly formatted message payloads for cross-chain messaging
  * that will work with the MessagingReceipt tracking in the contract
  */
-library PayloadPackUtils {
+library PayloadUtils {
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                       PACKING                              */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
     /**
      * @notice Packs a settlement payload with order hashes for LayerZero messaging
      * @dev Creates a settlement payload and clears the filled orders from storage
@@ -105,17 +109,20 @@ library PayloadPackUtils {
         uint8 msgType = uint8(PayloadType.Cancellation);
         return abi.encodePacked(msgType, orderHash);
     }
-}
 
-/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-/*                   PAYLOAD UNPACKING                       */
-/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                      UNPACKING                             */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-/**
- * @notice Library for unpacking LayerZero message payloads
- * @dev Provides functions to extract and validate data from received payloads
- */
-library PayloadUnpackUtils {
+    /**
+     * @notice Gets the payload type from a message payload
+     * @dev Reads the first byte to determine the payload type
+     * @param payload The payload to check
+     * @return The payload type (Settlement or Cancellation)
+     */
+    /* forgefmt: disable-next-item */
+    function getType(bytes calldata payload) internal pure returns (PayloadType) { return PayloadType(uint8(payload[0])); }
+
     /**
      * @notice Validates the length of a cancellation payload
      * @dev Ensures the payload is exactly 33 bytes (1 byte type + 32 bytes order hash)
@@ -164,15 +171,6 @@ library PayloadUnpackUtils {
     }
 
     /**
-     * @notice Gets the payload type from a message payload
-     * @dev Reads the first byte to determine the payload type
-     * @param payload The payload to check
-     * @return The payload type (Settlement or Cancellation)
-     */
-    /* forgefmt: disable-next-item */
-    function getType(bytes calldata payload) internal pure returns (PayloadType) { return PayloadType(uint8(payload[0])); }
-
-    /**
      * @notice Unpacks the header from a settlement payload
      * @dev Extracts the filler address (20 bytes) and fill count (2 bytes)
      * @param payload The settlement payload to unpack
@@ -207,17 +205,11 @@ library PayloadUnpackUtils {
             orderHash := calldataload(add(add(payload.offset, 23), mul(index, 32)))
         }
     }
-}
 
-/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-/*                    PAYLOAD SIZES                          */
-/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                        SIZING                              */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-/**
- * @notice Library for payload size calculations
- * @dev Provides functions to calculate payload sizes for different message types
- */
-library PayloadSizeUtils {
     /**
      * @notice Calculate payload size based on message type and other parameters
      * @dev Used for fee estimation when sending messages via LayerZero

@@ -2,7 +2,7 @@
 pragma solidity 0.8.33;
 
 import { OAppUpgradeable, Origin, MessagingFee, MessagingReceipt } from "@layerzerolabs/oapp-evm-upgradeable/contracts/oapp/OAppUpgradeable.sol";
-import { PayloadType, PayloadPackUtils, PayloadUnpackUtils, PayloadSizeUtils } from "./libraries/internal/PayloadUtils.sol";
+import { PayloadType, PayloadUtils } from "./libraries/internal/PayloadUtils.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -53,9 +53,8 @@ import "./types/AoriTypes.sol";
  */
 
 contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable, UUPSUpgradeable, EIP712 {
-    using PayloadPackUtils for bytes32[];
-    using PayloadUnpackUtils for bytes;
-    using PayloadSizeUtils for uint8;
+    using PayloadUtils for bytes32[];
+    using PayloadUtils for bytes;
     using SafeERC20 for IERC20;
     using BalanceUtils for Balance;
     using ValidationUtils for Order;
@@ -158,7 +157,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     ) external view returns (MessagingFee memory) {
         AoriStorageData storage $ = _getAoriStorage();
         uint256 fillsLength = $.srcEidToFillerFills[_srcEid][_filler].length;
-        uint256 payloadSize = PayloadSizeUtils.calculatePayloadSize(_msgType, fillsLength, $.maxFillsPerSettle);
+        uint256 payloadSize = PayloadUtils.calculatePayloadSize(_msgType, fillsLength, $.maxFillsPerSettle);
         return _quote(_dstEid, new bytes(payloadSize), _options, _payInLzToken);
     }
 
@@ -835,7 +834,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
 
         _getAoriStorage().orderStatus[orderId] = OrderStatus.Cancelled;
 
-        bytes memory payload = PayloadPackUtils.packCancellation(orderId);
+        bytes memory payload = PayloadUtils.packCancellation(orderId);
         MessagingReceipt memory receipt = __lzSend(orderToCancel.srcEid, payload, extraOptions);
         emit CancelSent(orderId, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
