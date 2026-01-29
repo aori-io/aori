@@ -22,7 +22,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Test } from "forge-std/Test.sol";
 import { console } from "forge-std/console.sol";
 import { MockHook2 } from "../Mock/MockHook2.sol";
-import { TokenUtils, NATIVE_TOKEN } from "../../contracts/libraries/internal/TokenUtils.sol";
+import { TokenUtils, NATIVE_TOKEN } from "../../contracts/utils/TokenUtils.sol";
 import "../../contracts/types/AoriErrors.sol";
 
 contract CC_NativeHookToDirectFill_Test is TestUtils {
@@ -468,7 +468,7 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
         });
 
         vm.prank(userSource);
-        vm.expectRevert(abi.encodeWithSelector(InsufficientSrcHookOutput.selector, MIN_PREFERRED_OUT, MIN_PREFERRED_OUT - 1));
+        vm.expectRevert(abi.encodeWithSelector(SlippageExceeded.selector, MIN_PREFERRED_OUT, MIN_PREFERRED_OUT - 1));
         localAori.depositNative{ value: INPUT_AMOUNT }(order, badHook);
     }
 }

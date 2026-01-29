@@ -4,7 +4,7 @@ pragma solidity 0.8.33;
 import { Order, OrderStatus, SrcHook, DstHook, Balance, Options } from "../../contracts/types/AoriTypes.sol";
 import "./TestUtils.sol";
 import { ISignatureTransfer } from "@permit2/src/interfaces/ISignatureTransfer.sol";
-import { Permit2Lib } from "../../contracts/libraries/internal/Permit2Lib.sol";
+import { Permit2Lib } from "../../contracts/utils/Permit2Lib.sol";
 import { DeployPermit2 } from "@permit2/test/utils/DeployPermit2.sol";
 import "../../contracts/types/AoriErrors.sol";
 

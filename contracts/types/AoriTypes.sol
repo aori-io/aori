@@ -47,18 +47,19 @@ enum OrderStatus {
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
 struct SrcHook {
-    address hookAddress;
-    address preferredToken;
-    uint256 minPreferredTokenAmountOut;
-    bytes instructions;
+    address hookAddress; //
+    address preferredToken; // tokenOut
+    uint256 minPreferredTokenAmountOut; // amountOut
+    bytes instructions; // call
 }
 
 struct DstHook {
     address hookAddress;
-    address preferredToken;
-    bytes instructions;
-    uint256 preferredDstInputAmount;
+    address preferredToken; // tokenIn
+    bytes instructions; // call
+    uint256 preferredDstInputAmount; // amountIn
 }
+
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                           BALANCE                          */

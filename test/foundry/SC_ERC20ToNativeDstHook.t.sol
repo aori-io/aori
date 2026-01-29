@@ -21,7 +21,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Test } from "forge-std/Test.sol";
 import { console } from "forge-std/console.sol";
 import { MockHook2 } from "../Mock/MockHook2.sol";
-import { TokenUtils, NATIVE_TOKEN } from "../../contracts/libraries/internal/TokenUtils.sol";
+import { TokenUtils, NATIVE_TOKEN } from "../../contracts/utils/TokenUtils.sol";
 import "../../contracts/types/AoriErrors.sol";
 
 contract SC_ERC20ToNativeDstHook_Test is TestUtils {
@@ -568,7 +568,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         inputToken.approve(address(localAori), INPUT_AMOUNT);
 
         vm.expectEmit(true, false, false, true);
-        emit IAori.Deposit(orderId, order, 0);
+        emit IAori.Deposit(orderId, order, address(0), 0);
 
         vm.prank(solverSC);
         localAori.deposit(order, signature);
@@ -581,15 +581,12 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
             instructions: abi.encodeWithSelector(MockHook2.handleHook.selector, NATIVE_TOKEN, DST_HOOK_OUTPUT)
         });
 
+        // Expect Fill event (dstHook converted to NATIVE_TOKEN)
         vm.expectEmit(true, true, false, true);
-        emit IAori.DstHookExecuted(orderId, NATIVE_TOKEN, NATIVE_TOKEN, DST_HOOK_INPUT, DST_HOOK_OUTPUT);
+        emit IAori.Fill(orderId, NATIVE_TOKEN, DST_HOOK_INPUT, DST_HOOK_OUTPUT);
 
-        // Expect Fill event
-        vm.expectEmit(true, false, false, true);
-        emit IAori.Fill(orderId, order);
-
-        vm.expectEmit(true, false, false, false);
-        emit IAori.Settle(orderId);
+        vm.expectEmit(true, true, false, false);
+        emit IAori.Settle(orderId, solverSC, 0, 0, address(0), 0);
 
         vm.prank(solverSC);
         localAori.fill{ value: DST_HOOK_INPUT }(order, dstHook);

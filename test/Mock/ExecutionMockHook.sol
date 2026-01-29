@@ -6,22 +6,21 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 /**
  * @notice A specialized mock for testing ExecutionUtils
  * This mock directly interacts with ERC20 tokens and manipulates balances
- * to test the observeBalChg function
+ * to test the executeHook function
  */
 contract ExecutionMockHook {
     // We need to make sure the transfers are happening DURING the call
-    // that observeBalChg is monitoring
+    // that executeHook is monitoring
     
     function increaseBalance(address token, address account, uint256 amount) external {
-        // Transfer tokens TO the caller (which is the contract using observeBalChg)
-        // Important: This is the transfer that observeBalChg should detect
+        // Transfer tokens TO the caller (which is the contract using executeHook)
+        // Important: This is the transfer that executeHook should detect
         IERC20(token).transfer(account, amount);
     }
     
     function decreaseBalance(address token, address account, uint256 amount) external {
         // Transfer tokens FROM the caller to this contract
-        // Important: For negative changes, since observeBalChg uses unsigned math,
-        // it should return 0 for any balance decrease
+        // Important: For negative changes, executeHook will revert with HookDecreasedContractBalance
         IERC20(token).transferFrom(account, address(this), amount);
     }
     

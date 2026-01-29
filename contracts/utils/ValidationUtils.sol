@@ -2,9 +2,9 @@
 pragma solidity 0.8.33;
 
 import { SignatureCheckerLib } from "solady/src/utils/SignatureCheckerLib.sol";
-import { Order, OrderStatus } from "../../types/AoriTypes.sol";
+import { Order, OrderStatus } from "../types/AoriTypes.sol";
 import { TokenUtils } from "./TokenUtils.sol";
-import "../../types/AoriErrors.sol";
+import "../types/AoriErrors.sol";
 
 /**
  * @notice Library for order validation functions
