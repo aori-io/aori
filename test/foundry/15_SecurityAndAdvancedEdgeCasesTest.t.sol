@@ -355,7 +355,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         srcData.instructions = abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), 100); // Will return much less than required
 
         vm.prank(solver);
-        vm.expectRevert(abi.encodeWithSelector(InsufficientSrcHookOutput.selector, 2000e18, 100));
+        vm.expectRevert(abi.encodeWithSelector(SlippageExceeded.selector, 2000e18, 100));
         localAori.deposit(order, signature, srcData);
 
         // Test destination hook validation

@@ -247,7 +247,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
         });
 
         vm.prank(userSC);
-        vm.expectRevert(abi.encodeWithSelector(InsufficientSrcHookOutput.selector, OUTPUT_AMOUNT, OUTPUT_AMOUNT - 1));
+        vm.expectRevert(abi.encodeWithSelector(SlippageExceeded.selector, OUTPUT_AMOUNT, OUTPUT_AMOUNT - 1));
         localAori.depositNative{ value: INPUT_AMOUNT }(order, srcHook);
     }
 

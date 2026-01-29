@@ -468,7 +468,7 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
         });
 
         vm.prank(userSource);
-        vm.expectRevert(abi.encodeWithSelector(InsufficientSrcHookOutput.selector, MIN_PREFERRED_OUT, MIN_PREFERRED_OUT - 1));
+        vm.expectRevert(abi.encodeWithSelector(SlippageExceeded.selector, MIN_PREFERRED_OUT, MIN_PREFERRED_OUT - 1));
         localAori.depositNative{ value: INPUT_AMOUNT }(order, badHook);
     }
 }

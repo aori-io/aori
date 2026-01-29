@@ -410,7 +410,7 @@ contract SingleChainHookTest is TestUtils {
 
         // Should revert with "Insufficient output from hook"
         vm.prank(solver);
-        vm.expectRevert(abi.encodeWithSelector(InsufficientSrcHookOutput.selector, uint256(outputAmount), uint256(insufficientAmount)));
+        vm.expectRevert(abi.encodeWithSelector(SlippageExceeded.selector, uint256(outputAmount), uint256(insufficientAmount)));
         localAori.deposit(order, signature, hook);
     }
 
