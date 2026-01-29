@@ -635,7 +635,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
             )
         });
 
-        vm.expectRevert(abi.encodeWithSelector(InsufficientDstHookOutput.selector, OUTPUT_AMOUNT, OUTPUT_AMOUNT - 1));
+        vm.expectRevert(abi.encodeWithSelector(SlippageExceeded.selector, OUTPUT_AMOUNT, OUTPUT_AMOUNT - 1));
         vm.prank(solverSC);
         localAori.fill{ value: OUTPUT_AMOUNT }(order, dstHook);
     }

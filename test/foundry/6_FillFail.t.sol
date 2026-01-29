@@ -205,7 +205,7 @@ contract FillFailTest is TestUtils {
         vm.prank(solver);
         outputToken.approve(address(remoteAori), order.outputAmount);
 
-        vm.expectRevert(abi.encodeWithSelector(InsufficientDstHookOutput.selector, order.outputAmount, 0));
+        vm.expectRevert(abi.encodeWithSelector(SlippageExceeded.selector, order.outputAmount, 0));
         vm.prank(solver);
         remoteAori.fill(order, dstData);
     }

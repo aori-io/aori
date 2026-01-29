@@ -390,7 +390,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         dstData.instructions = abi.encodeWithSelector(MockHook.handleHook.selector, address(outputToken), 1); // Will return much less than required
 
         vm.prank(solver);
-        vm.expectRevert(abi.encodeWithSelector(InsufficientDstHookOutput.selector, order.outputAmount, 1));
+        vm.expectRevert(abi.encodeWithSelector(SlippageExceeded.selector, order.outputAmount, 1));
         remoteAori.fill(order, dstData);
     }
 
