@@ -3,11 +3,12 @@ pragma solidity 0.8.33;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { Order, OrderStatus, Balance } from "../../types/AoriTypes.sol";
-import "../../types/AoriErrors.sol";
-import { AoriStorageData } from "../../storage/AoriStorage.sol";
-import { TokenUtils } from "../internal/TokenUtils.sol";
-import { IAori } from "../../interfaces/IAori.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { Order, OrderStatus, Balance } from "../types/AoriTypes.sol";
+import "../types/AoriErrors.sol";
+import { AoriStorageData } from "../storage/AoriStorage.sol";
+import { TokenUtils } from "../utils/TokenUtils.sol";
+import { IAori } from "../interfaces/IAori.sol";
 
 /**
  * @title AoriAdminLib
@@ -192,6 +193,66 @@ library AoriAdminLib {
     /// @notice Returns the current maximum fills per settle
     function getMaxFillsPerSettle() external view returns (uint16) {
         return _getAoriStorage().maxFillsPerSettle;
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                   CLAIM PROTOCOL FEES                      */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /// @notice Claims accumulated protocol fees for a token
+    /// @dev Permissionless - anyone can trigger, but funds always go to treasury
+    function claimProtocolFees(address token) external {
+        AoriStorageData storage $ = _getAoriStorage();
+
+        uint256 amount = $.pendingProtocolFees[token];
+        if (amount == 0) revert NoPendingFees();
+
+        address treasury = $.protocolTreasury;
+        if (treasury == address(0)) revert InvalidProtocolTreasury();
+
+        // Clear pending before transfer
+        $.pendingProtocolFees[token] = 0;
+
+        // Direct transfer to treasury
+        _transfer(token, treasury, amount);
+
+        emit IAori.ProtocolFeesClaimed(token, amount, treasury);
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                         WITHDRAW                           */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /**
+     * @notice Allows users to withdraw their unlocked token balances
+     * @param token The token address to withdraw
+     * @param amount The amount to withdraw (use 0 to withdraw full balance)
+     * @param holder The address of the user withdrawing
+     */
+    function withdraw(
+        address token,
+        uint256 amount,
+        address holder
+    ) external {
+        AoriStorageData storage $ = _getAoriStorage();
+        uint256 unlockedBalance = $.balances[holder][token].unlocked;
+        if (unlockedBalance == 0) revert NonZeroBalanceRequired();
+
+        // Default to full balance if amount is 0
+        if (amount == 0) {
+            amount = unlockedBalance;
+        } else {
+            if (unlockedBalance < amount) revert InsufficientUnlockedBalance();
+        }
+
+        token.validateSufficientBalance(amount);
+
+        // Update balance
+        $.balances[holder][token].unlocked = SafeCast.toUint128(unlockedBalance - amount);
+
+        // Transfer tokens to user
+        token.safeTransfer(holder, amount);
+        emit IAori.Withdraw(holder, token, amount);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/

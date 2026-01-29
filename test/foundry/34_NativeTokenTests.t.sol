@@ -17,7 +17,7 @@ import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/t
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Test } from "forge-std/Test.sol";
 import { console } from "forge-std/console.sol";
-import { TokenUtils, NATIVE_TOKEN } from "../../contracts/libraries/internal/TokenUtils.sol";
+import { TokenUtils, NATIVE_TOKEN } from "../../contracts/utils/TokenUtils.sol";
 import "../../contracts/types/AoriErrors.sol";
 
 contract NativeTokenTests is TestUtils {
@@ -733,7 +733,7 @@ contract NativeTokenTests is TestUtils {
         bytes32 expectedOrderId = localAori.hash(order);
 
         vm.expectEmit(true, false, false, true);
-        emit IAori.Deposit(expectedOrderId, order, 0);
+        emit IAori.Deposit(expectedOrderId, order, address(0), 0);
 
         vm.prank(user);
         localAori.depositNative{ value: INPUT_AMOUNT }(order);

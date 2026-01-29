@@ -2,58 +2,51 @@
 pragma solidity 0.8.33;
 
 /**
- * ExecutionUtilsTest - Tests for the ExecutionUtils library in AoriUtils.sol
+ * HookUtilsTest - Tests for the HookUtils library
  *
  * Test cases:
- * 1. test_observeBalChg_positiveChange - Tests balance increase tracking
- * 2. test_observeBalChg_noChange - Tests no balance change tracking
- * 3. test_observeBalChg_negativeChange - Tests balance decrease tracking
- * 4. test_observeBalChg_zeroToken - Tests balance tracking with zero token address
- * 5. test_observeBalChg_revertingCall - Tests handling of reverting external calls
- * 6. test_observeBalChg_largeChange - Tests balance tracking with large values
- * 7. test_observeBalChg_maxValue - Tests balance tracking with max uint256 value
- * 8. test_integration_observeBalChg_sequence - Tests multiple operations in sequence
+ * 1. test_executeHook_noChange - Tests no balance change tracking
+ * 2. test_executeHook_negativeChange - Tests balance decrease tracking (should revert)
+ * 3. test_executeHook_zeroToken - Tests balance tracking with zero token address
+ * 4. test_executeHook_revertingCall - Tests handling of reverting external calls
  *
- * This test file verifies that the ExecutionUtils library correctly tracks token balance
- * changes during external calls. The tests cover various scenarios including positive,
+ * This test file verifies that the AoriExecutionLib library correctly executes hooks
+ * and tracks token balance changes. The tests cover various scenarios including positive,
  * negative, and zero balance changes, as well as error conditions and edge cases.
  */
 import "forge-std/Test.sol";
 import "./TestUtils.sol";
-import { ExecutionUtils } from "../../contracts/libraries/internal/ExecutionUtils.sol";
+import { HookUtils } from "../../contracts/utils/HookUtils.sol";
 import "../Mock/MockERC20.sol";
 import "../Mock/ExecutionMockHook.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "forge-std/console.sol"; // Add console logging
+import "forge-std/console.sol";
 import "../../contracts/types/AoriErrors.sol";
 
 /**
  * @title ExecutionTestWrapper
- * @notice Test wrapper for the ExecutionUtils library functions
+ * @notice Test wrapper for the HookUtils library functions
  */
 contract ExecutionTestWrapper {
-    using ExecutionUtils for address;
-
     /**
-     * @notice Wrapper for observeBalChg function
+     * @notice Wrapper for executeHook function
      * @param target The target contract to call
      * @param data The calldata to send
      * @param observedToken The token to observe balance changes for
-     * @return The balance change (positive if tokens received, negative if tokens sent)
+     * @return The balance change (positive if tokens received)
      */
     function observeBalanceChange(
         address target,
         bytes calldata data,
         address observedToken
     ) external returns (uint256) {
-        return ExecutionUtils.observeBalChg(target, data, observedToken);
+        // Pass minAmount = 0 to skip validation for tests
+        return HookUtils.executeHook(target, data, observedToken, 0);
     }
 }
 
-// Define this contract outside ExecutionUtilsTest
+// Define this contract outside the test
 contract ObserveTestWrapper {
-    using ExecutionUtils for address;
-
     function observeSelfChange(
         address target,
         bytes calldata data,
@@ -71,16 +64,16 @@ contract ObserveTestWrapper {
         uint256 afterBalance = IERC20(token).balanceOf(address(this));
         console.log("WRAPPER afterBalance:", afterBalance);
 
-        // Return the difference (what observeBalChg should calculate)
+        // Return the difference (what executeHook should calculate)
         return afterBalance - beforeBalance;
     }
 }
 
 /**
- * @title ExecutionUtilsTest
- * @notice Test suite for the ExecutionUtils library in AoriUtils.sol
+ * @title HookUtilsTest
+ * @notice Test suite for the HookUtils internal library
  */
-contract ExecutionUtilsTest is Test {
+contract HookUtilsTest is Test {
     // Test contracts
     ExecutionTestWrapper public wrapper;
     MockERC20 public token;
@@ -108,7 +101,7 @@ contract ExecutionUtilsTest is Test {
     /*    Basic Functionality Tests   */
     /**********************************/
 
-    /// @dev Tests observeBalChg with a positive balance change
+    /// @dev Tests executeHook with a positive balance change
     /// @notice Covers lines 180-189 in AoriUtils.sol
     // function test_observeBalChg_positiveChange() public {
     //     // Arrange
@@ -143,7 +136,7 @@ contract ExecutionUtilsTest is Test {
     //     assertEq(token.balanceOf(address(this)), DEFAULT_BALANCE + increaseAmount, "Final balance incorrect");
     // }
 
-    /// @dev Tests observeBalChg with no balance change
+    /// @dev Tests executeHook with no balance change
     /// @notice Covers lines 180-189 in AoriUtils.sol
     function test_observeBalChg_noChange() public {
         // Arrange
@@ -157,7 +150,7 @@ contract ExecutionUtilsTest is Test {
         assertEq(token.balanceOf(address(this)), DEFAULT_BALANCE, "Balance should remain unchanged");
     }
 
-    /// @dev Tests observeBalChg with a negative balance change
+    /// @dev Tests executeHook with a negative balance change
     /// @notice Covers lines 180-189 in AoriUtils.sol
     function test_observeBalChg_negativeChange() public {
         // Arrange
@@ -170,7 +163,7 @@ contract ExecutionUtilsTest is Test {
 
         // Assert
         // If balAfter < balBefore, with uint math: balAfter - balBefore = 2^256 - (balBefore - balAfter)
-        // However in observeBalChg, it would underflow and we'd expect 0
+        // However in executeHook, it would revert with HookDecreasedContractBalance
         assertEq(balanceChange, 0, "Negative balance change should result in zero for uint math");
         assertEq(token.balanceOf(address(this)), DEFAULT_BALANCE - decreaseAmount, "Final balance incorrect");
     }
@@ -179,7 +172,7 @@ contract ExecutionUtilsTest is Test {
     /*    Edge Cases Tests           */
     /**********************************/
 
-    /// @dev Tests observeBalChg with zero token address
+    /// @dev Tests executeHook with zero token address
     /// @notice Covers lines 180-189 in AoriUtils.sol (should revert when calling balanceOf on address(0))
     function test_observeBalChg_zeroToken() public {
         // Arrange
@@ -190,7 +183,7 @@ contract ExecutionUtilsTest is Test {
         wrapper.observeBalanceChange(address(mockHook), callData, address(0));
     }
 
-    /// @dev Tests observeBalChg with reverting external call
+    /// @dev Tests executeHook with reverting external call
     /// @notice Covers lines 180-189 in AoriUtils.sol, especially line 187
     function test_observeBalChg_revertingCall() public {
         // Arrange
@@ -201,7 +194,7 @@ contract ExecutionUtilsTest is Test {
         wrapper.observeBalanceChange(address(mockHook), callData, address(token));
     }
 
-    /// @dev Tests observeBalChg with large balance changes
+    /// @dev Tests executeHook with large balance changes
     /// @notice Covers lines 180-189 in AoriUtils.sol
     // function test_observeBalChg_largeChange() public {
     //     // Arrange
@@ -227,7 +220,7 @@ contract ExecutionUtilsTest is Test {
     //     assertEq(token.balanceOf(address(this)), DEFAULT_BALANCE + largeAmount, "Final balance should include large amount");
     // }
 
-    /// @dev Tests observeBalChg with max uint256 value
+    /// @dev Tests executeHook with max uint256 value
     /// @notice Covers lines 180-189 in AoriUtils.sol
     // function test_observeBalChg_maxValue() public {
     //     // Arrange - use a smaller "max" value that won't overflow token total supply
@@ -322,7 +315,7 @@ contract ExecutionUtilsTest is Test {
         console.log("After hook.increaseBalance direct call:", token.balanceOf(address(this)));
         console.log("Expected new balance:", initialBalance + amount);
 
-        // Verify direct call works before testing observeBalChg
+        // Verify direct call works before testing executeHook
         assertEq(token.balanceOf(address(this)), initialBalance + amount, "Mock hook increaseBalance direct call failed to transfer tokens");
     }
 

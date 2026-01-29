@@ -37,12 +37,10 @@ import "forge-std/Test.sol";
 import "./TestUtils.sol";
 import {
     PayloadType,
-    PayloadPackUtils,
-    PayloadUnpackUtils,
-    PayloadSizeUtils,
+    PayloadUtils,
     settlementPayloadSize,
     CANCELLATION_PAYLOAD_SIZE
-} from "../../contracts/libraries/internal/PayloadUtils.sol";
+} from "../../contracts/utils/PayloadUtils.sol";
 import { IAori } from "../../contracts/interfaces/IAori.sol";
 import "forge-std/console.sol";
 import "../../contracts/types/AoriErrors.sol";
@@ -52,8 +50,8 @@ import "../../contracts/types/AoriErrors.sol";
  * @notice Exposes internal functions from AoriUtils for testing
  */
 contract PayloadTestWrapper {
-    using PayloadPackUtils for bytes32[];
-    using PayloadUnpackUtils for bytes;
+    using PayloadUtils for bytes32[];
+    using PayloadUtils for bytes;
 
     // Storage array for testing packSettlement
     bytes32[] internal fillsArray;
@@ -62,53 +60,53 @@ contract PayloadTestWrapper {
     function validateCancellationLen(
         bytes calldata payload
     ) external pure {
-        PayloadUnpackUtils.validateCancellationLen(payload);
+        PayloadUtils.validateCancellationLen(payload);
     }
 
     function validateSettlementLen(
         bytes calldata payload
     ) external pure {
-        PayloadUnpackUtils.validateSettlementLen(payload);
+        PayloadUtils.validateSettlementLen(payload);
     }
 
     function validateSettlementLen(
         bytes calldata payload,
         uint16 fillCount
     ) external pure {
-        PayloadUnpackUtils.validateSettlementLen(payload, fillCount);
+        PayloadUtils.validateSettlementLen(payload, fillCount);
     }
 
     // Unpacking functions
     function getType(
         bytes calldata payload
     ) external pure returns (PayloadType) {
-        return PayloadUnpackUtils.getType(payload);
+        return PayloadUtils.getType(payload);
     }
 
     function unpackCancellation(
         bytes calldata payload
     ) external pure returns (bytes32) {
-        return PayloadUnpackUtils.unpackCancellation(payload);
+        return PayloadUtils.unpackCancellation(payload);
     }
 
     function unpackSettlementHeader(
         bytes calldata payload
     ) external pure returns (address filler, uint16 fillCount) {
-        return PayloadUnpackUtils.unpackSettlementHeader(payload);
+        return PayloadUtils.unpackSettlementHeader(payload);
     }
 
     function unpackSettlementBodyAt(
         bytes calldata payload,
         uint256 index
     ) external pure returns (bytes32) {
-        return PayloadUnpackUtils.unpackSettlementBodyAt(payload, index);
+        return PayloadUtils.unpackSettlementBodyAt(payload, index);
     }
 
     // Packing functions
     function packCancellation(
         bytes32 orderHash
     ) external pure returns (bytes memory) {
-        return PayloadPackUtils.packCancellation(orderHash);
+        return PayloadUtils.packCancellation(orderHash);
     }
 
     function packSettlement(
