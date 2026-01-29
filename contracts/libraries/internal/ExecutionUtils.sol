@@ -10,26 +10,29 @@ import { TokenUtils } from "./TokenUtils.sol";
  */
 library ExecutionUtils {
     /**
-     * @notice Executes an external call and measures the resulting token balance change
-     * @dev Useful for hook operations that convert tokens
-     * @param target The target contract address to call
-     * @param data The calldata to send to the target
-     * @param observedToken The token address to observe balance changes for
-     * @return The balance change (positive if tokens increased, reverts if decreased)
+     * @notice Executes a hook call, measures token balance change, and validates minimum output
+     * @dev Reverts with SlippageExceeded if balance change is below minAmount
+     * @param target The hook contract address to call
+     * @param data The calldata (hook instructions) to send to the target
+     * @param outputToken The token address to observe balance changes for
+     * @param minAmount Minimum acceptable output (reverts if below)
+     * @return amountReceived The amount of tokens received from hook execution
      */
-    function observeBalChg(
+    function executeHook(
         address target,
         bytes calldata data,
-        address observedToken
-    ) internal returns (uint256) {
-        uint256 balBefore = TokenUtils.balanceOf(observedToken, address(this));
+        address outputToken,
+        uint256 minAmount
+    ) internal returns (uint256 amountReceived) {
+        uint256 balBefore = TokenUtils.balanceOf(outputToken, address(this));
         (bool success,) = target.call(data);
         if (!success) revert HookCallFailed();
-        uint256 balAfter = TokenUtils.balanceOf(observedToken, address(this));
+        uint256 balAfter = TokenUtils.balanceOf(outputToken, address(this));
 
         // Prevent underflow and provide clear error message
         if (balAfter < balBefore) revert HookDecreasedContractBalance();
 
-        return balAfter - balBefore;
+        amountReceived = balAfter - balBefore;
+        if (amountReceived < minAmount) revert SlippageExceeded(minAmount, amountReceived);
     }
 }

@@ -124,11 +124,6 @@ error HookCallFailed();
 /// @notice Thrown when hook decreases contract balance
 error HookDecreasedContractBalance();
 
-/// @notice Thrown when source hook doesn't provide enough output tokens
-/// @param expected The expected output amount
-/// @param received The actual amount received
-error InsufficientSrcHookOutput(uint256 expected, uint256 received);
-
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                      SOLVER ERRORS                         */
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
@@ -228,16 +223,6 @@ error NoPendingFees();
 
 /// @notice Thrown when combined protocol fee and max additional fee would exceed 100%
 error CombinedFeesTooHigh();
-
-/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-/*                       SWAP ERRORS                          */
-/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-/// @notice Thrown when swap() is called for a cross-chain order
-error NotSingleChainOrder();
-
-/// @notice Thrown when swapNative() should be used instead of swapWithPermit2
-error UseSwapNativeForNativeTokens();
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                    PERIPHERY ERRORS                        */
