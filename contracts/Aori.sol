@@ -671,23 +671,11 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     ) internal override whenNotPaused {
         if (payload.length == 0) revert EmptyPayload();
 
-        // Pass the sender chain's endpoint ID
-        _recvPayload(payload, origin.srcEid);
-    }
-
-    /**
-     * @notice Processes incoming LayerZero messages based on the payload type
-     * @param payload The message payload containing order hashes and filler information
-     */
-    function _recvPayload(
-        bytes calldata payload,
-        uint32 srcEid
-    ) internal {
         PayloadType msgType = payload.getType();
         if (msgType == PayloadType.Cancellation) {
             AoriCancelLib.handleCancellation(payload);
         } else if (msgType == PayloadType.Settlement) {
-            AoriSettleLib.handleSettlement(payload, srcEid);
+            AoriSettleLib.handleSettlement(payload, origin.srcEid);
         } else {
             revert InvalidMessageType();
         }
