@@ -208,7 +208,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     /* forgefmt: disable-next-item */
     function removeSupportedChain(uint32 eid) external onlyOwner { _getAoriStorage().isSupportedChain[eid] = false; emit ChainRemoved(eid); }
 
-    // Complex emergency functions delegated to AoriAdminLib to save bytecode
+    // Complex administrative functions delegated to AoriAdminLib to save bytecode
 
     /// @notice Emergency function to cancel an order and return funds to recipient
     /* forgefmt: disable-next-item */
@@ -219,6 +219,10 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
     /// @notice Emergency function to withdraw tokens from a user's balance
     /* forgefmt: disable-next-item */
     function emergencyWithdrawFromUser(address token, uint256 amount, address user, bool isLocked, address recipient) external onlyOwner { AoriAdminLib.emergencyWithdrawFromUser(token, amount, user, isLocked, recipient); }
+    /// @notice Claims accumulated protocol fees for a token (permissionless)
+    /* forgefmt: disable-next-item */
+    function claimProtocolFees(address token) external nonReentrant { AoriAdminLib.claimProtocolFees(token); }
+
 
     // Protocol fee admin functions delegated to AoriAdminLib
     /* forgefmt: disable-next-item */
@@ -911,33 +915,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         // Transfer tokens to user
         token.safeTransfer(holder, amount);
         emit Withdraw(holder, token, amount);
-    }
-
-    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                   PROTOCOL FEE FUNCTIONS                   */
-    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-    /**
-     * @notice Claims accumulated protocol fees for a token
-     * @dev Permissionless - anyone can trigger, but funds always go to treasury
-     * @param token The token to claim fees for
-     */
-    function claimProtocolFees(address token) external nonReentrant {
-        AoriStorageData storage $ = _getAoriStorage();
-
-        uint256 amount = $.pendingProtocolFees[token];
-        if (amount == 0) revert NoPendingFees();
-
-        address treasury = $.protocolTreasury;
-        if (treasury == address(0)) revert InvalidProtocolTreasury();
-
-        // Clear pending before transfer (CEI pattern)
-        $.pendingProtocolFees[token] = 0;
-
-        // Direct transfer to treasury (handles both native and ERC20)
-        TokenUtils.safeTransfer(token, treasury, amount);
-
-        emit ProtocolFeesClaimed(token, amount, treasury);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
