@@ -49,17 +49,77 @@ contract AoriLensTests is TestUtils {
     function testOrders_ExistingOrder() public view {
         Order memory retrieved = localLens.orders(testOrderHash);
 
-        // Verify amounts (packed in slot0) - most critical for protocol operation
+        // Verify amounts (packed in slot0)
         assertEq(retrieved.inputAmount, testOrder.inputAmount, "Input amount mismatch");
         assertEq(retrieved.outputAmount, testOrder.outputAmount, "Output amount mismatch");
 
-        // Verify tokens (slot1, slot2) - critical for transfers
+        // Verify tokens (slot1, slot2 lower bits)
         // Input token is converted by the hook during deposit
         assertEq(retrieved.inputToken, address(convertedToken), "Input token should be converted token");
         assertEq(retrieved.outputToken, testOrder.outputToken, "Output token mismatch");
 
-        // Verify order is retrievable and has valid data
-        assertTrue(retrieved.inputAmount > 0, "Order should have positive input amount");
+        // Verify packed time/eid fields (slot2 upper bits + slot3 lower bits)
+        assertEq(retrieved.startTime, testOrder.startTime, "startTime mismatch");
+        assertEq(retrieved.endTime, testOrder.endTime, "endTime mismatch");
+        assertEq(retrieved.srcEid, testOrder.srcEid, "srcEid mismatch");
+        assertEq(retrieved.dstEid, testOrder.dstEid, "dstEid mismatch");
+
+        // Verify addresses (slot3 upper bits + slot4)
+        assertEq(retrieved.offerer, testOrder.offerer, "offerer mismatch");
+        assertEq(retrieved.recipient, testOrder.recipient, "recipient mismatch");
+    }
+
+    /**
+     * @notice Test orders() returns correct values for ALL fields including packed times, offerer/recipient, and Options
+     * @dev Uses distinct addresses for offerer/recipient and non-zero Options to catch slot misalignment bugs
+     */
+    function testOrders_AllFieldsCorrect() public {
+        address distinctRecipient = address(0xBBBB);
+        address feeRecipient = address(0xCCCC);
+        address optionsSolver = solver;
+
+        Order memory order = Order({
+            offerer: userA,
+            recipient: distinctRecipient,
+            inputToken: address(inputToken),
+            outputToken: address(outputToken),
+            inputAmount: uint128(1e18),
+            outputAmount: uint128(2e18),
+            startTime: uint32(block.timestamp),
+            endTime: uint32(block.timestamp + 1 hours),
+            srcEid: localEid,
+            dstEid: remoteEid,
+            options: Options({
+                feeMbps: 500,
+                feeRecipient: feeRecipient,
+                solver: optionsSolver,
+                slippageMbps: 100
+            })
+        });
+
+        bytes memory signature = signOrder(order);
+        vm.prank(userA);
+        inputToken.approve(address(localAori), order.inputAmount);
+        vm.prank(solver);
+        localAori.deposit(order, signature);
+
+        bytes32 orderHash = localAori.hash(order);
+        Order memory r = localLens.orders(orderHash);
+
+        assertEq(r.inputAmount, order.inputAmount, "inputAmount");
+        assertEq(r.outputAmount, order.outputAmount, "outputAmount");
+        assertEq(r.inputToken, order.inputToken, "inputToken");
+        assertEq(r.outputToken, order.outputToken, "outputToken");
+        assertEq(r.startTime, order.startTime, "startTime");
+        assertEq(r.endTime, order.endTime, "endTime");
+        assertEq(r.srcEid, order.srcEid, "srcEid");
+        assertEq(r.dstEid, order.dstEid, "dstEid");
+        assertEq(r.offerer, order.offerer, "offerer");
+        assertEq(r.recipient, order.recipient, "recipient");
+        assertEq(r.options.feeMbps, order.options.feeMbps, "feeMbps");
+        assertEq(r.options.feeRecipient, order.options.feeRecipient, "feeRecipient");
+        assertEq(r.options.solver, order.options.solver, "solver");
+        assertEq(r.options.slippageMbps, order.options.slippageMbps, "slippageMbps");
     }
 
     /**
@@ -78,18 +138,32 @@ contract AoriLensTests is TestUtils {
     }
 
     /**
-     * @notice Test reading multiple orders
+     * @notice Test reading multiple orders with distinct offerer/recipient
+     * @dev Uses different recipient to ensure lens reads offerer and recipient from correct slots
      */
     function testOrders_MultipleOrders() public {
-        // Create and deposit a second order
-        Order memory order2 = createValidOrder(2);
+        // Create order with distinct recipient so offerer != recipient
+        address distinctRecipient = address(0xAAAA);
+        Order memory order2 = Order({
+            offerer: userA,
+            recipient: distinctRecipient,
+            inputToken: address(inputToken),
+            outputToken: address(outputToken),
+            inputAmount: uint128(1e18),
+            outputAmount: uint128(2e18),
+            startTime: uint32(block.timestamp),
+            endTime: uint32(block.timestamp + 1 hours),
+            srcEid: localEid,
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
+        });
         bytes memory sig2 = signOrder(order2);
 
         vm.prank(userA);
         inputToken.approve(address(localAori), order2.inputAmount);
 
         vm.prank(solver);
-        localAori.deposit(order2, sig2, defaultSrcSolverData(order2.inputAmount));
+        localAori.deposit(order2, sig2);
 
         bytes32 orderHash2 = localAori.hash(order2);
 
@@ -97,12 +171,12 @@ contract AoriLensTests is TestUtils {
         Order memory retrieved1 = localLens.orders(testOrderHash);
         Order memory retrieved2 = localLens.orders(orderHash2);
 
+        // Verify offerer and recipient are read from correct slots (not swapped)
         assertEq(retrieved1.offerer, testOrder.offerer, "Order 1 offerer mismatch");
-        assertEq(retrieved2.offerer, order2.offerer, "Order 2 offerer mismatch");
-        assertTrue(
-            retrieved1.inputAmount != retrieved2.inputAmount || testOrder.inputAmount == order2.inputAmount,
-            "Orders should have different or same amounts"
-        );
+        assertEq(retrieved1.recipient, testOrder.recipient, "Order 1 recipient mismatch");
+        assertEq(retrieved2.offerer, userA, "Order 2 offerer mismatch");
+        assertEq(retrieved2.recipient, distinctRecipient, "Order 2 recipient mismatch");
+        assertTrue(retrieved2.offerer != retrieved2.recipient, "offerer and recipient must differ to validate slot reads");
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
