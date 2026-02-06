@@ -23,7 +23,7 @@ import { TestHelperOz5 } from "@layerzerolabs/test-devtools-evm-foundry/contract
 import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import { MockERC20 } from "../Mock/MockERC20.sol";
 import { MockHook } from "../Mock/MockHook.sol";
-import { AoriLens } from "../../contracts/periphery/AoriLens.sol";
+import { AoriLens } from "../../contracts/AoriLens.sol";
 
 /**
  * @title MockAoriUpgraded

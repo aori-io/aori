@@ -40,7 +40,7 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { PayloadType } from "../../contracts/utils/PayloadUtils.sol";
 import { MockERC20 } from "../Mock/MockERC20.sol";
 import { MockHook } from "../Mock/MockHook.sol";
-import { AoriLens } from "../../contracts/periphery/AoriLens.sol";
+import { AoriLens } from "../../contracts/AoriLens.sol";
 
 /**
  * @title TestUtils
