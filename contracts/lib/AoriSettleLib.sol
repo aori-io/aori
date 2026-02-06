@@ -63,12 +63,8 @@ library AoriSettleLib {
     ) external {
         AoriStorageData storage $ = _getAoriStorage();
 
-        // Calculate both fees (order.inputAmount is the locked amount, already correct for srcHook)
-        // Fee calculations use uint128 - safe because fee validations ensure totalFee <= inputAmount
-        uint128 protocolFee = uint128((uint256(order.inputAmount) * $.protocolFeeMbps) / ValidationUtils.MBPS_DIVISOR);
-        uint128 additionalFee = uint128((uint256(order.inputAmount) * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR);
-        uint128 totalFee = protocolFee + additionalFee;
-        uint128 solverAmount = order.inputAmount - totalFee;
+        (uint128 protocolFee, uint128 additionalFee, uint128 solverAmount) =
+            ValidationUtils.calculateFees(order.inputAmount, $.protocolFeeMbps, order.options.feeMbps);
 
         // Decrease offerer's locked balance
         $.balances[order.offerer][order.inputToken].locked -= order.inputAmount;
@@ -139,12 +135,8 @@ library AoriSettleLib {
             return; // Skip non-active orders
         }
 
-        // Calculate both fees (order.inputAmount is the locked amount, already correct for srcHook)
-        // Fee calculations use uint128 - safe because fee validations ensure totalFee <= inputAmount
-        uint128 protocolFee = uint128((uint256(order.inputAmount) * $.protocolFeeMbps) / ValidationUtils.MBPS_DIVISOR);
-        uint128 additionalFee = uint128((uint256(order.inputAmount) * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR);
-        uint128 totalFee = protocolFee + additionalFee;
-        uint128 fillerAmount = order.inputAmount - totalFee;
+        (uint128 protocolFee, uint128 additionalFee, uint128 fillerAmount) =
+            ValidationUtils.calculateFees(order.inputAmount, $.protocolFeeMbps, order.options.feeMbps);
 
         address feeRecipient = order.options.feeRecipient == address(0) 
             ? filler 
