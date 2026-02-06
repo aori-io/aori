@@ -190,7 +190,7 @@ contract HookUtilsTest is Test {
         bytes memory callData = abi.encodeWithSelector(ExecutionMockHook.revertingFunction.selector);
 
         // Act & Assert
-        vm.expectRevert(HookCallFailed.selector);
+        vm.expectRevert(abi.encodeWithSelector(HookCallFailed.selector, abi.encodeWithSignature("Error(string)", "Reverting as requested")));
         wrapper.observeBalanceChange(address(mockHook), callData, address(token));
     }
 
