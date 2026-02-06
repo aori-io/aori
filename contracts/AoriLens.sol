@@ -58,20 +58,35 @@ contract AoriLens {
         bytes32 slot3 = aori.readStorage(bytes32(uint256(baseSlot) + 3));
         bytes32 slot4 = aori.readStorage(bytes32(uint256(baseSlot) + 4));
         bytes32 slot5 = aori.readStorage(bytes32(uint256(baseSlot) + 5));
+        bytes32 slot6 = aori.readStorage(bytes32(uint256(baseSlot) + 6));
 
+        // Slot 0: inputAmount (lower 128) | outputAmount (upper 128)
         order.inputAmount = uint128(uint256(slot0));
         order.outputAmount = uint128(uint256(slot0) >> 128);
+
+        // Slot 1: inputToken (lower 160)
         order.inputToken = address(uint160(uint256(slot1)));
+
+        // Slot 2: outputToken (lower 160) | startTime | endTime | srcEid (packed)
         order.outputToken = address(uint160(uint256(slot2)));
+        order.startTime = uint32(uint256(slot2) >> 160);
+        order.endTime = uint32(uint256(slot2) >> 192);
+        order.srcEid = uint32(uint256(slot2) >> 224);
 
-        uint256 packedTimes = uint256(slot3);
-        order.startTime = uint32(packedTimes);
-        order.endTime = uint32(packedTimes >> 32);
-        order.srcEid = uint32(packedTimes >> 64);
-        order.dstEid = uint32(packedTimes >> 96);
+        // Slot 3: dstEid (lower 32) | offerer (bits 32-191)
+        order.dstEid = uint32(uint256(slot3));
+        order.offerer = address(uint160(uint256(slot3) >> 32));
 
-        order.offerer = address(uint160(uint256(slot4)));
-        order.recipient = address(uint160(uint256(slot5)));
+        // Slot 4: recipient (lower 160)
+        order.recipient = address(uint160(uint256(slot4)));
+
+        // Slot 5: Options.feeMbps (lower 16) | Options.feeRecipient (bits 16-175)
+        order.options.feeMbps = uint16(uint256(slot5));
+        order.options.feeRecipient = address(uint160(uint256(slot5) >> 16));
+
+        // Slot 6: Options.solver (lower 160) | Options.slippageMbps (bits 160-175)
+        order.options.solver = address(uint160(uint256(slot6)));
+        order.options.slippageMbps = uint16(uint256(slot6) >> 160);
     }
 
     /**
