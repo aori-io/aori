@@ -119,7 +119,8 @@ error MissingHook();
 error InvalidHookAddress();
 
 /// @notice Thrown when hook call fails
-error HookCallFailed();
+/// @param reason The revert data returned by the hook
+error HookCallFailed(bytes reason);
 
 /// @notice Thrown when hook decreases contract balance
 error HookDecreasedContractBalance();

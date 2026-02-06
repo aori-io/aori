@@ -210,7 +210,7 @@ contract ValidationFailuresTest is TestUtils {
         outputToken.approve(address(remoteAori), order.outputAmount);
 
         vm.prank(solver);
-        vm.expectRevert(HookCallFailed.selector);
+        vm.expectRevert(abi.encodeWithSelector(HookCallFailed.selector, abi.encodeWithSignature("Error(string)", "Hook deliberately failed")));
         remoteAori.fill(order, dstData);
     }
 }

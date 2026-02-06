@@ -26,8 +26,8 @@ library HookUtils {
         uint256 minAmount
     ) internal returns (uint256 amountReceived) {
         uint256 balBefore = TokenUtils.balanceOf(outputToken, address(this));
-        (bool success,) = target.call(data);
-        if (!success) revert HookCallFailed();
+        (bool success, bytes memory reason) = target.call(data);
+        if (!success) revert HookCallFailed(reason);
         uint256 balAfter = TokenUtils.balanceOf(outputToken, address(this));
 
         if (balAfter < balBefore) revert HookDecreasedContractBalance();
