@@ -12,7 +12,7 @@ pragma solidity 0.8.33;
  * 5. srcEidToFillerFillsLength() - Fill array length
  */
 import "./TestUtils.sol";
-import { AoriLens } from "../../contracts/periphery/AoriLens.sol";
+import { AoriLens } from "../../contracts/AoriLens.sol";
 import { Order, OrderStatus } from "../../contracts/types/AoriTypes.sol";
 
 contract AoriLensTests is TestUtils {
