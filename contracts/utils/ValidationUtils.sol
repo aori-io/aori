@@ -2,6 +2,7 @@
 pragma solidity 0.8.33;
 
 import { SignatureCheckerLib } from "solady/src/utils/SignatureCheckerLib.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { Order, OrderStatus } from "../types/AoriTypes.sol";
 import { TokenUtils } from "./TokenUtils.sol";
 import "../types/AoriErrors.sol";
@@ -233,5 +234,24 @@ library ValidationUtils {
     ) internal view {
         if (hookAddress == address(0)) revert MissingHook();
         if (!isAllowedHook(hookAddress)) revert InvalidHookAddress();
+    }
+
+    /**
+     * @notice Calculates protocol fee, additional fee, and net amount from a basis amount
+     * @param basisAmount The amount to calculate fees on
+     * @param protocolFeeMbps Protocol fee rate in millibasis points
+     * @param additionalFeeMbps Additional fee rate in millibasis points
+     * @return protocolFee The protocol fee amount
+     * @return additionalFee The additional fee amount
+     * @return netAmount The basis amount minus both fees
+     */
+    function calculateFees(
+        uint256 basisAmount,
+        uint16 protocolFeeMbps,
+        uint16 additionalFeeMbps
+    ) internal pure returns (uint128 protocolFee, uint128 additionalFee, uint128 netAmount) {
+        protocolFee = uint128((basisAmount * protocolFeeMbps) / MBPS_DIVISOR);
+        additionalFee = uint128((basisAmount * additionalFeeMbps) / MBPS_DIVISOR);
+        netAmount = SafeCast.toUint128(basisAmount) - protocolFee - additionalFee;
     }
 }

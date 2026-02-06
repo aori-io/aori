@@ -66,11 +66,8 @@ library AoriAtomicSwapLib {
         // Fee basis: if slippageMbps > 0, recipient captures surplus so fee on actual; otherwise fee on signed amount
         uint256 feeBasis = order.options.slippageMbps > 0 ? amountReceived : order.outputAmount;
 
-        // Fee calculations use uint128 - safe because fee validations ensure totalFee <= feeBasis
-        uint128 protocolFee = uint128((feeBasis * $.protocolFeeMbps) / ValidationUtils.MBPS_DIVISOR);
-        uint128 additionalFee = uint128((feeBasis * order.options.feeMbps) / ValidationUtils.MBPS_DIVISOR);
-        uint128 totalFee = protocolFee + additionalFee;
-        uint128 recipientAmount = SafeCast.toUint128(feeBasis) - totalFee;
+        (uint128 protocolFee, uint128 additionalFee, uint128 recipientAmount) =
+            ValidationUtils.calculateFees(feeBasis, $.protocolFeeMbps, order.options.feeMbps);
 
         // Surplus: if slippageMbps = 0, solver gets surplus; if > 0, recipient already received it via feeBasis
         uint256 surplus = order.options.slippageMbps > 0 ? 0 : amountReceived - order.outputAmount;

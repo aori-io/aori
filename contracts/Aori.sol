@@ -3,7 +3,6 @@ pragma solidity 0.8.33;
 
 import { OAppUpgradeable, Origin, MessagingFee, MessagingReceipt } from "@layerzerolabs/oapp-evm-upgradeable/contracts/oapp/OAppUpgradeable.sol";
 import { PayloadType, PayloadUtils } from "./utils/PayloadUtils.sol";
-import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -55,7 +54,7 @@ import "./types/AoriTypes.sol";
  * facilitating peer to peer exchange from any token to any token.
  */
 
-contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable, UUPSUpgradeable, EIP712 {
+contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSUpgradeable, EIP712 {
     using PayloadUtils for bytes32[];
     using PayloadUtils for bytes;
     using SafeERC20 for IERC20;
@@ -69,6 +68,28 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
 
     /// @notice Unique identifier for this endpoint in the LayerZero network
     uint32 public immutable ENDPOINT_ID;
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                  REENTRANCY GUARD (EIP-1153)                */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /// @dev Transient storage slot for reentrancy guard. Uses EIP-1153 (TSTORE/TLOAD)
+    ///      which is cleared after each transaction. ~100 gas vs ~5000 gas for SSTORE.
+    uint256 private constant _REENTRANCY_GUARD_SLOT = 0x929eee149b4bd21268;
+
+    modifier nonReentrant() {
+        assembly {
+            if tload(_REENTRANCY_GUARD_SLOT) {
+                mstore(0, 0x3ee5aeb5) // ReentrancyGuardReentrantCall()
+                revert(0x1c, 0x04)
+            }
+            tstore(_REENTRANCY_GUARD_SLOT, 1)
+        }
+        _;
+        assembly {
+            tstore(_REENTRANCY_GUARD_SLOT, 0)
+        }
+    }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                       STORAGE GAP                          */
@@ -101,7 +122,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         if (_owner == address(0)) revert InvalidOwner();
         __Ownable_init(_owner);
         __OApp_init(_owner);
-        __ReentrancyGuard_init();
         __Pausable_init();
         __UUPSUpgradeable_init();
 
@@ -665,7 +685,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, ReentrancyGuardUpgradeable
         bytes calldata payload,
         address,
         bytes calldata
-    ) internal override whenNotPaused {
+    ) internal override nonReentrant whenNotPaused {
         if (payload.length == 0) revert EmptyPayload();
 
         PayloadType msgType = payload.getType();
