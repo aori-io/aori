@@ -132,6 +132,12 @@ const config: HardhatUserConfig & { etherscan?: any } = {
             accounts,
             gasPrice: 102500000000,
         },
+        megaeth: {
+            eid: 30398,
+            chainId: 4326,
+            url: process.env.MEGAETH_RPC_URL || '',
+            accounts,
+        },
         hardhat: {
             // Needed in testing because TestHelperOz5.sol was exceeding the compiled contract size limit.
             allowUnlimitedContractSize: true,
