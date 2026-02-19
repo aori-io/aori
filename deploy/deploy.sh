@@ -191,7 +191,7 @@ log "Chains: ${#RPCS[@]}"
 log ""
 
 # Warning for broadcast modes
-if [ "$MODE" != "dry-run" ]; then
+if [ "$MODE" != "dry-run" ] && [ "$MODE" != "upgrade-dry-run" ]; then
     log_always "${YELLOW}WARNING: Broadcasting transactions to $NETWORK chains${NC}"
     log_always "Press Ctrl+C within 5 seconds to cancel..."
     sleep 5
@@ -358,7 +358,11 @@ fi
 
 # Summary
 echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}=== Deployment Summary ===${NC}"
+if [ "$MODE" == "upgrade" ] || [ "$MODE" == "upgrade-dry-run" ]; then
+    echo -e "${GREEN}=== Upgrade Summary ===${NC}"
+else
+    echo -e "${GREEN}=== Deployment Summary ===${NC}"
+fi
 echo -e "${GREEN}========================================${NC}"
 echo "Network: $NETWORK"
 echo "Mode: $MODE"

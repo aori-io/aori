@@ -8,22 +8,14 @@ pragma solidity 0.8.34;
  * No private key needed - impersonates the multisig owner.
  * Reuses chain configs from BaseScript to stay DRY.
  *
- * Deploys a MockAoriV2 (with a new getVersion() function) and upgrades the proxy.
+ * Deploys a MockAoriUpgraded (with a new getVersion() function) and upgrades the proxy.
  * Proves the upgrade actually took effect by calling the new function — which would
  * revert if the implementation hadn't changed.
  */
 import "forge-std/Test.sol";
 import { Aori } from "../../contracts/Aori.sol";
 import { BaseScript } from "../../script/BaseScript.sol";
-
-/// @notice V2 implementation that adds a function not present in V1
-contract MockAoriV2 is Aori {
-    uint256 public constant VERSION = 2;
-
-    constructor(address _endpoint, uint32 _eid) Aori(_endpoint, _eid) { }
-
-    function getVersion() external pure returns (uint256) { return VERSION; }
-}
+import { MockAoriUpgraded } from "./36_Upgrade.t.sol";
 
 contract ForkUpgradeTests is Test, BaseScript {
     /// @notice Default deployed proxy address (same on all chains via CREATE3)
@@ -44,7 +36,11 @@ contract ForkUpgradeTests is Test, BaseScript {
     /// @notice Core upgrade test logic run against a forked chain
     function _testForkUpgrade(ChainConfig memory config) internal {
         // Create fork
-        string memory rpcUrl = vm.envString(config.rpcEnvVar);
+        string memory rpcUrl = vm.envOr(config.rpcEnvVar, string(""));
+        if (bytes(rpcUrl).length == 0) {
+            emit log_string(string.concat("Skipping ", config.name, ": ", config.rpcEnvVar, " not set"));
+            return;
+        }
         uint256 forkId = vm.createFork(rpcUrl);
         vm.selectFork(forkId);
 
@@ -69,14 +65,14 @@ contract ForkUpgradeTests is Test, BaseScript {
         assertTrue(oldImpl != address(0), string.concat(config.name, ": old impl should not be zero"));
 
         // --- Deploy V2 and upgrade ---
-        MockAoriV2 newImpl = new MockAoriV2(config.endpoint, config.eid);
+        MockAoriUpgraded newImpl = new MockAoriUpgraded(config.endpoint, config.eid);
         address newImplAddr = address(newImpl);
 
         vm.prank(onChainOwner);
         aori.upgradeToAndCall(newImplAddr, "");
 
         // --- Post-upgrade: V2 function must work ---
-        MockAoriV2 v2 = MockAoriV2(payable(PROXY));
+        MockAoriUpgraded v2 = MockAoriUpgraded(payable(PROXY));
         assertEq(v2.getVersion(), 2, string.concat(config.name, ": getVersion() should return 2 after upgrade"));
 
         // Implementation slot updated

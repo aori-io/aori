@@ -475,10 +475,10 @@ forge verify-contract $ADDRESS Aori \
 | `ConfigurePeers.s.sol` | `AddSolvers` | Whitelist solvers |
 | `ConfigurePeers.s.sol` | `AddHooks` | Whitelist hooks |
 | `ConfigurePeers.s.sol` | `AddSupportedChains` | Add chain EIDs |
-| `UpgradeAori.s.sol` | `UpgradeAori` | Upgrade proxy |
-| `UpgradeAori.s.sol` | `PrepareUpgrade` | Deploy new implementation |
+| `UpgradeAori.s.sol` | `UpgradeAori` | Upgrade single chain proxy |
+| `UpgradeAori.s.sol` | `PrepareUpgrade` | Deploy new implementation only |
 | `UpgradeAori.s.sol` | `VerifyUpgrade` | Verify upgrade success |
-| `UpgradeAori.s.sol` | `UpgradeMultichain` | Upgrade on each chain |
+| `UpgradeAori.s.sol` | `UpgradeMultichain` | Deploy + upgrade on one chain (used by deploy.sh) |
 
 ---
 
