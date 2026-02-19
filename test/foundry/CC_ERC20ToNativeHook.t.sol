@@ -337,8 +337,14 @@ contract CC_ERC20ToNativeHook is TestUtils {
             preFillSolverDstPreferred - DST_PREFERRED_INPUT,
             "Solver should spend dstPreferred input amount"
         );
+        assertEq(solverDest.balance, preFillSolverNative, "Solver wallet native balance should be unchanged");
 
-        assertEq(solverDest.balance, preFillSolverNative + expectedSurplus, "Solver should receive surplus from hook conversion");
+        // Surplus goes to solver's unlocked balance in contract, not direct wallet transfer
+        assertEq(
+            remoteLens.getUnlockedBalances(solverDest, NATIVE_TOKEN),
+            expectedSurplus,
+            "Solver should receive surplus in unlocked balance"
+        );
 
         // Verify order status
         assertTrue(remoteAori.orderStatus(localAori.hash(order)) == OrderStatus.Filled, "Order should be Filled");
@@ -566,10 +572,17 @@ contract CC_ERC20ToNativeHook is TestUtils {
         assertEq(solverSrcPrefNetChange, int256(uint256(SRC_PREFERRED_OUTPUT)), "Solver should have gained srcPreferred tokens");
         assertEq(solverDstPrefNetChange, -int256(uint256(DST_PREFERRED_INPUT)), "Solver should have paid dstPreferred tokens");
 
-        // Calculate expected surplus from dstHook conversion (6 decimals -> 18 decimals scaling)
+        // Solver wallet native balance should be unchanged (surplus goes to unlocked balance)
+        assertEq(solverNativeNetChange, 0, "Solver wallet native balance should be unchanged");
+
+        // Surplus goes to solver's unlocked balance in remote contract, not wallet
         uint256 expectedDstHookOutput = DST_PREFERRED_INPUT * 1e12; // Scale from 6 to 18 decimals
         uint256 expectedSurplus = expectedDstHookOutput - OUTPUT_AMOUNT;
-        assertEq(solverNativeNetChange, int256(expectedSurplus), "Solver should have received expected surplus");
+        assertEq(
+            remoteLens.getUnlockedBalances(solverDest, NATIVE_TOKEN),
+            expectedSurplus,
+            "Solver should have received expected surplus in unlocked balance"
+        );
 
         console.log("");
         console.log("All assertions passed! Cross-chain ERC20 to Native swap (with dual hooks) successful.");
