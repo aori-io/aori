@@ -8,12 +8,22 @@ pragma solidity 0.8.34;
  * No private key needed - impersonates the multisig owner.
  * Reuses chain configs from BaseScript to stay DRY.
  *
- * Loops through all mainnet chains, deploying a new implementation and upgrading
- * the proxy on each fork. Verifies state preservation and access control.
+ * Deploys a MockAoriV2 (with a new getVersion() function) and upgrades the proxy.
+ * Proves the upgrade actually took effect by calling the new function — which would
+ * revert if the implementation hadn't changed.
  */
 import "forge-std/Test.sol";
 import { Aori } from "../../contracts/Aori.sol";
 import { BaseScript } from "../../script/BaseScript.sol";
+
+/// @notice V2 implementation that adds a function not present in V1
+contract MockAoriV2 is Aori {
+    uint256 public constant VERSION = 2;
+
+    constructor(address _endpoint, uint32 _eid) Aori(_endpoint, _eid) { }
+
+    function getVersion() external pure returns (uint256) { return VERSION; }
+}
 
 contract ForkUpgradeTests is Test, BaseScript {
     /// @notice Default deployed proxy address (same on all chains via CREATE3)
@@ -45,26 +55,29 @@ contract ForkUpgradeTests is Test, BaseScript {
         uint32 preEndpointId = aori.ENDPOINT_ID();
         bool prePaused = aori.paused();
 
-        // If OWNER was set from env/default, verify it matches on-chain
         assertEq(onChainOwner, OWNER, string.concat(config.name, ": env OWNER doesn't match on-chain owner"));
         assertEq(preEndpointId, config.eid, string.concat(config.name, ": ENDPOINT_ID mismatch"));
         assertFalse(prePaused, string.concat(config.name, ": should not be paused"));
+
+        // V2 function must not exist before upgrade
+        (bool preSuccess,) = PROXY.staticcall(abi.encodeWithSignature("getVersion()"));
+        assertFalse(preSuccess, string.concat(config.name, ": getVersion() should not exist before upgrade"));
 
         // Read implementation slot before upgrade (ERC1967)
         bytes32 implSlot = bytes32(uint256(keccak256("eip1967.proxy.implementation")) - 1);
         address oldImpl = address(uint160(uint256(vm.load(PROXY, implSlot))));
         assertTrue(oldImpl != address(0), string.concat(config.name, ": old impl should not be zero"));
 
-        // --- Deploy new implementation ---
-        Aori newImpl = new Aori(config.endpoint, config.eid);
+        // --- Deploy V2 and upgrade ---
+        MockAoriV2 newImpl = new MockAoriV2(config.endpoint, config.eid);
         address newImplAddr = address(newImpl);
-        assertTrue(newImplAddr != oldImpl, string.concat(config.name, ": new impl should differ from old"));
 
-        // --- Perform upgrade as owner ---
         vm.prank(onChainOwner);
         aori.upgradeToAndCall(newImplAddr, "");
 
-        // --- Post-upgrade verification ---
+        // --- Post-upgrade: V2 function must work ---
+        MockAoriV2 v2 = MockAoriV2(payable(PROXY));
+        assertEq(v2.getVersion(), 2, string.concat(config.name, ": getVersion() should return 2 after upgrade"));
 
         // Implementation slot updated
         address actualImpl = address(uint160(uint256(vm.load(PROXY, implSlot))));
@@ -74,8 +87,6 @@ contract ForkUpgradeTests is Test, BaseScript {
         assertEq(aori.owner(), onChainOwner, string.concat(config.name, ": owner changed after upgrade"));
         assertEq(aori.ENDPOINT_ID(), config.eid, string.concat(config.name, ": ENDPOINT_ID changed after upgrade"));
         assertFalse(aori.paused(), string.concat(config.name, ": paused state changed after upgrade"));
-
-        // Supported chains still work
         assertTrue(aori.isSupportedChain(config.eid), string.concat(config.name, ": local chain not supported after upgrade"));
 
         // Non-owner cannot upgrade
