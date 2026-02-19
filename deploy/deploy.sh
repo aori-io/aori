@@ -8,16 +8,18 @@ if [ -f .env ]; then
     set +a
 fi
 
-# Aori Multichain Deployment Script
+# Aori Multichain Deployment & Upgrade Script
 # Usage:
-#   ./deploy/deploy.sh testnet                    # Dry run deploy on all testnets
-#   ./deploy/deploy.sh testnet --broadcast        # Deploy to all testnets
-#   ./deploy/deploy.sh testnet --configure-peers  # Configure peers on all testnets
-#   ./deploy/deploy.sh testnet --full             # Deploy + configure peers
-#   ./deploy/deploy.sh mainnet                    # Dry run deploy on all mainnets
-#   ./deploy/deploy.sh mainnet --broadcast        # Deploy to all mainnets
-#   ./deploy/deploy.sh mainnet --configure-peers  # Configure peers on all mainnets
-#   ./deploy/deploy.sh mainnet --full             # Deploy + configure peers
+#   ./deploy/deploy.sh testnet                           # Dry run deploy on all testnets
+#   ./deploy/deploy.sh testnet --broadcast               # Deploy to all testnets
+#   ./deploy/deploy.sh testnet --configure-peers         # Configure peers on all testnets
+#   ./deploy/deploy.sh testnet --full                    # Deploy + configure peers
+#   ./deploy/deploy.sh mainnet                           # Dry run deploy on all mainnets
+#   ./deploy/deploy.sh mainnet --broadcast               # Deploy to all mainnets
+#   ./deploy/deploy.sh mainnet --configure-peers         # Configure peers on all mainnets
+#   ./deploy/deploy.sh mainnet --full                    # Deploy + configure peers
+#   ./deploy/deploy.sh mainnet --upgrade                 # Dry run upgrade on all mainnets
+#   ./deploy/deploy.sh mainnet --upgrade --broadcast     # Upgrade all mainnets for real
 
 # Colors for output
 RED='\033[0;31m'
@@ -30,14 +32,16 @@ NC='\033[0m' # No Color
 # Check arguments
 if [ -z "$1" ]; then
     echo -e "${RED}Error: Missing network argument${NC}"
-    echo "Usage: ./deploy/deploy.sh <testnet|mainnet> [--broadcast|--configure-peers|--full] [--quiet]"
+    echo "Usage: ./deploy/deploy.sh <testnet|mainnet> [--broadcast|--configure-peers|--full|--upgrade] [--quiet]"
     echo ""
     echo "Options:"
-    echo "  (none)            Dry run deployment"
-    echo "  --broadcast       Deploy contracts to all chains"
-    echo "  --configure-peers Configure peers on all chains (requires AORI_PROXY_ADDRESS)"
-    echo "  --full            Deploy + configure peers"
-    echo "  --quiet           Suppress verbose output (show only summary)"
+    echo "  (none)                 Dry run deployment"
+    echo "  --broadcast            Deploy contracts to all chains"
+    echo "  --configure-peers      Configure peers on all chains (requires AORI_PROXY_ADDRESS)"
+    echo "  --full                 Deploy + configure peers"
+    echo "  --upgrade              Dry run upgrade on all chains (requires AORI_PROXY_ADDRESS)"
+    echo "  --upgrade --broadcast  Upgrade contracts on all chains for real"
+    echo "  --quiet                Suppress verbose output (show only summary)"
     exit 1
 fi
 
@@ -52,9 +56,12 @@ shift
 while [ $# -gt 0 ]; do
     case "$1" in
         "--broadcast")
-            MODE="deploy"
             BROADCAST="--broadcast"
             VERIFY="--verify"
+            # Only set MODE to deploy if no other mode was already set
+            if [ "$MODE" == "dry-run" ]; then
+                MODE="deploy"
+            fi
             ;;
         "--configure-peers")
             MODE="configure-peers"
@@ -67,8 +74,6 @@ while [ $# -gt 0 ]; do
             ;;
         "--upgrade")
             MODE="upgrade"
-            BROADCAST="--broadcast"
-            VERIFY="--verify"
             ;;
         "--quiet"|"-q")
             QUIET="true"
@@ -76,6 +81,11 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
+
+# Upgrade dry-run: if upgrade mode but no broadcast flag, it's a dry run
+if [ "$MODE" == "upgrade" ] && [ -z "$BROADCAST" ]; then
+    MODE="upgrade-dry-run"
+fi
 
 # Helper function for conditional logging
 log() {
@@ -151,16 +161,19 @@ if [ -z "$PRIVATE_KEY" ]; then
     missing_vars+=("PRIVATE_KEY")
 fi
 
-if [ -z "$OWNER_ADDRESS" ]; then
-    missing_vars+=("OWNER_ADDRESS")
-fi
+# OWNER_ADDRESS and DEPLOY_SALT only needed for deploy modes, not upgrades
+if [ "$MODE" != "upgrade" ] && [ "$MODE" != "upgrade-dry-run" ]; then
+    if [ -z "$OWNER_ADDRESS" ]; then
+        missing_vars+=("OWNER_ADDRESS")
+    fi
 
-if [ -z "$DEPLOY_SALT" ]; then
-    missing_vars+=("DEPLOY_SALT")
+    if [ -z "$DEPLOY_SALT" ]; then
+        missing_vars+=("DEPLOY_SALT")
+    fi
 fi
 
 # AORI_PROXY_ADDRESS required for configure-peers and upgrade (but not for --full, we compute it)
-if ([ "$MODE" == "configure-peers" ] || [ "$MODE" == "upgrade" ]) && [ -z "$AORI_PROXY_ADDRESS" ]; then
+if ([ "$MODE" == "configure-peers" ] || [ "$MODE" == "upgrade" ] || [ "$MODE" == "upgrade-dry-run" ]) && [ -z "$AORI_PROXY_ADDRESS" ]; then
     missing_vars+=("AORI_PROXY_ADDRESS")
 fi
 
@@ -329,8 +342,12 @@ if [ "$MODE" == "configure-peers" ] || [ "$MODE" == "full" ]; then
     done
 fi
 
-if [ "$MODE" == "upgrade" ]; then
-    log "${YELLOW}=== Upgrading Contracts ===${NC}"
+if [ "$MODE" == "upgrade" ] || [ "$MODE" == "upgrade-dry-run" ]; then
+    if [ "$MODE" == "upgrade-dry-run" ]; then
+        log "${YELLOW}=== Upgrade Dry Run (simulation only) ===${NC}"
+    else
+        log "${YELLOW}=== Upgrading Contracts ===${NC}"
+    fi
     log ""
 
     for rpc_var in "${RPCS[@]}"; do
@@ -431,6 +448,11 @@ if [ "$MODE" == "dry-run" ]; then
     echo ""
     echo "To deploy and configure peers in one command:"
     echo "  ./deploy/deploy.sh $NETWORK --full"
+fi
+
+if [ "$MODE" == "upgrade-dry-run" ]; then
+    echo -e "${YELLOW}This was an upgrade dry run. To upgrade for real:${NC}"
+    echo "  AORI_PROXY_ADDRESS=$AORI_PROXY_ADDRESS ./deploy/deploy.sh $NETWORK --upgrade --broadcast"
 fi
 
 if [ "$MODE" == "deploy" ]; then
