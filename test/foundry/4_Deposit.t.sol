@@ -424,8 +424,8 @@ contract DepositTests is TestUtils {
         inputToken.approve(address(localAori), order.inputAmount);
 
         vm.prank(solver);
-        vm.expectEmit(true, false, false, true);
-        emit Deposit(orderId, order);
+        vm.expectEmit(true, true, false, true);
+        emit IAori.Deposit(orderId, order, address(0), 0);
         localAori.deposit(order, signature);
     }
 
@@ -515,11 +515,4 @@ contract DepositTests is TestUtils {
         });
     }
 
-    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                           EVENTS                           */
-    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-    event Deposit(bytes32 indexed orderId, Order order);
-    event SrcHookExecuted(bytes32 indexed orderId, address indexed tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
-    event Settle(bytes32 indexed orderId);
 }

@@ -675,7 +675,8 @@ contract SingleChainSwapTests is TestUtils {
 
         // Verify solver received the surplus
         uint256 expectedSurplus = extraOutputAmount - OUTPUT_AMOUNT;
-        assertEq(outputToken.balanceOf(solver), initialSolverBalance + expectedSurplus, "Solver should receive surplus tokens");
+        assertEq(outputToken.balanceOf(solver), initialSolverBalance, "Solver external balance should not change from surplus");
+        assertEq(localLens.getUnlockedBalances(solver, address(outputToken)), expectedSurplus, "Solver should receive surplus tokens in unlocked balance");
     }
 
     // =========================================================================
