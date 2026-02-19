@@ -145,6 +145,10 @@ library AoriSettleLib {
         // Cache original balances for potential rollback
         Balance memory offererBalanceCache = $.balances[order.offerer][order.inputToken];
         Balance memory fillerBalanceCache = $.balances[filler][order.inputToken];
+        Balance memory feeRecipientBalanceCache;
+        if (feeRecipient != filler) {
+            feeRecipientBalanceCache = $.balances[feeRecipient][order.inputToken];
+        }
 
         // Attempt atomic balance transfer with soft-fail for batch safety
         bool successLock = $.balances[order.offerer][order.inputToken].decreaseLockedNoRevert(order.inputAmount);
@@ -161,8 +165,6 @@ library AoriSettleLib {
                 return;
             }
         } else {
-            // Separate feeRecipient: need to cache and handle separately
-            Balance memory feeRecipientBalanceCache = $.balances[feeRecipient][order.inputToken];
             bool successFiller = $.balances[filler][order.inputToken].increaseUnlockedNoRevert(fillerAmount);
             bool successAdditionalFee = additionalFee > 0 
                 ? $.balances[feeRecipient][order.inputToken].increaseUnlockedNoRevert(additionalFee)
@@ -177,14 +179,16 @@ library AoriSettleLib {
             }
         }
 
-        // Protocol fee - lazy accrual with overflow protection (no rollback needed, only written on success)
+        // Protocol fee - lazy accrual inside soft-fail window
         if (protocolFee > 0) {
-            uint256 current = $.pendingProtocolFees[order.inputToken];
-            unchecked {
-                uint256 newAmount = current + protocolFee;
-                if (newAmount >= current) {
-                    $.pendingProtocolFees[order.inputToken] = newAmount;
+            if (!BalanceUtils.addNoRevert($.pendingProtocolFees, order.inputToken, protocolFee)) {
+                $.balances[order.offerer][order.inputToken] = offererBalanceCache;
+                $.balances[filler][order.inputToken] = fillerBalanceCache;
+                if (feeRecipient != filler) {
+                    $.balances[feeRecipient][order.inputToken] = feeRecipientBalanceCache;
                 }
+                emit IAori.SettleFailed(orderId);
+                return;
             }
         }
 
