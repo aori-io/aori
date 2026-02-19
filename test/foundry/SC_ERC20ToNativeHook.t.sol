@@ -178,7 +178,12 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         // Verify token transfers
         assertEq(inputToken.balanceOf(userSC), initialUserTokens - INPUT_AMOUNT, "User should spend input tokens");
         assertEq(userSC.balance, initialUserNative + OUTPUT_AMOUNT, "User should receive native tokens");
-        assertEq(solverSC.balance, initialSolverNative + EXPECTED_SURPLUS, "Solver should receive surplus native tokens");
+        // Surplus goes to solver's unlocked balance in contract
+        assertEq(
+            localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN),
+            EXPECTED_SURPLUS,
+            "Solver should receive surplus in unlocked balance"
+        );
 
         // Verify order status is Settled (atomic settlement for single-chain with hook)
         assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
@@ -437,7 +442,11 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
 
         // Verify correct amounts
         assertEq(userSC.balance, initialUserNative + customOutputAmount, "User should receive custom output amount");
-        assertEq(solverSC.balance, initialSolverNative + (customHookOutput - customOutputAmount), "Solver should receive surplus");
+        assertEq(
+            localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN),
+            customHookOutput - customOutputAmount,
+            "Solver should receive surplus in unlocked balance"
+        );
     }
 
     /**
@@ -454,7 +463,11 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         // Verify no locked balances remain (atomic settlement)
         // For single-chain swaps with deposit hooks, no balance accounting is used
         assertEq(localLens.getLockedBalances(userSC, address(inputToken)), 0, "User should have no locked balance after atomic settlement");
-        assertEq(localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN), 0, "Solver should have no unlocked balance for deposit hook swaps");
+        assertEq(
+            localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN),
+            EXPECTED_SURPLUS,
+            "Solver should have surplus in unlocked balance"
+        );
 
         // Verify tokens were transferred directly (not through balance accounting)
         // User should have received native tokens directly

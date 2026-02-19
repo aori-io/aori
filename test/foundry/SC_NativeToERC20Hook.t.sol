@@ -244,8 +244,11 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
         assertEq(
             dstPreferredToken.balanceOf(solverSC), preFillSolverPreferredTokens - PREFERRED_AMOUNT, "Solver should spend preferred tokens"
         );
+        // Surplus goes to solver's unlocked balance in contract
         assertEq(
-            outputToken.balanceOf(solverSC), preFillSolverOutputTokens + EXPECTED_SURPLUS, "Solver should receive surplus output tokens"
+            localLens.getUnlockedBalances(solverSC, address(outputToken)),
+            EXPECTED_SURPLUS,
+            "Solver should receive surplus in unlocked balance"
         );
 
         // Verify order status is Settled (atomic settlement for single-chain)

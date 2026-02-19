@@ -263,14 +263,19 @@ contract CC_NativeToNativeHook is TestUtils {
             "Solver preferred token balance not reduced by fill"
         );
         assertEq(userDest.balance, preFillUserNative + OUTPUT_AMOUNT, "User did not receive the expected native tokens");
-        assertEq(solverDest.balance, preFillSolverNative + EXPECTED_SURPLUS, "Solver did not receive the expected surplus");
+        assertEq(solverDest.balance, preFillSolverNative, "Solver wallet balance should not change (surplus goes to unlocked balance)");
+        assertEq(
+            remoteLens.getUnlockedBalances(solverDest, NATIVE_TOKEN),
+            EXPECTED_SURPLUS,
+            "Solver should receive surplus in unlocked native balance"
+        );
 
-        // The hook sends HOOK_OUTPUT to the contract, then the contract sends OUTPUT_AMOUNT to user and EXPECTED_SURPLUS to solver
-        // Net effect: contract balance should remain the same (receives HOOK_OUTPUT, sends HOOK_OUTPUT)
+        // The hook sends HOOK_OUTPUT to the contract, then the contract sends OUTPUT_AMOUNT to user
+        // Surplus stays in contract as solver's unlocked balance
         assertEq(
             address(remoteAori).balance,
-            preFillContractNative,
-            "Contract balance should remain the same (receives from hook, sends to user+solver)"
+            preFillContractNative + EXPECTED_SURPLUS,
+            "Contract balance should increase by surplus (held as solver unlocked balance)"
         );
 
         // Verify order status
