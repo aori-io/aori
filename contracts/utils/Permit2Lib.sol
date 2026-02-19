@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.33;
+pragma solidity 0.8.34;
 
 import { ISignatureTransfer } from "@permit2/src/interfaces/ISignatureTransfer.sol";
 import { Order, Options } from "../types/AoriTypes.sol";

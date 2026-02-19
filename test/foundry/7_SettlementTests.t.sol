@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.33;
+pragma solidity 0.8.34;
 
 /**
  * SettlementTests - Tests for settlement functionality and array manipulation in the Aori protocol
