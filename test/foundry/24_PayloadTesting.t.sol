@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.33;
+pragma solidity 0.8.34;
 
 /**
  * PayloadPackingUnpackingTest - Comprehensive tests for payload packing and unpacking utilities in AoriUtils.sol
