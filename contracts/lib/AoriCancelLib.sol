@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.33;
+pragma solidity 0.8.34;
 
 import { Order, OrderStatus } from "../types/AoriTypes.sol";
 import "../types/AoriErrors.sol";
