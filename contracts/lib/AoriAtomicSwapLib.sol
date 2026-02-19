@@ -75,15 +75,9 @@ library AoriAtomicSwapLib {
         // Recipient gets output minus fees (immediate transfer)
         order.outputToken.safeTransfer(order.recipient, recipientAmount);
 
-        // Protocol fee - lazy accrual with overflow protection
+        // Protocol fee - lazy accrual (checked += safe here, single-order path can revert)
         if (protocolFee > 0) {
-            uint256 current = $.pendingProtocolFees[order.outputToken];
-            unchecked {
-                uint256 newAmount = current + protocolFee;
-                if (newAmount >= current) {
-                    $.pendingProtocolFees[order.outputToken] = newAmount;
-                }
-            }
+            $.pendingProtocolFees[order.outputToken] += protocolFee;
         }
 
         // Additional fee accrues to feeRecipient (or solver if address(0))

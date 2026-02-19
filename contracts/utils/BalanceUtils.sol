@@ -61,4 +61,26 @@ library BalanceUtils {
         }
         return true;
     }
+
+    /**
+     * @notice Adds to a uint256 mapping accumulator without reverting on overflow
+     * @dev Used for pendingProtocolFees in batch settlement soft-fail paths
+     * @param map The mapping to update
+     * @param key The mapping key
+     * @param amount The amount to add
+     * @return success Whether the operation was successful (false on overflow)
+     */
+    function addNoRevert(
+        mapping(address => uint256) storage map,
+        address key,
+        uint256 amount
+    ) internal returns (bool success) {
+        uint256 current = map[key];
+        unchecked {
+            uint256 newAmount = current + amount;
+            if (newAmount < current) return false;
+            map[key] = newAmount;
+        }
+        return true;
+    }
 }
