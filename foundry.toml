@@ -30,6 +30,9 @@ remappings = [
     '@permit2/=node_modules/@layerzerolabs/toolbox-foundry/lib/permit2/',
 ]
 
+[profile.coverage]
+script = 'no_scripts'
+
 [fuzz]
 runs = 1000
 

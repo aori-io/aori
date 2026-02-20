@@ -38,7 +38,7 @@ abstract contract AoriStorage {
     bytes32 private constant AORI_STORAGE_LOCATION = 0x476c06ce9bda338755e203b7f327971f808163bb891bef1bf37f35e88d0aae00;
 
     function _getAoriStorage() internal pure returns (AoriStorageData storage $) {
-        assembly {
+        assembly ("memory-safe") {
             $.slot := AORI_STORAGE_LOCATION
         }
     }

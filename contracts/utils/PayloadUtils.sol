@@ -66,7 +66,7 @@ library PayloadUtils {
         uint32 offset = 23;
         bytes memory payload = new bytes(offset + takeSize * 32);
 
-        assembly {
+        assembly ("memory-safe") {
             let payloadPtr := add(payload, 32)
             // Store msgType, filler and takeSize
             mstore(payloadPtr, or(shl(88, filler), shl(72, takeSize)))
@@ -141,7 +141,7 @@ library PayloadUtils {
      */
     /* forgefmt: disable-next-item */
     function unpackCancellation(bytes calldata payload) internal pure returns (bytes32 orderHash) {
-        assembly {
+        assembly ("memory-safe") {
             orderHash := calldataload(add(payload.offset, 1))
         }
     }
@@ -181,7 +181,7 @@ library PayloadUtils {
         bytes calldata payload
     ) internal pure returns (address filler, uint16 fillCount) {
         if (payload.length < 23) revert InvalidPayloadLength(23, payload.length);
-        assembly {
+        assembly ("memory-safe") {
             let word := calldataload(add(payload.offset, 1))
             filler := shr(96, word)
         }
@@ -203,7 +203,7 @@ library PayloadUtils {
         if (payload.length < 23) revert InvalidPayloadLength(23, payload.length);
 
         // Unpack filler address using assembly for gas efficiency
-        assembly {
+        assembly ("memory-safe") {
             let word := calldataload(add(payload.offset, 1))
             filler := shr(96, word)
         }
@@ -229,7 +229,7 @@ library PayloadUtils {
     ) internal pure returns (bytes32 orderHash) {
         if (payload.length < 23) revert InvalidPayloadLength(23, payload.length);
         if (index >= (payload.length - 23) / 32) revert PayloadIndexOutOfBounds();
-        assembly {
+        assembly ("memory-safe") {
             orderHash := calldataload(add(add(payload.offset, 23), mul(index, 32)))
         }
     }

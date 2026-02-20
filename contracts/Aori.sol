@@ -78,7 +78,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
     uint256 private constant _REENTRANCY_GUARD_SLOT = 0x929eee149b4bd21268;
 
     modifier nonReentrant() {
-        assembly {
+        assembly ("memory-safe") {
             if tload(_REENTRANCY_GUARD_SLOT) {
                 mstore(0, 0x3ee5aeb5) // ReentrancyGuardReentrantCall()
                 revert(0x1c, 0x04)
@@ -86,7 +86,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
             tstore(_REENTRANCY_GUARD_SLOT, 1)
         }
         _;
-        assembly {
+        assembly ("memory-safe") {
             tstore(_REENTRANCY_GUARD_SLOT, 0)
         }
     }
@@ -165,9 +165,9 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
 
     // Storage read helpers for AoriLens - enables external view contract without adding bytecode
     /* forgefmt: disable-next-item */
-    function readStorage(bytes32 slot) external view returns (bytes32 value) { assembly { value := sload(slot) } }
+    function readStorage(bytes32 slot) external view returns (bytes32 value) { assembly ("memory-safe") { value := sload(slot) } }
     /* forgefmt: disable-next-item */
-    function readStorageArray(bytes32 slot) external view returns (uint256 length) { assembly { length := sload(slot) } }
+    function readStorageArray(bytes32 slot) external view returns (uint256 length) { assembly ("memory-safe") { length := sload(slot) } }
 
     /// @notice Quote LayerZero messaging fee (kept in Aori.sol because it needs OApp's _quote)
     function quote(

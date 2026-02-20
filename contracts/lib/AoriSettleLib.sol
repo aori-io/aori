@@ -32,7 +32,7 @@ library AoriSettleLib {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     function _getAoriStorage() private pure returns (AoriStorageData storage $) {
-        assembly {
+        assembly ("memory-safe") {
             $.slot := AORI_STORAGE_LOCATION
         }
     }

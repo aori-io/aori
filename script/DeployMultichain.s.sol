@@ -97,8 +97,11 @@ contract DeployMultichain is BaseScript {
         vm.startBroadcast(deployerPrivateKey);
 
         // Deploy with CREATE3 for deterministic addresses across ALL chains
+        // Split args into locals to avoid stack-too-deep in legacy codegen (coverage builds)
+        address endpoint = config.endpoint;
+        uint32 eid = config.eid;
         (Aori aori, address implementation) = _deployAoriCreate3(
-            config.endpoint, config.eid, owner, maxFillsPerSettle, initialSolvers, initialHooks, supportedChains, implSalt, proxySalt
+            endpoint, eid, owner, maxFillsPerSettle, initialSolvers, initialHooks, supportedChains, implSalt, proxySalt
         );
 
         vm.stopBroadcast();
