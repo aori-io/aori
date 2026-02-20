@@ -690,7 +690,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
 
         PayloadType msgType = payload.getType();
         if (msgType == PayloadType.Cancellation) {
-            AoriCancelLib.handleCancellation(payload);
+            AoriCancelLib.handleCancellation(payload, origin.srcEid);
         } else if (msgType == PayloadType.Settlement) {
             AoriSettleLib.handleSettlement(payload, origin.srcEid);
         } else {
