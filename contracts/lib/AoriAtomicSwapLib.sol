@@ -57,6 +57,10 @@ library AoriAtomicSwapLib {
     ) external returns (uint256 amountReceived) {
         AoriStorageData storage $ = _getAoriStorage();
 
+        // Update state
+        $.orders[orderId] = order;
+        $.orderStatus[orderId] = OrderStatus.Settled;
+
         // Calculate minimum acceptable output (returns outputAmount when slippageMbps = 0)
         uint256 minOutput = (uint256(order.outputAmount) * (ValidationUtils.MBPS_DIVISOR - order.options.slippageMbps)) / ValidationUtils.MBPS_DIVISOR;
 
@@ -75,15 +79,9 @@ library AoriAtomicSwapLib {
         // Recipient gets output minus fees (immediate transfer)
         order.outputToken.safeTransfer(order.recipient, recipientAmount);
 
-        // Protocol fee - lazy accrual with overflow protection
+        // Protocol fee - lazy accrual (checked += safe here, single-order path can revert)
         if (protocolFee > 0) {
-            uint256 current = $.pendingProtocolFees[order.outputToken];
-            unchecked {
-                uint256 newAmount = current + protocolFee;
-                if (newAmount >= current) {
-                    $.pendingProtocolFees[order.outputToken] = newAmount;
-                }
-            }
+            $.pendingProtocolFees[order.outputToken] += protocolFee;
         }
 
         // Additional fee accrues to feeRecipient (or solver if address(0))
@@ -96,10 +94,6 @@ library AoriAtomicSwapLib {
         if (surplus > 0) {
             $.balances[solver][order.outputToken].unlocked += SafeCast.toUint128(surplus);
         }
-
-        // Update state
-        $.orders[orderId] = order;
-        $.orderStatus[orderId] = OrderStatus.Settled;
 
         // Emit events - srcHook converted inputToken to outputToken
         emit IAori.Deposit(orderId, order, hook.preferredToken, amountReceived);
