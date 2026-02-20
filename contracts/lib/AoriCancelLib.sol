@@ -100,12 +100,16 @@ library AoriCancelLib {
 
     /**
      * @notice Handles cancellation payload received from LayerZero
-     * @dev Unpacks the payload and executes the cancellation
+     * @dev Unpacks the payload and validates the cancellation originated from the order's destination chain
      * @param payload The cancellation payload containing the order hash
+     * @param srcEid The source endpoint ID of the incoming LayerZero message
      */
-    function handleCancellation(bytes calldata payload) external {
+    function handleCancellation(bytes calldata payload, uint32 srcEid) external {
         payload.validateCancellationLen();
         bytes32 orderId = payload.unpackCancellation();
+        AoriStorageData storage $ = _getAoriStorage();
+        uint32 orderDstEid = $.orders[orderId].dstEid;
+        if (orderDstEid != srcEid) revert ChainMismatch(orderDstEid, srcEid);
         _cancelOrder(orderId);
     }
 
