@@ -71,19 +71,19 @@ library ValidationUtils {
         bytes32 digest,
         uint32 endpointId,
         uint16 maxFeeMbps,
+        address solver,
         function(bytes32) external view returns (OrderStatus) orderStatus,
         function(uint32) external view returns (bool) isSupportedChain
     ) internal view returns (bytes32 orderId) {
         orderId = keccak256(abi.encode(order));
         if (orderStatus(orderId) != OrderStatus.Unknown) revert OrderAlreadyExists();
         if (!isSupportedChain(order.dstEid)) revert DestinationChainNotSupported(order.dstEid);
-
-        // Signature validation - supports both EOAs and smart contract wallets (ERC-1271)
         if (!SignatureCheckerLib.isValidSignatureNowCalldata(order.offerer, digest, signature)) {
             revert InvalidSignature();
         }
-
-        // Order parameter validation
+        if (order.options.solver != address(0) && solver != order.options.solver) {
+            revert UnauthorizedSolver();
+        }
         validateCommonOrderParams(order, maxFeeMbps);
         if (order.srcEid != endpointId) revert ChainMismatch(endpointId, order.srcEid);
     }
@@ -110,6 +110,17 @@ library ValidationUtils {
         if (!isSupportedChain(order.dstEid)) revert DestinationChainNotSupported(order.dstEid);
         if (order.srcEid != endpointId) revert ChainMismatch(endpointId, order.srcEid);
         validateCommonOrderParams(order, maxFeeMbps);
+    }
+
+    /**
+     * @notice Validates that the caller is the solver specified in the order
+     * @dev No-op when order.options.solver is address(0) (any whitelisted solver allowed)
+     * @param order The order to check
+     * @param solver The address to validate (typically msg.sender)
+     */
+    /* forgefmt: disable-next-item */
+    function validateSolverAuthorization(Order calldata order, address solver) internal pure {
+        if (order.options.solver != address(0) && solver != order.options.solver) revert UnauthorizedSolver();
     }
 
     /**
