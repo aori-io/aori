@@ -48,7 +48,7 @@ import "./types/AoriTypes.sol";
  */
 /**
  * @title Aori
- * @dev version 0.3.2
+ * @dev version 0.4.0
  * @notice Aori is a trust-minimized omnichain intent settlement protocol.
  * Connecting users and solvers from any chain to any chain,
  * facilitating peer to peer exchange from any token to any token.
@@ -708,7 +708,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
      * @dev Returns the domain name and version for EIP712.
      */
     function _domainNameAndVersion() internal pure override returns (string memory name, string memory version) {
-        return ("Aori", "0.3.2");
+        return ("Aori", "0.4.0");
     }
 
     /**
