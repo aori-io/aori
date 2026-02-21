@@ -136,12 +136,10 @@ contract EdgeCasesTest is TestUtils {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(makerPrivateKey, digest);
         bytes memory signature = abi.encodePacked(r, s, v);
 
-        // The deposit will succeed but the actual amount locked will be less than order.inputAmount
+        // The deposit must revert because the balance-delta check detects the transfer fee
+        vm.expectRevert(TransferAmountMismatch.selector);
         vm.prank(solver);
         localAori.deposit(order, signature);
-
-        uint256 lockedBalance = localLens.getLockedBalances(maker, address(feeToken));
-        assertEq(lockedBalance, 10 ether, "Locked balance should match input amount");
     }
 
     // Test reverting token transfer in hook
