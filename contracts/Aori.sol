@@ -294,7 +294,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
     ) external nonReentrant whenNotPaused onlySolver {
         if (order.inputToken.isNativeToken()) revert UseDepositNativeForNativeTokens();
 
-        bytes32 orderId = order.validateDeposit(signature, _hashOrder712(order), ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
+        bytes32 orderId = order.validateDeposit(signature, _hashOrder712(order), ENDPOINT_ID, _getAoriStorage().maxFeeMbps, msg.sender, this.orderStatus, this.isSupportedChain);
 
         IERC20(order.inputToken).safeTransferFrom(order.offerer, address(this), order.inputAmount);
         _postDeposit(order.inputToken, order.inputAmount, order, orderId, address(0), 0);
@@ -316,7 +316,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
     ) external nonReentrant whenNotPaused onlySolver {
         if (order.inputToken.isNativeToken()) revert UseDepositNativeForNativeTokens();
 
-        bytes32 orderId = order.validateDeposit(signature, _hashOrder712(order), ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
+        bytes32 orderId = order.validateDeposit(signature, _hashOrder712(order), ENDPOINT_ID, _getAoriStorage().maxFeeMbps, msg.sender, this.orderStatus, this.isSupportedChain);
         ValidationUtils.validateHook(hook.hookAddress, this.isAllowedHook);
 
         // Transfer input tokens to hook
@@ -427,6 +427,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
         if (block.timestamp > deadline) revert Permit2SignatureExpired();
 
         bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
+        ValidationUtils.validateSolverAuthorization(order, msg.sender);
 
         Permit2Lib.executeTransfer(order, address(this), nonce, deadline, signature);
 
@@ -454,6 +455,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
         if (block.timestamp > deadline) revert Permit2SignatureExpired();
 
         bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
+        ValidationUtils.validateSolverAuthorization(order, msg.sender);
         ValidationUtils.validateHook(hook.hookAddress, this.isAllowedHook);
 
         // Transfer tokens to hook via Permit2
