@@ -285,9 +285,7 @@ contract SC_ERC20ToNativeSrcHook_Test is TestUtils {
         assertEq(localLens.getUnlockedBalances(userSC, address(inputToken)), 0, "User should have no unlocked balance for srcHook swaps");
         assertEq(localLens.getLockedBalances(solverSC, NATIVE_TOKEN), 0, "Solver should have no locked native balance");
         assertEq(
-            localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN),
-            EXPECTED_SURPLUS,
-            "Solver should have surplus in unlocked native balance"
+            localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN), EXPECTED_SURPLUS, "Solver should have surplus in unlocked native balance"
         );
     }
 
@@ -437,11 +435,7 @@ contract SC_ERC20ToNativeSrcHook_Test is TestUtils {
 
         // Verify no locked balances remain (atomic settlement with direct distribution)
         assertEq(localLens.getLockedBalances(userSC, address(inputToken)), 0, "User should have no locked balance after atomic settlement");
-        assertEq(
-            localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN),
-            EXPECTED_SURPLUS,
-            "Solver should have surplus in unlocked balance"
-        );
+        assertEq(localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN), EXPECTED_SURPLUS, "Solver should have surplus in unlocked balance");
 
         // Verify tokens were transferred directly (not through balance accounting)
         // User should have received native tokens directly
@@ -498,11 +492,7 @@ contract SC_ERC20ToNativeSrcHook_Test is TestUtils {
     /**
      * @notice Helper function to test different surplus scenarios
      */
-    function _testSurplusScenario(
-        uint128 hookOutput,
-        uint128 expectedSurplus,
-        string memory scenarioName
-    ) internal {
+    function _testSurplusScenario(uint128 hookOutput, uint128 expectedSurplus, string memory scenarioName) internal {
         // Create fresh addresses for this test to avoid state conflicts
         address testUser = vm.addr(0x1234);
         address testSolver = vm.addr(0x5678);

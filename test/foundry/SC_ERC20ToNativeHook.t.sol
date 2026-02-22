@@ -180,9 +180,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         assertEq(userSC.balance, initialUserNative + OUTPUT_AMOUNT, "User should receive native tokens");
         // Surplus goes to solver's unlocked balance in contract
         assertEq(
-            localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN),
-            EXPECTED_SURPLUS,
-            "Solver should receive surplus in unlocked balance"
+            localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN), EXPECTED_SURPLUS, "Solver should receive surplus in unlocked balance"
         );
 
         // Verify order status is Settled (atomic settlement for single-chain with hook)
@@ -463,11 +461,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         // Verify no locked balances remain (atomic settlement)
         // For single-chain swaps with deposit hooks, no balance accounting is used
         assertEq(localLens.getLockedBalances(userSC, address(inputToken)), 0, "User should have no locked balance after atomic settlement");
-        assertEq(
-            localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN),
-            EXPECTED_SURPLUS,
-            "Solver should have surplus in unlocked balance"
-        );
+        assertEq(localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN), EXPECTED_SURPLUS, "Solver should have surplus in unlocked balance");
 
         // Verify tokens were transferred directly (not through balance accounting)
         // User should have received native tokens directly

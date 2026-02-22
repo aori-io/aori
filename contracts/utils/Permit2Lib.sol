@@ -129,17 +129,12 @@ library Permit2Lib {
      * @param deadline Signature deadline
      * @param signature User's signature
      */
-    function executeTransfer(
-        Order calldata order,
-        address to,
-        uint256 nonce,
-        uint256 deadline,
-        bytes calldata signature
-    ) internal {
+    function executeTransfer(Order calldata order, address to, uint256 nonce, uint256 deadline, bytes calldata signature) internal {
         ISignatureTransfer.PermitTransferFrom memory permit = buildPermit(order, nonce, deadline);
         ISignatureTransfer.SignatureTransferDetails memory transferDetails = buildTransferDetails(to, order.inputAmount);
         bytes32 witness = hashOrder(order);
-        ISignatureTransfer(PERMIT2)
-            .permitWitnessTransferFrom(permit, transferDetails, order.offerer, witness, WITNESS_TYPE_STRING, signature);
+        ISignatureTransfer(PERMIT2).permitWitnessTransferFrom(
+            permit, transferDetails, order.offerer, witness, WITNESS_TYPE_STRING, signature
+        );
     }
 }

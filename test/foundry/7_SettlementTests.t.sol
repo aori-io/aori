@@ -29,25 +29,15 @@ import "./TestUtils.sol";
  * @notice Extension of Aori contract for testing settlement-specific functionality
  */
 contract TestSettlementAori is Aori {
-    constructor(
-        address _endpoint,
-        uint32 _eid
-    ) Aori(_endpoint, _eid) { }
+    constructor(address _endpoint, uint32 _eid) Aori(_endpoint, _eid) { }
 
     // Test-specific function to get the length of the fills array
-    function getFillsLength(
-        uint32 srcEid,
-        address filler
-    ) external view returns (uint256) {
+    function getFillsLength(uint32 srcEid, address filler) external view returns (uint256) {
         return _getAoriStorage().srcEidToFillerFills[srcEid][filler].length;
     }
 
     // Test-specific function to add an order to the fills array
-    function addFill(
-        uint32 srcEid,
-        address filler,
-        bytes32 orderId
-    ) external {
+    function addFill(uint32 srcEid, address filler, bytes32 orderId) external {
         _getAoriStorage().srcEidToFillerFills[srcEid][filler].push(orderId);
     }
 }
@@ -318,11 +308,7 @@ contract SettlementTests is TestUtils {
      * @notice Signs an order using EIP712 with a specific contract address
      * This function is needed when testing with custom contract instances
      */
-    function signOrderWithContract(
-        Order memory order,
-        uint256 privKey,
-        address contractAddress
-    ) internal pure returns (bytes memory) {
+    function signOrderWithContract(Order memory order, uint256 privKey, address contractAddress) internal pure returns (bytes memory) {
         // Hash the nested Options struct first
         bytes32 optionsHash = keccak256(
             abi.encode(

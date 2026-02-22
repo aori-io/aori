@@ -307,9 +307,7 @@ contract CC_ERC20ToNativeDstHook is TestUtils {
 
         // Surplus goes to solver's unlocked balance in contract, not direct wallet transfer
         assertEq(
-            remoteLens.getUnlockedBalances(solverDest, NATIVE_TOKEN),
-            EXPECTED_SURPLUS,
-            "Solver should receive surplus in unlocked balance"
+            remoteLens.getUnlockedBalances(solverDest, NATIVE_TOKEN), EXPECTED_SURPLUS, "Solver should receive surplus in unlocked balance"
         );
 
         // Contract holds the surplus in solver's unlocked balance

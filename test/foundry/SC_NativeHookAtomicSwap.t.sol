@@ -465,4 +465,3 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
         console.log("All assertions passed!");
     }
 }
-

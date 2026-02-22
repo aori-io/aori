@@ -63,11 +63,7 @@ contract TestUtils is TestHelperOz5 {
      * @param maxFillsPerSettle Maximum fills per settlement
      * @return The proxy address
      */
-    function deployWithProxy(
-        address implementation,
-        address owner,
-        uint16 maxFillsPerSettle
-    ) public returns (address) {
+    function deployWithProxy(address implementation, address owner, uint16 maxFillsPerSettle) public returns (address) {
         ERC1967Proxy proxy = new ERC1967Proxy(
             implementation, abi.encodeCall(Aori.initialize, (owner, maxFillsPerSettle, new address[](0), new address[](0), new uint32[](0)))
         );
@@ -82,12 +78,7 @@ contract TestUtils is TestHelperOz5 {
      * @param maxFillsPerSettle Maximum fills per settlement
      * @return The deployed Aori proxy instance
      */
-    function deployAori(
-        address endpoint,
-        uint32 eid,
-        address owner,
-        uint16 maxFillsPerSettle
-    ) public returns (Aori) {
+    function deployAori(address endpoint, uint32 eid, address owner, uint16 maxFillsPerSettle) public returns (Aori) {
         Aori impl = new Aori(endpoint, eid);
         return Aori(payable(deployWithProxy(address(impl), owner, maxFillsPerSettle)));
     }
@@ -250,10 +241,7 @@ contract TestUtils is TestHelperOz5 {
     /**
      * @notice Signs an order using EIP712 with a custom private key
      */
-    function signOrder(
-        Order memory order,
-        uint256 privKey
-    ) public view returns (bytes memory) {
+    function signOrder(Order memory order, uint256 privKey) public view returns (bytes memory) {
         // Hash the nested Options struct first
         bytes32 optionsHash = keccak256(
             abi.encode(
@@ -311,7 +299,7 @@ contract TestUtils is TestHelperOz5 {
             feeRecipient: address(0),
             solver: address(0), // Any whitelisted solver allowed
             slippageMbps: 0 // 0 = limit order
-        });
+         });
     }
 
     /**
@@ -331,10 +319,7 @@ contract TestUtils is TestHelperOz5 {
      * @param feeRecipient Who receives the fee
      * @return Options struct with fee configuration
      */
-    function feeOrderOptions(
-        uint16 feeMbps,
-        address feeRecipient
-    ) public pure returns (Options memory) {
+    function feeOrderOptions(uint16 feeMbps, address feeRecipient) public pure returns (Options memory) {
         return Options({ feeMbps: feeMbps, feeRecipient: feeRecipient, solver: address(0), slippageMbps: 0 });
     }
 
@@ -396,11 +381,7 @@ contract TestUtils is TestHelperOz5 {
      * @param token The token address to lock
      * @param amount The amount to lock
      */
-    function testLockOffererTokens(
-        address offerer,
-        address token,
-        uint128 amount
-    ) external {
+    function testLockOffererTokens(address offerer, address token, uint128 amount) external {
         // Cannot directly access private mapping, so this function is removed
         // This would need to be replaced with an appropriate function call to the Aori contract
         // if balance locking functionality is needed for tests

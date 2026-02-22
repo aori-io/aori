@@ -12,6 +12,7 @@ import { Balance } from "../../contracts/types/AoriTypes.sol";
 
 contract BalanceUtilsTest is Test {
     using BalanceUtils for Balance;
+
     Balance private balance;
 
     function setUp() public {
