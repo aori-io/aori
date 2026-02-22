@@ -3,22 +3,46 @@ pragma solidity 0.8.34;
 
 import { Order, OrderStatus, Balance } from "./types/AoriTypes.sol";
 
+/*
+ *                                @@@@@@@@@@@@
+ *                              @@         @@@@@@                     @@@@@
+ *                              @@           @@@@@                    @@@@@
+ *                              @@@
+ *                                @@@@
+ *                                  @@@@@
+ *                                      @@@@@
+ *        @@@@@@@@@    @@@@          @@@@@@@@@@    @@@@@@    @@@@@@@  @@@@@
+ *      @@@@      @@   @@@@      @@@@       @@@@@@@   @@@@ @@    @@@   @@@@
+ *     @@@@         @ @@@@     @@@@          @@@@@@   @@@@        @@   @@@@
+ *    @@@@@         @@@@@@   @@@@@            @@@@@@  @@@@         @   @@@@
+ *    @@@@@          @@@@    @@@@@   @    @    @@@@@  @@@@             @@@@
+ *    @@@@@          @@@@   @@@@@@   @@@@@@    @@@@@  @@@@             @@@@
+ *    @@@@@         @@@@@   @@@@@@   @    @    @@@@@  @@@@             @@@@
+ *    @@@@@         @@@@     @@@@@             @@@@   @@@@             @@@@
+ *     @@@@        @@@@@@    @@@@@@           @@@@    @@@@             @@@@
+ *      @@@@      @@@@  @@@@@@ @@@@@         @@@      @@@@             @@@@   @@
+ *        @@@@@@@@@     @@@@@     @@@@@@@@@@@         @@@@               @@@@@
+ */
+
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                    ERC-7201 STORAGE                        */
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
 /// @custom:storage-location erc7201:aori.storage.v1
 struct AoriStorageData {
+    
     // SRC STATE
     mapping(address => mapping(address => Balance)) balances;
     mapping(bytes32 => Order) orders;
     mapping(uint32 => bool) isSupportedChain;
+    
     // DST STATE
     uint16 maxFillsPerSettle;
     mapping(bytes32 => OrderStatus) orderStatus;
     mapping(address => bool) isAllowedHook;
     mapping(address => bool) isAllowedSolver;
     mapping(uint32 => mapping(address => bytes32[])) srcEidToFillerFills;
+    
     // PROTOCOL FEE STATE
     uint16 protocolFeeMbps; // in millibasis points (e.g., 100 = 0.1%)
     address protocolTreasury; // receives protocol fees
