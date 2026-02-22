@@ -296,7 +296,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
 
         bytes32 orderId = order.validateDeposit(signature, _hashOrder712(order), ENDPOINT_ID, _getAoriStorage().maxFeeMbps, msg.sender, this.orderStatus, this.isSupportedChain);
 
-        IERC20(order.inputToken).safeTransferFrom(order.offerer, address(this), order.inputAmount);
+        order.inputToken.safeTransferFromChecked(order.offerer, address(this), order.inputAmount);
         _postDeposit(order.inputToken, order.inputAmount, order, orderId, address(0), 0);
     }
 
@@ -429,7 +429,9 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
         bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
         ValidationUtils.validateSolverAuthorization(order, msg.sender);
 
+        uint256 balBefore = IERC20(order.inputToken).balanceOf(address(this));
         Permit2Lib.executeTransfer(order, address(this), nonce, deadline, signature);
+        if (IERC20(order.inputToken).balanceOf(address(this)) - balBefore < order.inputAmount) revert TransferAmountMismatch();
 
         _postDeposit(order.inputToken, order.inputAmount, order, orderId, address(0), 0);
     }
@@ -498,7 +500,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
         }
 
         // Transfer tokens to recipient
-        order.outputToken.safeTransferFrom(msg.sender, order.recipient, order.outputAmount);
+        order.outputToken.safeTransferFromChecked(msg.sender, order.recipient, order.outputAmount);
     }
 
     /**
@@ -538,7 +540,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
 
         // Determine who gets surplus: slippageMbps > 0 → recipient, slippageMbps = 0 → solver
         uint256 recipientAmount = order.options.slippageMbps > 0 ? amountReceived : order.outputAmount;
-        order.outputToken.safeTransfer(order.recipient, recipientAmount);
+        order.outputToken.safeTransferChecked(order.recipient, recipientAmount);
 
         // Surplus to solver only when slippageMbps = 0
         if (order.options.slippageMbps == 0 && amountReceived > order.outputAmount) {
