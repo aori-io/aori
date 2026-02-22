@@ -36,11 +36,16 @@ contract FeeOnTransferGuard_Test is TestUtils {
         fotToken.mint(userA, 10e18);
 
         Order memory order = createCustomOrder(
-            userA, userA,
-            address(fotToken), address(outputToken),
-            INPUT_AMOUNT, OUTPUT_AMOUNT,
-            block.timestamp, block.timestamp + 1 hours,
-            localEid, localEid
+            userA,
+            userA,
+            address(fotToken),
+            address(outputToken),
+            INPUT_AMOUNT,
+            OUTPUT_AMOUNT,
+            block.timestamp,
+            block.timestamp + 1 hours,
+            localEid,
+            localEid
         );
 
         bytes memory signature = signOrder(order);
@@ -56,11 +61,16 @@ contract FeeOnTransferGuard_Test is TestUtils {
     /// @notice Normal input token on deposit should succeed
     function testDepositSucceedsWithNormalInputToken() public {
         Order memory order = createCustomOrder(
-            userA, userA,
-            address(inputToken), address(outputToken),
-            INPUT_AMOUNT, OUTPUT_AMOUNT,
-            block.timestamp, block.timestamp + 1 hours,
-            localEid, localEid
+            userA,
+            userA,
+            address(inputToken),
+            address(outputToken),
+            INPUT_AMOUNT,
+            OUTPUT_AMOUNT,
+            block.timestamp,
+            block.timestamp + 1 hours,
+            localEid,
+            localEid
         );
 
         bytes memory signature = signOrder(order);
@@ -73,11 +83,7 @@ contract FeeOnTransferGuard_Test is TestUtils {
 
         bytes32 orderId = localAori.hash(order);
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
-        assertEq(
-            localLens.getLockedBalances(userA, address(inputToken)),
-            INPUT_AMOUNT,
-            "Locked balance should match input amount"
-        );
+        assertEq(localLens.getLockedBalances(userA, address(inputToken)), INPUT_AMOUNT, "Locked balance should match input amount");
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -88,11 +94,16 @@ contract FeeOnTransferGuard_Test is TestUtils {
     function testFillRevertsWithFOTOutputToken() public {
         // Deposit with normal input token first
         Order memory order = createCustomOrder(
-            userA, userA,
-            address(inputToken), address(fotToken),
-            INPUT_AMOUNT, OUTPUT_AMOUNT,
-            block.timestamp, block.timestamp + 1 hours,
-            localEid, localEid
+            userA,
+            userA,
+            address(inputToken),
+            address(fotToken),
+            INPUT_AMOUNT,
+            OUTPUT_AMOUNT,
+            block.timestamp,
+            block.timestamp + 1 hours,
+            localEid,
+            localEid
         );
 
         bytes memory signature = signOrder(order);
@@ -117,11 +128,16 @@ contract FeeOnTransferGuard_Test is TestUtils {
     /// @notice Normal output token on fill should succeed (full single-chain swap)
     function testFillSucceedsWithNormalOutputToken() public {
         Order memory order = createCustomOrder(
-            userA, userA,
-            address(inputToken), address(outputToken),
-            INPUT_AMOUNT, OUTPUT_AMOUNT,
-            block.timestamp, block.timestamp + 1 hours,
-            localEid, localEid
+            userA,
+            userA,
+            address(inputToken),
+            address(outputToken),
+            INPUT_AMOUNT,
+            OUTPUT_AMOUNT,
+            block.timestamp,
+            block.timestamp + 1 hours,
+            localEid,
+            localEid
         );
 
         bytes memory signature = signOrder(order);

@@ -32,7 +32,6 @@ struct AoriStorageData {
  * @dev This abstract contract defines the storage layout used by Aori and its upgradeable proxies.
  *      Using namespaced storage prevents storage collisions during upgrades.
  */
-
 abstract contract AoriStorage {
     // keccak256(abi.encode(uint256(keccak256("aori.storage.v1")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 private constant AORI_STORAGE_LOCATION = 0x476c06ce9bda338755e203b7f327971f808163bb891bef1bf37f35e88d0aae00;

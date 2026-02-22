@@ -92,10 +92,7 @@ contract AoriLens {
     /**
      * @notice Get locked balance for a user and token
      */
-    function getLockedBalances(
-        address user,
-        address token
-    ) external view returns (uint256) {
+    function getLockedBalances(address user, address token) external view returns (uint256) {
         bytes32 firstLevel = keccak256(abi.encode(user, uint256(AORI_STORAGE_SLOT) + BALANCES_OFFSET));
         bytes32 balanceSlot = keccak256(abi.encode(token, firstLevel));
         bytes32 value = aori.readStorage(balanceSlot);
@@ -105,10 +102,7 @@ contract AoriLens {
     /**
      * @notice Get unlocked balance for a user and token
      */
-    function getUnlockedBalances(
-        address user,
-        address token
-    ) external view returns (uint256) {
+    function getUnlockedBalances(address user, address token) external view returns (uint256) {
         bytes32 firstLevel = keccak256(abi.encode(user, uint256(AORI_STORAGE_SLOT) + BALANCES_OFFSET));
         bytes32 balanceSlot = keccak256(abi.encode(token, firstLevel));
         bytes32 value = aori.readStorage(balanceSlot);
@@ -126,11 +120,7 @@ contract AoriLens {
     /**
      * @notice Get filler fills array element
      */
-    function srcEidToFillerFills(
-        uint32 srcEid,
-        address filler,
-        uint256 index
-    ) external view returns (bytes32) {
+    function srcEidToFillerFills(uint32 srcEid, address filler, uint256 index) external view returns (bytes32) {
         bytes32 firstLevel = keccak256(abi.encode(srcEid, uint256(AORI_STORAGE_SLOT) + SRC_EID_TO_FILLER_FILLS_OFFSET));
         bytes32 arraySlot = keccak256(abi.encode(filler, firstLevel));
         bytes32 elementSlot = bytes32(uint256(keccak256(abi.encode(arraySlot))) + index);
@@ -140,10 +130,7 @@ contract AoriLens {
     /**
      * @notice Get filler fills array length
      */
-    function srcEidToFillerFillsLength(
-        uint32 srcEid,
-        address filler
-    ) external view returns (uint256) {
+    function srcEidToFillerFillsLength(uint32 srcEid, address filler) external view returns (uint256) {
         bytes32 firstLevel = keccak256(abi.encode(srcEid, uint256(AORI_STORAGE_SLOT) + SRC_EID_TO_FILLER_FILLS_OFFSET));
         bytes32 arraySlot = keccak256(abi.encode(filler, firstLevel));
         return aori.readStorageArray(arraySlot);
@@ -155,10 +142,7 @@ contract AoriLens {
      * @param filler The filler address
      * @return orderHashesPerEid Array of order hash arrays, one per source endpoint
      */
-    function getPendingSettle(
-        uint32[] calldata srcEids,
-        address filler
-    ) external view returns (bytes32[][] memory orderHashesPerEid) {
+    function getPendingSettle(uint32[] calldata srcEids, address filler) external view returns (bytes32[][] memory orderHashesPerEid) {
         orderHashesPerEid = new bytes32[][](srcEids.length);
 
         for (uint256 j = 0; j < srcEids.length; j++) {
@@ -171,7 +155,7 @@ contract AoriLens {
             if (length > 100) length = 100;
 
             orderHashesPerEid[j] = new bytes32[](length);
-            
+
             // Read each order hash
             for (uint256 i = 0; i < length; i++) {
                 bytes32 elementSlot = bytes32(uint256(keccak256(abi.encode(arraySlot))) + i);
@@ -188,11 +172,7 @@ contract AoriLens {
      */
     function getOrdersInputTotals(
         bytes32[] calldata orderHashes
-    )
-        external
-        view
-        returns (address[] memory inputTokens, uint256[] memory totalAmounts)
-    {
+    ) external view returns (address[] memory inputTokens, uint256[] memory totalAmounts) {
         // Use small fixed buffer - realistically won't have more than 20 unique tokens
         address[] memory tempTokens = new address[](20);
         uint256[] memory tempAmounts = new uint256[](20);
@@ -200,10 +180,10 @@ contract AoriLens {
 
         for (uint256 i = 0; i < orderHashes.length; i++) {
             Order memory order = this.orders(orderHashes[i]);
-            
+
             // Skip non-existent orders (inputToken == address(0))
             if (order.inputToken == address(0)) continue;
-            
+
             // Check if token already exists
             bool found = false;
             for (uint256 k = 0; k < uniqueCount; k++) {

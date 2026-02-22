@@ -204,10 +204,7 @@ contract HashVerificationTest is TestUtils {
     /**
      * @notice Calculate the signing hash (EIP-712 digest) for a specific contract address
      */
-    function calculateSigningHashWithAddress(
-        Order memory order,
-        address contractAddress
-    ) public pure returns (bytes32) {
+    function calculateSigningHashWithAddress(Order memory order, address contractAddress) public pure returns (bytes32) {
         // Hash the nested Options struct first
         bytes32 optionsHash = keccak256(
             abi.encode(

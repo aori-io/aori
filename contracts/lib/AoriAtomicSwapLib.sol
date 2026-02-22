@@ -62,7 +62,8 @@ library AoriAtomicSwapLib {
         $.orderStatus[orderId] = OrderStatus.Settled;
 
         // Calculate minimum acceptable output (returns outputAmount when slippageMbps = 0)
-        uint256 minOutput = (uint256(order.outputAmount) * (ValidationUtils.MBPS_DIVISOR - order.options.slippageMbps)) / ValidationUtils.MBPS_DIVISOR;
+        uint256 minOutput =
+            (uint256(order.outputAmount) * (ValidationUtils.MBPS_DIVISOR - order.options.slippageMbps)) / ValidationUtils.MBPS_DIVISOR;
 
         // Execute hook - converts input to output, validates minOutput
         amountReceived = HookUtils.executeHook(hook.hookAddress, hook.instructions, order.outputToken, minOutput);

@@ -649,40 +649,24 @@ contract MaliciousToken {
     mapping(address => uint256) public balanceOf;
     uint256 public totalSupply;
 
-    function mint(
-        address to,
-        uint256 amount
-    ) external {
+    function mint(address to, uint256 amount) external {
         balanceOf[to] += amount;
         totalSupply += amount;
     }
 
-    function transfer(
-        address,
-        uint256
-    ) external pure returns (bool) {
+    function transfer(address, uint256) external pure returns (bool) {
         revert("Transfer always fails");
     }
 
-    function transferFrom(
-        address,
-        address,
-        uint256
-    ) external pure returns (bool) {
+    function transferFrom(address, address, uint256) external pure returns (bool) {
         revert("TransferFrom always fails");
     }
 
-    function approve(
-        address,
-        uint256
-    ) external pure returns (bool) {
+    function approve(address, uint256) external pure returns (bool) {
         return true;
     }
 
-    function allowance(
-        address,
-        address
-    ) external pure returns (uint256) {
+    function allowance(address, address) external pure returns (uint256) {
         return type(uint256).max;
     }
 }

@@ -9,19 +9,9 @@ interface IAori {
     /*                        ORDER EVENTS                        */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    event Deposit(
-        bytes32 indexed orderId, 
-        Order order,
-        address indexed srcHookTokenOut,
-        uint256 srcHookAmountOut
-    );
+    event Deposit(bytes32 indexed orderId, Order order, address indexed srcHookTokenOut, uint256 srcHookAmountOut);
 
-    event Fill(
-        bytes32 indexed orderId, 
-        address indexed dstHookTokenIn,
-        uint256 dstHookAmountIn,
-        uint256 dstHookAmountOut
-    );
+    event Fill(bytes32 indexed orderId, address indexed dstHookTokenIn, uint256 dstHookAmountIn, uint256 dstHookAmountOut);
 
     event Settle(
         bytes32 indexed orderId,
@@ -36,11 +26,10 @@ interface IAori {
 
     event Cancel(bytes32 indexed orderId);
 
-
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                      ADMIN EVENTS                          */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-    
+
     event Withdraw(address indexed holder, address indexed token, uint256 amount);
     event HookAdded(address indexed hook);
     event HookRemoved(address indexed hook);
@@ -98,16 +87,9 @@ interface IAori {
     /*                        SRC FUNCTIONS                       */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    function deposit(
-        Order calldata order,
-        bytes calldata signature
-    ) external;
+    function deposit(Order calldata order, bytes calldata signature) external;
 
-    function deposit(
-        Order calldata order,
-        bytes calldata signature,
-        SrcHook calldata data
-    ) external;
+    function deposit(Order calldata order, bytes calldata signature, SrcHook calldata data) external;
 
     /* forgefmt: disable-next-item */
     function depositNative(Order calldata order) external payable;
@@ -116,6 +98,10 @@ interface IAori {
         Order calldata order,
         SrcHook calldata hook
     ) external payable;
+
+    function depositNative(Order calldata order, SrcHook calldata hook) external payable;
+
+    function depositNative(Order calldata order, SrcHook calldata hook) external payable;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    PERMIT2 FUNCTIONS                        */
@@ -130,12 +116,7 @@ interface IAori {
      * @param deadline Signature expiration timestamp
      * @param signature User's signature over PermitWitnessTransferFrom
      */
-    function depositWithPermit2(
-        Order calldata order,
-        uint256 nonce,
-        uint256 deadline,
-        bytes calldata signature
-    ) external;
+    function depositWithPermit2(Order calldata order, uint256 nonce, uint256 deadline, bytes calldata signature) external;
 
     /**
      * @notice Deposit using Permit2 with source hook for token conversion
@@ -154,13 +135,14 @@ interface IAori {
         bytes calldata signature
     ) external;
 
-    function withdraw(
-        address token,
-        uint256 amount
-    ) external;
+    function withdraw(address token, uint256 amount) external;
 
     /* forgefmt: disable-next-item */
     function cancel(bytes32 orderId) external;
+
+    event SettlementFailed(bytes32 indexed orderId, uint32 expectedEid, uint32 submittedEid);
+
+    event SettlementFailed(bytes32 indexed orderId, uint32 expectedEid, uint32 submittedEid);
 
     event SettlementFailed(bytes32 indexed orderId, uint32 expectedEid, uint32 submittedEid);
 
@@ -176,17 +158,13 @@ interface IAori {
         DstHook calldata hook
     ) external payable;
 
-    function settle(
-        uint32 srcEid,
-        address filler,
-        bytes calldata extraOptions
-    ) external payable;
+    function fill(Order calldata order, DstHook calldata hook) external payable;
 
-    function cancel(
-        bytes32 orderId,
-        Order calldata orderToCancel,
-        bytes calldata extraOptions
-    ) external payable;
+    function fill(Order calldata order, DstHook calldata hook) external payable;
+
+    function settle(uint32 srcEid, address filler, bytes calldata extraOptions) external payable;
+
+    function cancel(bytes32 orderId, Order calldata orderToCancel, bytes calldata extraOptions) external payable;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                        UTILITY FUNCTIONS                   */
@@ -206,6 +184,10 @@ interface IAori {
      * @param order The order details
      * @param amountReceived The amount of output tokens received from hook
      */
+  
+
+  
+
     event Swap(bytes32 indexed orderId, Order order, uint256 amountReceived);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -220,23 +202,33 @@ interface IAori {
     /// @notice Returns pending protocol fees for a token
     /// @param token The token to check
     /// @return amount The pending fee amount
-    function getPendingProtocolFees(address token) external view returns (uint256 amount);
+    function getPendingProtocolFees(
+        address token
+    ) external view returns (uint256 amount);
 
     /// @notice Sets the protocol fee (admin only, no cap)
     /// @param feeMbps Fee in millibasis points
-    function setProtocolFee(uint16 feeMbps) external;
+    function setProtocolFee(
+        uint16 feeMbps
+    ) external;
 
     /// @notice Sets the protocol treasury address (admin only)
     /// @param treasury Address to receive protocol fees
-    function setProtocolTreasury(address treasury) external;
+    function setProtocolTreasury(
+        address treasury
+    ) external;
 
     /// @notice Claims accumulated protocol fees for a token (permissionless)
     /// @param token The token to claim fees for
-    function claimProtocolFees(address token) external;
+    function claimProtocolFees(
+        address token
+    ) external;
 
     /// @notice Sets the maximum allowed additional fee (admin only)
     /// @param maxFeeMbps Maximum fee in millibasis points
-    function setMaxFee(uint16 maxFeeMbps) external;
+    function setMaxFee(
+        uint16 maxFeeMbps
+    ) external;
 
     /// @notice Returns the current maximum allowed additional fee
     /// @return maxFeeMbps Maximum fee in millibasis points

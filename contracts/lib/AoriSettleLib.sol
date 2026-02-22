@@ -98,10 +98,7 @@ library AoriSettleLib {
      * @param senderEid The source endpoint ID
      * @dev Skips orders that were filled on the wrong chain and emits SettlementFailed event
      */
-    function handleSettlement(
-        bytes calldata payload,
-        uint32 senderEid
-    ) external {
+    function handleSettlement(bytes calldata payload, uint32 senderEid) external {
         (address filler, uint16 fillCount) = payload.validateAndUnpackSettlement();
 
         AoriStorageData storage $ = _getAoriStorage();
@@ -125,12 +122,7 @@ library AoriSettleLib {
      * @param order The order details
      * @param filler The address of the filler
      */
-    function _settleOrder(
-        AoriStorageData storage $,
-        bytes32 orderId,
-        Order memory order,
-        address filler
-    ) internal {
+    function _settleOrder(AoriStorageData storage $, bytes32 orderId, Order memory order, address filler) internal {
         if ($.orderStatus[orderId] != OrderStatus.Active) {
             return; // Skip non-active orders
         }
@@ -138,9 +130,7 @@ library AoriSettleLib {
         (uint128 protocolFee, uint128 additionalFee, uint128 fillerAmount) =
             ValidationUtils.calculateFees(order.inputAmount, $.protocolFeeMbps, order.options.feeMbps);
 
-        address feeRecipient = order.options.feeRecipient == address(0) 
-            ? filler 
-            : order.options.feeRecipient;
+        address feeRecipient = order.options.feeRecipient == address(0) ? filler : order.options.feeRecipient;
 
         // Cache original balances for potential rollback
         Balance memory offererBalanceCache = $.balances[order.offerer][order.inputToken];
@@ -152,12 +142,12 @@ library AoriSettleLib {
 
         // Attempt atomic balance transfer with soft-fail for batch safety
         bool successLock = $.balances[order.offerer][order.inputToken].decreaseLockedNoRevert(order.inputAmount);
-        
+
         if (feeRecipient == filler) {
             // Optimized path: single write for filler + additionalFee combined
             uint128 totalToFiller = fillerAmount + additionalFee;
             bool successFiller = $.balances[filler][order.inputToken].increaseUnlockedNoRevert(totalToFiller);
-            
+
             if (!successLock || !successFiller) {
                 $.balances[order.offerer][order.inputToken] = offererBalanceCache;
                 $.balances[filler][order.inputToken] = fillerBalanceCache;
@@ -166,9 +156,8 @@ library AoriSettleLib {
             }
         } else {
             bool successFiller = $.balances[filler][order.inputToken].increaseUnlockedNoRevert(fillerAmount);
-            bool successAdditionalFee = additionalFee > 0 
-                ? $.balances[feeRecipient][order.inputToken].increaseUnlockedNoRevert(additionalFee)
-                : true;
+            bool successAdditionalFee =
+                additionalFee > 0 ? $.balances[feeRecipient][order.inputToken].increaseUnlockedNoRevert(additionalFee) : true;
 
             if (!successLock || !successFiller || !successAdditionalFee) {
                 $.balances[order.offerer][order.inputToken] = offererBalanceCache;

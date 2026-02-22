@@ -62,7 +62,9 @@ contract HookFailuresTest is TestUtils {
         outputToken.approve(address(remoteAori), order.outputAmount);
 
         vm.prank(solver);
-        vm.expectRevert(abi.encodeWithSelector(HookCallFailed.selector, abi.encodeWithSignature("Error(string)", "Hook deliberately failed")));
+        vm.expectRevert(
+            abi.encodeWithSelector(HookCallFailed.selector, abi.encodeWithSignature("Error(string)", "Hook deliberately failed"))
+        );
         remoteAori.fill(order, dstData);
     }
 
@@ -155,10 +157,7 @@ contract FailingHook {
 
 // Mock contract that returns insufficient output tokens
 contract PartialOutputHook {
-    function partialTransfer(
-        address token,
-        uint256 amount
-    ) external {
+    function partialTransfer(address token, uint256 amount) external {
         // Transfer only the specified amount to the caller
         IERC20(token).transfer(msg.sender, amount);
     }

@@ -40,6 +40,7 @@ enum OrderStatus {
     Filled, // Pending settlement
     Cancelled, // Order cancelled
     Settled // Order settled
+
 }
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -48,7 +49,8 @@ enum OrderStatus {
 
 struct SrcHook {
     address hookAddress; //
-    address preferredToken; // tokenOut
+    address preferredToken;
+    // tokenOut
     uint256 minPreferredTokenAmountOut; // amountOut
     bytes instructions; // call
 }
@@ -59,7 +61,6 @@ struct DstHook {
     bytes instructions; // call
     uint256 preferredDstInputAmount; // amountIn
 }
-
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                           BALANCE                          */

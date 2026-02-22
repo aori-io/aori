@@ -36,8 +36,5 @@ contract AoriProxy is ERC1967Proxy {
      * @param implementation The address of the Aori implementation contract
      * @param _data The initialization calldata (typically Aori.initialize encoded)
      */
-    constructor(
-        address implementation,
-        bytes memory _data
-    ) ERC1967Proxy(implementation, _data) { }
+    constructor(address implementation, bytes memory _data) ERC1967Proxy(implementation, _data) { }
 }
