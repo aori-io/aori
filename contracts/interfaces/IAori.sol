@@ -185,16 +185,39 @@ interface IAori {
     event SettlementFailed(bytes32 indexed orderId, uint32 expectedEid, uint32 submittedEid);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                       SWAP EVENTS                          */
+    /*                      VIEW FUNCTIONS                        */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    /**
-     * @notice Emitted when an atomic single-chain swap is executed
-     * @param orderId The unique order identifier
-     * @param order The order details
-     * @param amountReceived The amount of output tokens received from hook
-     */
-    event Swap(bytes32 indexed orderId, Order order, uint256 amountReceived);
+    function quote(
+        uint32 _dstEid,
+        uint8 _msgType,
+        bytes calldata _options,
+        bool _payInLzToken,
+        uint32 _srcEid,
+        address _filler
+    ) external view returns (MessagingFee memory);
+
+    function isSupportedChain(uint32 eid) external view returns (bool);
+
+    function orderStatus(bytes32 orderId) external view returns (OrderStatus);
+
+    function isAllowedHook(address hook) external view returns (bool);
+
+    function isAllowedSolver(address solver) external view returns (bool);
+
+    function readStorage(bytes32 slot) external view returns (bytes32 value);
+
+    function readStorageArray(bytes32 slot) external view returns (uint256 length);
+
+    function getProtocolConfig() external view returns (uint16 feeMbps, address treasury);
+
+    function getPendingProtocolFees(address token) external view returns (uint256 amount);
+
+    function getMaxFee() external view returns (uint16 maxFeeMbps);
+
+    function getMaxFillsPerSettle() external view returns (uint16);
+
+    function hash(Order calldata order) external pure returns (bytes32);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                        SRC FUNCTIONS                       */
@@ -203,15 +226,15 @@ interface IAori {
     function deposit(Order calldata order, bytes calldata signature) external;
 
     function deposit(Order calldata order, bytes calldata signature, SrcHook calldata data) external;
-    
+
     function depositNative(Order calldata order) external payable;
 
     function depositNative(Order calldata order, SrcHook calldata hook) external payable;
 
     function depositWithPermit2(
-        Order calldata order, 
-        uint256 nonce, 
-        uint256 deadline, 
+        Order calldata order,
+        uint256 nonce,
+        uint256 deadline,
         bytes calldata signature
     ) external;
 
@@ -225,14 +248,12 @@ interface IAori {
 
     function withdraw(address token, uint256 amount) external;
 
-    /* forgefmt: disable-next-item */
     function cancel(bytes32 orderId) external;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                        DST FUNCTIONS                       */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    /* forgefmt: disable-next-item */
     function fill(Order calldata order) external payable;
 
     function fill(Order calldata order, DstHook calldata hook) external payable;
@@ -242,67 +263,38 @@ interface IAori {
     function cancel(bytes32 orderId, Order calldata orderToCancel, bytes calldata extraOptions) external payable;
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                        UTILITY FUNCTIONS                   */
+    /*                     ADMIN FUNCTIONS                         */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    /* forgefmt: disable-next-item */
-    function hash(Order calldata order) external pure returns (bytes32);
+    function pause() external;
 
-    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                    PROTOCOL FEE FUNCTIONS                   */
-    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+    function unpause() external;
 
-    /**
-     * @notice Returns the current protocol fee configuration
-     * @return feeMbps Protocol fee in millibasis points
-     * @return treasury Address receiving protocol fees
-     */
-    function getProtocolConfig() external view returns (uint16 feeMbps, address treasury);
+    function addAllowedHook(address hook) external;
 
-    /**
-     * @notice Returns pending protocol fees for a token
-     * @param token The token to check
-     * @return amount The pending fee amount
-     */
-    function getPendingProtocolFees(
-        address token
-    ) external view returns (uint256 amount);
+    function removeAllowedHook(address hook) external;
 
-    /**
-     * @notice Sets the protocol fee (admin only, no cap)
-     * @param feeMbps Fee in millibasis points
-     */
-    function setProtocolFee(
-        uint16 feeMbps
-    ) external;
+    function addAllowedSolver(address solver) external;
 
-    /**
-     * @notice Sets the protocol treasury address (admin only)
-     * @param treasury Address to receive protocol fees
-     */
-    function setProtocolTreasury(
-        address treasury
-    ) external;
+    function removeAllowedSolver(address solver) external;
 
-    /**
-     * @notice Claims accumulated protocol fees for a token (permissionless)
-     * @param token The token to claim fees for
-     */
-    function claimProtocolFees(
-        address token
-    ) external;
+    function addSupportedChain(uint32 eid) external;
 
-    /**
-     * @notice Sets the maximum allowed additional fee (admin only)
-     * @param maxFeeMbps Maximum fee in millibasis points
-     */
-    function setMaxFee(
-        uint16 maxFeeMbps
-    ) external;
+    function removeSupportedChain(uint32 eid) external;
 
-    /**
-     * @notice Returns the current maximum allowed additional fee
-     * @return maxFeeMbps Maximum fee in millibasis points
-     */
-    function getMaxFee() external view returns (uint16 maxFeeMbps);
+    function emergencyCancel(bytes32 orderId, address recipient) external;
+
+    function emergencyWithdraw(address token, uint256 amount, address recipient) external;
+
+    function emergencyWithdrawFromBalance(address token, uint256 amount, address user, bool isLocked, address recipient) external;
+
+    function claimProtocolFees(address token) external;
+
+    function setProtocolFee(uint16 feeMbps) external;
+
+    function setProtocolTreasury(address treasury) external;
+
+    function setMaxFee(uint16 maxFeeMbps) external;
+
+    function setMaxFillsPerSettle(uint16 maxFills) external;
 }
