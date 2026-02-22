@@ -149,5 +149,83 @@ contract AoriLens {
         return aori.readStorageArray(arraySlot);
     }
 
+    /**
+     * @notice Get all order hashes for a filler across multiple source endpoints
+     * @param srcEids Array of source endpoint IDs to query
+     * @param filler The filler address
+     * @return orderHashesPerEid Array of order hash arrays, one per source endpoint
+     */
+    function getPendingSettle(
+        uint32[] calldata srcEids,
+        address filler
+    ) external view returns (bytes32[][] memory orderHashesPerEid) {
+        orderHashesPerEid = new bytes32[][](srcEids.length);
+
+        for (uint256 j = 0; j < srcEids.length; j++) {
+            // Get the actual length first
+            bytes32 firstLevel = keccak256(abi.encode(srcEids[j], uint256(AORI_STORAGE_SLOT) + SRC_EID_TO_FILLER_FILLS_OFFSET));
+            bytes32 arraySlot = keccak256(abi.encode(filler, firstLevel));
+            uint256 length = aori.readStorageArray(arraySlot);
+
+            // Cap at reasonable limit to prevent gas issues
+            if (length > 100) length = 100;
+
+            orderHashesPerEid[j] = new bytes32[](length);
+            
+            // Read each order hash
+            for (uint256 i = 0; i < length; i++) {
+                bytes32 elementSlot = bytes32(uint256(keccak256(abi.encode(arraySlot))) + i);
+                orderHashesPerEid[j][i] = aori.readStorage(elementSlot);
+            }
+        }
+    }
+
+    /**
+     * @notice Get total input amounts grouped by input token for a list of order hashes
+     * @param orderHashes Array of order hashes to query
+     * @return inputTokens Array of unique input token addresses
+     * @return totalAmounts Array of total input amounts corresponding to each token
+     */
+    function getOrdersInputTotals(
+        bytes32[] calldata orderHashes
+    )
+        external
+        view
+        returns (address[] memory inputTokens, uint256[] memory totalAmounts)
+    {
+        // Use small fixed buffer - realistically won't have more than 20 unique tokens
+        address[] memory tempTokens = new address[](20);
+        uint256[] memory tempAmounts = new uint256[](20);
+        uint256 uniqueCount = 0;
+
+        for (uint256 i = 0; i < orderHashes.length; i++) {
+            Order memory order = this.orders(orderHashes[i]);
+            
+            // Check if token already exists
+            bool found = false;
+            for (uint256 k = 0; k < uniqueCount; k++) {
+                if (tempTokens[k] == order.inputToken) {
+                    tempAmounts[k] += order.inputAmount;
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found && uniqueCount < 20) {
+                tempTokens[uniqueCount] = order.inputToken;
+                tempAmounts[uniqueCount] = order.inputAmount;
+                uniqueCount++;
+            }
+        }
+
+        // Resize arrays using assembly (no copy needed)
+        assembly {
+            mstore(tempTokens, uniqueCount)
+            mstore(tempAmounts, uniqueCount)
+        }
+
+        return (tempTokens, tempAmounts);
+    }
+
     // Note: quote() is kept in Aori.sol because it needs OApp's internal _quote() function
 }
