@@ -3,7 +3,7 @@ pragma solidity 0.8.34;
 
 import { Order, OrderStatus, Balance } from "../types/AoriTypes.sol";
 import "../types/AoriErrors.sol";
-import { AoriStorageData } from "../storage/AoriStorage.sol";
+import { AoriStorageData } from "../AoriStorage.sol";
 import { ValidationUtils } from "../utils/ValidationUtils.sol";
 import { BalanceUtils } from "../utils/BalanceUtils.sol";
 import { PayloadUtils } from "../utils/PayloadUtils.sol";

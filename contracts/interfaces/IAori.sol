@@ -31,16 +31,11 @@ interface IAori {
         address feeRecipient,
         uint256 additionalFee
     );
-    
-    event Cancel(bytes32 indexed orderId);
+
     event SettleFailed(bytes32 indexed orderId);
 
-    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                    CHAIN MANAGEMENT EVENTS                  */
-    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+    event Cancel(bytes32 indexed orderId);
 
-    event ChainSupported(uint32 indexed eid);
-    event ChainRemoved(uint32 indexed eid);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                      ADMIN EVENTS                          */
@@ -52,6 +47,8 @@ interface IAori {
     event SolverAdded(address indexed solver);
     event SolverRemoved(address indexed solver);
     event MaxFillsPerSettleSet(uint16 newValue);
+    event ChainSupported(uint32 indexed eid);
+    event ChainRemoved(uint32 indexed eid);
 
     /// @notice Emitted when protocol fee is updated
     /// @param feeMbps New protocol fee in millibasis points

@@ -4,7 +4,7 @@ pragma solidity 0.8.34;
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { Order, OrderStatus, SrcHook } from "../types/AoriTypes.sol";
 import "../types/AoriErrors.sol";
-import { AoriStorageData } from "../storage/AoriStorage.sol";
+import { AoriStorageData } from "../AoriStorage.sol";
 import { TokenUtils } from "../utils/TokenUtils.sol";
 import { HookUtils } from "../utils/HookUtils.sol";
 import { ValidationUtils } from "../utils/ValidationUtils.sol";

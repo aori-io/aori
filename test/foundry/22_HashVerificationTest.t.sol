@@ -25,7 +25,7 @@ pragma solidity 0.8.34;
  */
 import "forge-std/Test.sol";
 import { Aori, IAori } from "../../contracts/Aori.sol";
-import { AoriProxy } from "../../contracts/proxy/AoriProxy.sol";
+import { AoriProxy } from "../../contracts/AoriProxy.sol";
 import { TestUtils } from "./TestUtils.sol";
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import { MockERC20 } from "../Mock/MockERC20.sol";

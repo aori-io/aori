@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.34;
 
-import { Order, OrderStatus, Balance } from "../types/AoriTypes.sol";
+import { Order, OrderStatus, Balance } from "./types/AoriTypes.sol";
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                    ERC-7201 STORAGE                        */

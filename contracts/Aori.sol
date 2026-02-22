@@ -11,7 +11,7 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { ValidationUtils } from "./utils/ValidationUtils.sol";
 import { AoriAtomicSwapLib } from "./lib/AoriAtomicSwapLib.sol";
 import { HookUtils } from "./utils/HookUtils.sol";
-import { AoriStorage, AoriStorageData } from "./storage/AoriStorage.sol";
+import { AoriStorage, AoriStorageData } from "./AoriStorage.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { BalanceUtils } from "./utils/BalanceUtils.sol";
 import { AoriAdminLib } from "./lib/AoriAdminLib.sol";

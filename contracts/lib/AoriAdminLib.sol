@@ -6,7 +6,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { Order, OrderStatus, Balance } from "../types/AoriTypes.sol";
 import "../types/AoriErrors.sol";
-import { AoriStorageData } from "../storage/AoriStorage.sol";
+import { AoriStorageData } from "../AoriStorage.sol";
 import { TokenUtils } from "../utils/TokenUtils.sol";
 import { IAori } from "../interfaces/IAori.sol";
 
