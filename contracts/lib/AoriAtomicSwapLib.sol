@@ -57,7 +57,7 @@ library AoriAtomicSwapLib {
     ) external returns (uint256 amountReceived) {
         AoriStorageData storage $ = _getAoriStorage();
 
-        // Update state
+        // Update storage
         $.orders[orderId] = order;
         $.orderStatus[orderId] = OrderStatus.Settled;
 
@@ -67,6 +67,21 @@ library AoriAtomicSwapLib {
         // Execute hook - converts input to output, validates minOutput
         amountReceived = HookUtils.executeHook(hook.hookAddress, hook.instructions, order.outputToken, minOutput);
 
+        _distributeOutputs($, orderId, order, hook.preferredToken, solver, amountReceived);
+    }
+
+    /**
+     * @notice Distributes swap outputs, accrues fees, and emits settlement events
+     * @dev Extracted to reduce executeSwap stack depth for coverage compatibility
+     */
+    function _distributeOutputs(
+        AoriStorageData storage $,
+        bytes32 orderId,
+        Order calldata order,
+        address preferredToken,
+        address solver,
+        uint256 amountReceived
+    ) internal {
         // Fee basis: if slippageMbps > 0, recipient captures surplus so fee on actual; otherwise fee on signed amount
         uint256 feeBasis = order.options.slippageMbps > 0 ? amountReceived : order.outputAmount;
 
@@ -84,27 +99,17 @@ library AoriAtomicSwapLib {
             $.pendingProtocolFees[order.outputToken] += protocolFee;
         }
 
-        // Additional fee accrues to feeRecipient (or solver if address(0))
+        // Additional fee and surplus accrue to feeRecipient / solver
+        address actualFeeRecipient = order.options.feeRecipient == address(0) ? solver : order.options.feeRecipient;
         if (additionalFee > 0) {
-            address actualFeeRecipient = order.options.feeRecipient == address(0) ? solver : order.options.feeRecipient;
             $.balances[actualFeeRecipient][order.outputToken].unlocked += additionalFee;
         }
-
-        // Surplus accrues to solver (only when slippageMbps = 0)
         if (surplus > 0) {
             $.balances[solver][order.outputToken].unlocked += SafeCast.toUint128(surplus);
         }
 
-        // Emit events - srcHook converted inputToken to outputToken
-        emit IAori.Deposit(orderId, order, hook.preferredToken, amountReceived);
+        emit IAori.Deposit(orderId, order, preferredToken, amountReceived);
         emit IAori.Fill(orderId, address(0), 0, 0);
-        emit IAori.Settle(
-            orderId, 
-            solver, 
-            SafeCast.toUint128(surplus), 
-            protocolFee, 
-            order.options.feeRecipient == address(0) ? solver : order.options.feeRecipient, 
-            additionalFee
-        );
+        emit IAori.Settle(orderId, solver, SafeCast.toUint128(surplus), protocolFee, actualFeeRecipient, additionalFee);
     }
 }
