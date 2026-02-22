@@ -49,11 +49,7 @@ library AoriAdminLib {
      * @param recipient The address to send tokens to
      * @param endpointId The endpoint ID of this chain (passed from Aori)
      */
-    function emergencyCancel(
-        bytes32 orderId,
-        address recipient,
-        uint32 endpointId
-    ) external {
+    function emergencyCancel(bytes32 orderId, address recipient, uint32 endpointId) external {
         AoriStorageData storage $ = _getAoriStorage();
 
         if ($.orderStatus[orderId] != OrderStatus.Active) revert CanOnlyCancelActiveOrders();
@@ -85,11 +81,7 @@ library AoriAdminLib {
      * @param amount The amount to withdraw
      * @param recipient The address to send tokens to
      */
-    function emergencyWithdraw(
-        address token,
-        uint256 amount,
-        address recipient
-    ) external {
+    function emergencyWithdraw(address token, uint256 amount, address recipient) external {
         if (recipient == address(0)) revert InvalidRecipient();
         _transfer(token, recipient, amount);
         emit IAori.Withdraw(recipient, token, amount);
@@ -104,13 +96,7 @@ library AoriAdminLib {
      * @param isLocked Whether to withdraw from locked or unlocked balance
      * @param recipient The address to send tokens to
      */
-    function emergencyWithdrawFromUser(
-        address token,
-        uint256 amount,
-        address user,
-        bool isLocked,
-        address recipient
-    ) external {
+    function emergencyWithdrawFromBalance(address token, uint256 amount, address user, bool isLocked, address recipient) external {
         if (amount == 0) revert AmountMustBeGreaterThanZero();
         if (user == address(0)) revert InvalidUserAddress();
         if (recipient == address(0)) revert InvalidRecipient();
@@ -139,7 +125,9 @@ library AoriAdminLib {
 
     /// @notice Sets the protocol fee (governance controlled, no cap)
     /// @param feeMbps Fee in millibasis points
-    function setProtocolFee(uint16 feeMbps) external {
+    function setProtocolFee(
+        uint16 feeMbps
+    ) external {
         AoriStorageData storage $ = _getAoriStorage();
         // Ensure protocol + max additional fee never exceeds 100%
         if (uint256(feeMbps) + uint256($.maxFeeMbps) > 100_000) revert CombinedFeesTooHigh();
@@ -149,7 +137,9 @@ library AoriAdminLib {
 
     /// @notice Sets the protocol treasury address
     /// @param treasury Address to receive protocol fees (can be EOA, multisig, DAO, or revenue-sharing contract)
-    function setProtocolTreasury(address treasury) external {
+    function setProtocolTreasury(
+        address treasury
+    ) external {
         if (treasury == address(0)) revert InvalidProtocolTreasury();
         AoriStorageData storage $ = _getAoriStorage();
         $.protocolTreasury = treasury;
@@ -163,13 +153,17 @@ library AoriAdminLib {
     }
 
     /// @notice Returns pending protocol fees for a token
-    function getPendingProtocolFees(address token) external view returns (uint256) {
+    function getPendingProtocolFees(
+        address token
+    ) external view returns (uint256) {
         return _getAoriStorage().pendingProtocolFees[token];
     }
 
     /// @notice Sets the maximum allowed additional fee
     /// @param maxFeeMbps Maximum fee in millibasis points
-    function setMaxFee(uint16 maxFeeMbps) external {
+    function setMaxFee(
+        uint16 maxFeeMbps
+    ) external {
         AoriStorageData storage $ = _getAoriStorage();
         // Ensure protocol + max additional fee never exceeds 100%
         if (uint256($.protocolFeeMbps) + uint256(maxFeeMbps) > 100_000) revert CombinedFeesTooHigh();
@@ -184,7 +178,9 @@ library AoriAdminLib {
 
     /// @notice Sets the maximum fills per settle batch
     /// @param maxFills New maximum fills per settle
-    function setMaxFillsPerSettle(uint16 maxFills) external {
+    function setMaxFillsPerSettle(
+        uint16 maxFills
+    ) external {
         if (maxFills == 0) revert AmountMustBeGreaterThanZero();
         _getAoriStorage().maxFillsPerSettle = maxFills;
         emit IAori.MaxFillsPerSettleSet(maxFills);
@@ -201,7 +197,9 @@ library AoriAdminLib {
 
     /// @notice Claims accumulated protocol fees for a token
     /// @dev Permissionless - anyone can trigger, but funds always go to treasury
-    function claimProtocolFees(address token) external {
+    function claimProtocolFees(
+        address token
+    ) external {
         AoriStorageData storage $ = _getAoriStorage();
 
         uint256 amount = $.pendingProtocolFees[token];
@@ -229,11 +227,7 @@ library AoriAdminLib {
      * @param amount The amount to withdraw (use 0 to withdraw full balance)
      * @param holder The address of the user withdrawing
      */
-    function withdraw(
-        address token,
-        uint256 amount,
-        address holder
-    ) external {
+    function withdraw(address token, uint256 amount, address holder) external {
         AoriStorageData storage $ = _getAoriStorage();
         uint256 unlockedBalance = $.balances[holder][token].unlocked;
         if (unlockedBalance == 0) revert NonZeroBalanceRequired();
@@ -259,11 +253,7 @@ library AoriAdminLib {
     /*                    INTERNAL HELPERS                        */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    function _transfer(
-        address token,
-        address to,
-        uint256 amount
-    ) private {
+    function _transfer(address token, address to, uint256 amount) private {
         if (token == NATIVE_TOKEN) {
             (bool success,) = payable(to).call{ value: amount }("");
             if (!success) revert NativeTransferFailed();
