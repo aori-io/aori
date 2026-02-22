@@ -291,7 +291,7 @@ contract TestUtils is TestHelperOz5 {
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,address verifyingContract)"),
                 keccak256(bytes("Aori")),
-                keccak256(bytes("0.3.2")),
+                keccak256(bytes("0.4.0")),
                 address(localAori)
             )
         );

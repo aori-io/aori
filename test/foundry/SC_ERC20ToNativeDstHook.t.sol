@@ -312,9 +312,17 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         // Contract should still hold the tokens (they're in solver's unlocked balance)
         assertEq(inputToken.balanceOf(address(localAori)), INPUT_AMOUNT, "Contract should hold tokens in solver's unlocked balance");
 
-        // Verify the solver's net cost equals the order output amount (they effectively "bought" the tokens for 1 ETH)
-        uint256 expectedSolverBalance = 5 ether - OUTPUT_AMOUNT; // Started with 5 ETH, net cost should be 1 ETH
-        assertEq(solverSC.balance, expectedSolverBalance, "Solver should have net cost equal to order output amount");
+        // Solver sent DST_HOOK_INPUT to hook, surplus goes to unlocked balance
+        // Wallet: 5 ETH - DST_HOOK_INPUT = 3.8 ETH
+        uint256 expectedSolverBalance = 5 ether - DST_HOOK_INPUT;
+        assertEq(solverSC.balance, expectedSolverBalance, "Solver wallet should reflect hook input payment");
+
+        // Surplus in unlocked balance
+        assertEq(
+            localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN),
+            EXPECTED_SURPLUS,
+            "Solver should have surplus in unlocked native balance"
+        );
 
         console.log("[PASS] All assertions passed!");
         console.log("[SURPLUS] Surplus of", (DST_HOOK_OUTPUT - OUTPUT_AMOUNT) / 1e18, "ETH was correctly distributed to solver");
@@ -412,10 +420,19 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
 
         assertEq(userReceived, OUTPUT_AMOUNT, string(abi.encodePacked(scenarioName, ": User should receive output amount")));
 
-        // Calculate expected net change: surplus - hook input (can be negative)
-        int256 expectedNetChange = int256(uint256(expectedSurplus)) - int256(uint256(hookInput));
+        // Solver wallet net change is just the hook input payment (surplus goes to unlocked balance)
+        int256 expectedWalletChange = -int256(uint256(hookInput));
         assertEq(
-            solverNetChange, expectedNetChange, string(abi.encodePacked(scenarioName, ": Solver net change should be surplus minus input"))
+            solverNetChange,
+            expectedWalletChange,
+            string(abi.encodePacked(scenarioName, ": Solver wallet change should reflect hook input payment"))
+        );
+
+        // Surplus goes to unlocked balance
+        assertEq(
+            localLens.getUnlockedBalances(testSolver, NATIVE_TOKEN),
+            expectedSurplus,
+            string(abi.encodePacked(scenarioName, ": Solver should have surplus in unlocked balance"))
         );
 
         assertTrue(

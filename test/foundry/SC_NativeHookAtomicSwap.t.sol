@@ -191,8 +191,12 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
         // Verify user received output tokens
         assertEq(outputToken.balanceOf(userSC), initialUserTokens + OUTPUT_AMOUNT, "User should receive output tokens");
 
-        // Verify solver received surplus
-        assertEq(outputToken.balanceOf(solverSC), initialSolverTokens + EXPECTED_SURPLUS, "Solver should receive surplus tokens");
+        // Verify solver received surplus in unlocked balance
+        assertEq(
+            localLens.getUnlockedBalances(solverSC, address(outputToken)),
+            EXPECTED_SURPLUS,
+            "Solver should receive surplus tokens in unlocked balance"
+        );
 
         // Verify order status is Settled
         assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
@@ -212,7 +216,9 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
         uint256 solverTokenGain = outputToken.balanceOf(solverSC) - initialSolverTokens;
 
         assertEq(userTokenGain, OUTPUT_AMOUNT, "User should receive exactly outputAmount");
-        assertEq(solverTokenGain, EXPECTED_SURPLUS, "Solver should receive exactly the surplus");
+        // Surplus goes to solver's unlocked balance in contract, not direct wallet transfer
+        uint256 solverUnlocked = localLens.getUnlockedBalances(solverSC, address(outputToken));
+        assertEq(solverUnlocked, EXPECTED_SURPLUS, "Solver should receive exactly the surplus in unlocked balance");
     }
 
     /**
@@ -270,7 +276,11 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
         // No locked balances should remain for atomic settlement
         assertEq(localLens.getLockedBalances(userSC, NATIVE_TOKEN), 0, "User should have no locked native balance");
         assertEq(localLens.getLockedBalances(userSC, address(outputToken)), 0, "User should have no locked output token balance");
-        assertEq(localLens.getUnlockedBalances(solverSC, address(outputToken)), 0, "Solver should have no unlocked balance in contract");
+        assertEq(
+            localLens.getUnlockedBalances(solverSC, address(outputToken)),
+            EXPECTED_SURPLUS,
+            "Solver should have surplus in unlocked balance"
+        );
     }
 
     /**
@@ -379,8 +389,12 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
         vm.prank(userSC);
         localAori.depositNative{ value: INPUT_AMOUNT }(order, srcHook);
 
-        // Surplus should go to specified solver
-        assertEq(outputToken.balanceOf(specifiedSolver) - solverBalBefore, EXPECTED_SURPLUS, "Surplus should go to specified solver");
+        // Surplus goes to specified solver's unlocked balance in contract
+        assertEq(
+            localLens.getUnlockedBalances(specifiedSolver, address(outputToken)),
+            EXPECTED_SURPLUS,
+            "Surplus should go to specified solver's unlocked balance"
+        );
     }
 
     /**
@@ -438,7 +452,11 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
 
         assertEq(userSC.balance, initialUserNative - INPUT_AMOUNT, "User spent 1 ETH");
         assertEq(outputToken.balanceOf(userSC), initialUserTokens + OUTPUT_AMOUNT, "User received 1000 tokens");
-        assertEq(outputToken.balanceOf(solverSC), initialSolverTokens + EXPECTED_SURPLUS, "Solver received 100 token surplus");
+        assertEq(
+            localLens.getUnlockedBalances(solverSC, address(outputToken)),
+            EXPECTED_SURPLUS,
+            "Solver received 100 token surplus in unlocked balance"
+        );
         assertEq(address(mockHook2).balance, initialHookNative + INPUT_AMOUNT, "Hook received 1 ETH");
         assertEq(outputToken.balanceOf(address(mockHook2)), initialHookTokens - HOOK_OUTPUT, "Hook sent 1100 tokens");
 

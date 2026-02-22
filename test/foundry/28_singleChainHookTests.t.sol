@@ -207,28 +207,33 @@ contract SingleChainHookTest is TestUtils {
             instructions: hookData
         });
 
-        // Execute deposit with hook
-        vm.prank(solver);
-        // Atomic single-chain SrcHook emits: SrcHookExecuted, Deposit, Fill, Settle
-        // Using try/catch to handle potential validation errors
-        try localAori.deposit(order, signature, hook) {
-            // Test passed
-            // Verify token transfers - similar to what we would do in a normal test
-            uint256 recipientBalance = outputToken.balanceOf(recipient);
-            assertEq(recipientBalance, outputAmount, "Recipient should receive exact output amount");
+        // Capture pre-deposit balances
+        uint256 initialSolverBalance = outputToken.balanceOf(solver);
+        uint256 expectedSurplus = extraOutputAmount - outputAmount;
 
-            // Check that solver received the surplus
-            uint256 expectedSurplus = extraOutputAmount - outputAmount;
-            uint256 solverBalance = outputToken.balanceOf(solver);
-            assertGe(solverBalance, expectedSurplus, "Solver should receive surplus tokens");
-        } catch (bytes memory reason) {
-            // If validation error occurs, we consider the test passed for the expected behavior
-            assertEq(
-                keccak256(reason),
-                keccak256(abi.encodeWithSignature("Error(string)", "Inconsistent offerer balance")),
-                "Expected 'Inconsistent offerer balance' error"
-            );
-        }
+        // Execute deposit with hook (atomic single-chain SrcHook: SrcHookExecuted, Deposit, Fill, Settle)
+        vm.prank(solver);
+        localAori.deposit(order, signature, hook);
+
+        // Verify recipient received exact output amount
+        assertEq(outputToken.balanceOf(recipient), outputAmount, "Recipient should receive exact output amount");
+
+        // Solver wallet balance should be unchanged (surplus goes to unlocked balance, not wallet)
+        assertEq(outputToken.balanceOf(solver), initialSolverBalance, "Solver wallet balance should not change from surplus");
+
+        // Surplus should be in solver's unlocked balance within the contract
+        assertEq(
+            localLens.getUnlockedBalances(solver, address(outputToken)),
+            expectedSurplus,
+            "Solver should receive surplus in unlocked balance"
+        );
+
+        // Verify order is settled atomically
+        assertEq(
+            uint8(localAori.orderStatus(orderId)),
+            uint8(OrderStatus.Settled),
+            "Order should be settled atomically"
+        );
     }
 
     /**
@@ -414,6 +419,4 @@ contract SingleChainHookTest is TestUtils {
         localAori.deposit(order, signature, hook);
     }
 
-    // Import events for testing
-    event Settle(bytes32 indexed orderId);
 }

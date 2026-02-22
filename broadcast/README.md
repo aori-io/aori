@@ -2,7 +2,7 @@
 
 This folder contains Foundry broadcast logs for contract deployments.
 
-## Aori v0.3.2 Deployment
+## Aori v0.4.0 Deployment
 
 **Proxy Address (all chains):** `0x7417dE230d7635C7906fEb6aE73d0C551e2aF339`
 **Implementation Address:** `0x5511935DB22290E892DF51aD572fDe02E9EAa000`

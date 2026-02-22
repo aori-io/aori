@@ -13,10 +13,6 @@ import { MessagingReceipt, MessagingFee } from "@layerzerolabs/oapp-evm/contract
  * @notice Tests the capturing and emitting of MessagingReceipt information in events
  */
 contract MessagingReceiptTest is TestUtils {
-    // Test events matching IAori event signatures
-    event SettleSent(uint32 indexed srcEid, address indexed filler, bytes payload, bytes32 guid, uint64 nonce, uint256 fee);
-    event CancelSent(bytes32 indexed orderId, bytes32 guid, uint64 nonce, uint256 fee);
-
     // Mock values for testing
     bytes32 constant TEST_GUID = bytes32(uint256(0x123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0));
     uint64 constant TEST_NONCE = 12345678;

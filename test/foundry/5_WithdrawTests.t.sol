@@ -59,8 +59,6 @@ contract WithdrawTests is TestUtils {
     // Counter to make orders unique
     uint256 private orderCounter;
 
-    // Events for testing
-    event Withdraw(address indexed holder, address indexed token, uint256 amount);
 
     function setUp() public override {
         super.setUp();
@@ -297,7 +295,7 @@ contract WithdrawTests is TestUtils {
 
         // Act & Assert
         vm.expectEmit(true, true, false, true);
-        emit Withdraw(solver, address(outputToken), expectedAmount);
+        emit IAori.Withdraw(solver, address(outputToken), expectedAmount);
 
         vm.prank(solver);
         localAori.withdraw(address(outputToken), 0);
@@ -310,7 +308,7 @@ contract WithdrawTests is TestUtils {
     function testWithdrawEventEmission_PartialWithdrawal() public {
         // Act & Assert - use solver
         vm.expectEmit(true, true, false, true);
-        emit Withdraw(solver, address(outputToken), PARTIAL_AMOUNT);
+        emit IAori.Withdraw(solver, address(outputToken), PARTIAL_AMOUNT);
 
         vm.prank(solver);
         localAori.withdraw(address(outputToken), PARTIAL_AMOUNT);

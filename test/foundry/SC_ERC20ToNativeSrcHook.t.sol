@@ -179,7 +179,12 @@ contract SC_ERC20ToNativeSrcHook_Test is TestUtils {
         // Verify token transfers
         assertEq(inputToken.balanceOf(userSC), initialUserTokens - INPUT_AMOUNT, "User should spend input tokens");
         assertEq(userSC.balance, initialUserNative + OUTPUT_AMOUNT, "User should receive native tokens");
-        assertEq(solverSC.balance, initialSolverNative + EXPECTED_SURPLUS, "Solver should receive surplus native tokens");
+        // Surplus goes to solver's unlocked balance in contract, not direct ETH transfer
+        assertEq(
+            localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN),
+            EXPECTED_SURPLUS,
+            "Solver should receive surplus native tokens in unlocked balance"
+        );
 
         // Verify order status is Settled (atomic settlement for single-chain with srcHook)
         assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
@@ -280,7 +285,9 @@ contract SC_ERC20ToNativeSrcHook_Test is TestUtils {
         assertEq(localLens.getUnlockedBalances(userSC, address(inputToken)), 0, "User should have no unlocked balance for srcHook swaps");
         assertEq(localLens.getLockedBalances(solverSC, NATIVE_TOKEN), 0, "Solver should have no locked native balance");
         assertEq(
-            localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN), 0, "Solver should have no unlocked native balance for srcHook swaps"
+            localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN),
+            EXPECTED_SURPLUS,
+            "Solver should have surplus in unlocked native balance"
         );
     }
 
@@ -300,7 +307,7 @@ contract SC_ERC20ToNativeSrcHook_Test is TestUtils {
         assertEq(localLens.getLockedBalances(userSC, address(inputToken)), 0);
         assertEq(localLens.getUnlockedBalances(userSC, address(inputToken)), 0);
         assertEq(localLens.getLockedBalances(solverSC, NATIVE_TOKEN), 0);
-        assertEq(localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN), 0);
+        assertEq(localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN), EXPECTED_SURPLUS);
 
         // Order should be immediately settled
         assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
@@ -430,7 +437,11 @@ contract SC_ERC20ToNativeSrcHook_Test is TestUtils {
 
         // Verify no locked balances remain (atomic settlement with direct distribution)
         assertEq(localLens.getLockedBalances(userSC, address(inputToken)), 0, "User should have no locked balance after atomic settlement");
-        assertEq(localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN), 0, "Solver should have no unlocked balance for srcHook swaps");
+        assertEq(
+            localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN),
+            EXPECTED_SURPLUS,
+            "Solver should have surplus in unlocked balance"
+        );
 
         // Verify tokens were transferred directly (not through balance accounting)
         // User should have received native tokens directly
@@ -539,6 +550,7 @@ contract SC_ERC20ToNativeSrcHook_Test is TestUtils {
         uint256 initialUserNative = testUser.balance;
         uint256 initialSolverNative = testSolver.balance;
         uint256 initialHookNative = address(mockHook2).balance;
+        uint256 initialSolverUnlocked = localLens.getUnlockedBalances(testSolver, NATIVE_TOKEN);
 
         console.log("Before Transaction:");
         console.log("  User Native:", initialUserNative / 1e18, "ETH");
@@ -565,12 +577,12 @@ contract SC_ERC20ToNativeSrcHook_Test is TestUtils {
 
         // Calculate actual changes
         uint256 userReceived = finalUserNative - initialUserNative;
-        uint256 solverReceived = finalSolverNative - initialSolverNative;
+        uint256 solverUnlockedDelta = localLens.getUnlockedBalances(testSolver, NATIVE_TOKEN) - initialSolverUnlocked;
         uint256 hookSent = initialHookNative - finalHookNative;
 
         console.log("Actual Changes:");
         console.log("  User Received:", userReceived / 1e18, "ETH");
-        console.log("  Solver Received:", solverReceived / 1e18, "ETH");
+        console.log("  Solver Unlocked:", solverUnlockedDelta / 1e18, "ETH");
         console.log("  Hook Sent:", hookSent / 1e18, "ETH");
 
         // Verify surplus calculation
@@ -582,13 +594,13 @@ contract SC_ERC20ToNativeSrcHook_Test is TestUtils {
 
         // Assertions
         assertEq(userReceived, OUTPUT_AMOUNT, string(abi.encodePacked(scenarioName, ": User should receive exact output amount")));
-        assertEq(solverReceived, expectedSurplus, string(abi.encodePacked(scenarioName, ": Solver should receive expected surplus")));
+        assertEq(solverUnlockedDelta, expectedSurplus, string(abi.encodePacked(scenarioName, ": Solver should receive expected surplus")));
         assertEq(hookSent, hookOutput, string(abi.encodePacked(scenarioName, ": Hook should send expected amount")));
 
-        // Verify the math: hookOutput = userReceived + solverReceived
+        // Verify the math: hookOutput = userReceived + solverUnlockedDelta
         assertEq(
             hookOutput,
-            userReceived + solverReceived,
+            userReceived + solverUnlockedDelta,
             string(abi.encodePacked(scenarioName, ": Hook output should equal user + solver amounts"))
         );
 

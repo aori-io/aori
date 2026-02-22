@@ -113,4 +113,52 @@ library TokenUtils {
             IERC20(token).safeTransferFrom(from, to, amount);
         }
     }
+
+    /**
+     * @notice Transfers tokens from sender with balance-delta verification
+     * @dev Reverts if the recipient's balance did not increase by at least `amount`,
+     *      catching fee-on-transfer / deflationary tokens. Native ETH is exempt.
+     * @param token The token address
+     * @param from The sender address
+     * @param to The recipient address
+     * @param amount The expected amount to be received
+     */
+    function safeTransferFromChecked(
+        address token,
+        address from,
+        address to,
+        uint256 amount
+    ) internal {
+        if (isNativeToken(token)) {
+            (bool success,) = payable(to).call{ value: amount }("");
+            if (!success) revert NativeTransferFailed();
+        } else {
+            uint256 balBefore = IERC20(token).balanceOf(to);
+            IERC20(token).safeTransferFrom(from, to, amount);
+            if (IERC20(token).balanceOf(to) - balBefore < amount) revert TransferAmountMismatch();
+        }
+    }
+
+    /**
+     * @notice Transfers tokens with balance-delta verification
+     * @dev Reverts if the recipient's balance did not increase by at least `amount`,
+     *      catching fee-on-transfer / deflationary tokens. Native ETH is exempt.
+     * @param token The token address
+     * @param to The recipient address
+     * @param amount The expected amount to be received
+     */
+    function safeTransferChecked(
+        address token,
+        address to,
+        uint256 amount
+    ) internal {
+        if (isNativeToken(token)) {
+            (bool success,) = payable(to).call{ value: amount }("");
+            if (!success) revert NativeTransferFailed();
+        } else {
+            uint256 balBefore = IERC20(token).balanceOf(to);
+            IERC20(token).safeTransfer(to, amount);
+            if (IERC20(token).balanceOf(to) - balBefore < amount) revert TransferAmountMismatch();
+        }
+    }
 }

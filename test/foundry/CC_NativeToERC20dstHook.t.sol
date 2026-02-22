@@ -275,18 +275,20 @@ contract CC_NativeToERC20DstHook is TestUtils {
         assertEq(outputToken.balanceOf(userDest), preFillUserOutputTokens + OUTPUT_AMOUNT, "User should receive exact output amount");
 
         assertEq(inputToken.balanceOf(solverDest), preFillSolverInputTokens - PREFERRED_INPUT, "Solver should spend preferred input amount");
+        assertEq(outputToken.balanceOf(solverDest), preFillSolverOutputTokens, "Solver wallet output token balance should be unchanged");
 
+        // Surplus goes to solver's unlocked balance in remote contract
         assertEq(
-            outputToken.balanceOf(solverDest),
-            preFillSolverOutputTokens + expectedSurplus,
-            "Solver should receive surplus from hook conversion"
+            remoteLens.getUnlockedBalances(solverDest, address(outputToken)),
+            expectedSurplus,
+            "Solver should receive surplus in unlocked balance"
         );
 
-        // Contract should not hold any tokens after hook execution
+        // Contract holds surplus tokens as solver's unlocked balance
         assertEq(
             outputToken.balanceOf(address(remoteAori)),
-            preFillContractOutputTokens,
-            "Contract should not hold output tokens after hook fill"
+            preFillContractOutputTokens + expectedSurplus,
+            "Contract should hold surplus output tokens as solver unlocked balance"
         );
 
         // Verify order status
@@ -506,11 +508,16 @@ contract CC_NativeToERC20DstHook is TestUtils {
         // Solver should have gained INPUT_AMOUNT ETH, paid PREFERRED_INPUT preferred tokens, and gained surplus
         assertEq(solverSourceNetChange, int256(uint256(INPUT_AMOUNT)), "Solver should have gained input ETH");
         assertEq(solverDestInputNetChange, -int256(uint256(PREFERRED_INPUT)), "Solver should have paid preferred tokens");
+        assertEq(solverDestOutputNetChange, 0, "Solver wallet output token balance should be unchanged");
 
-        // Calculate expected surplus from hook conversion (1:1 rate)
+        // Surplus goes to solver's unlocked balance in remote contract
         uint256 expectedHookOutput = PREFERRED_INPUT; // 1:1 conversion
         uint256 expectedSurplus = expectedHookOutput - OUTPUT_AMOUNT;
-        assertEq(solverDestOutputNetChange, int256(expectedSurplus), "Solver should have received expected surplus");
+        assertEq(
+            remoteLens.getUnlockedBalances(solverDest, address(outputToken)),
+            expectedSurplus,
+            "Solver should have received expected surplus in unlocked balance"
+        );
 
         console.log("");
         console.log("All assertions passed! Cross-chain Native to ERC20 swap (with destination hook) successful.");
