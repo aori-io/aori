@@ -201,6 +201,9 @@ contract AoriLens {
         for (uint256 i = 0; i < orderHashes.length; i++) {
             Order memory order = this.orders(orderHashes[i]);
             
+            // Skip non-existent orders (inputToken == address(0))
+            if (order.inputToken == address(0)) continue;
+            
             // Check if token already exists
             bool found = false;
             for (uint256 k = 0; k < uniqueCount; k++) {
@@ -226,6 +229,4 @@ contract AoriLens {
 
         return (tempTokens, tempAmounts);
     }
-
-    // Note: quote() is kept in Aori.sol because it needs OApp's internal _quote() function
 }
