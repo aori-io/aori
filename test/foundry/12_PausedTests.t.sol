@@ -225,7 +225,7 @@ contract PausedTests is TestUtils {
     /**
      * @notice Test emergency withdrawal from user balance while maintaining accounting consistency
      */
-    function testEmergencyWithdrawFromUserBalance() public {
+    function testemergencyWithdrawFromBalanceBalance() public {
         // Setup: Create and deposit an order to establish user balance
         Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
@@ -248,7 +248,7 @@ contract PausedTests is TestUtils {
         uint256 recipientBalanceBefore = inputToken.balanceOf(recipient);
 
         // Emergency withdraw from user's locked balance through AoriAdmin
-        localAori.emergencyWithdrawFromUser(
+        localAori.emergencyWithdrawFromBalance(
             address(inputToken),
             withdrawAmount,
             userA,
@@ -298,7 +298,7 @@ contract PausedTests is TestUtils {
         uint256 recipientBalanceBefore = inputToken.balanceOf(recipient);
 
         // Emergency withdraw from solver's unlocked balance through AoriAdmin
-        localAori.emergencyWithdrawFromUser(
+        localAori.emergencyWithdrawFromBalance(
             address(inputToken),
             withdrawAmount,
             solver,
@@ -317,7 +317,7 @@ contract PausedTests is TestUtils {
     /**
      * @notice Test that only admin can use the overloaded emergency withdraw
      */
-    function testEmergencyWithdrawFromUserBalanceOnlyAdmin() public {
+    function testemergencyWithdrawFromBalanceBalanceOnlyAdmin() public {
         // Setup user balance first
         Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
@@ -331,6 +331,6 @@ contract PausedTests is TestUtils {
         // Non-admin cannot use overloaded emergency withdraw
         vm.prank(nonAdmin);
         vm.expectRevert();
-        localAori.emergencyWithdrawFromUser(address(inputToken), order.inputAmount, userA, true, nonAdmin);
+        localAori.emergencyWithdrawFromBalance(address(inputToken), order.inputAmount, userA, true, nonAdmin);
     }
 }

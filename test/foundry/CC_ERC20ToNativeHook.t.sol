@@ -84,10 +84,7 @@ contract CC_ERC20ToNativeHook is TestUtils {
     /**
      * @notice Helper function to format token amount to readable string
      */
-    function formatTokens(
-        int256 tokenAmount,
-        uint8 decimals
-    ) internal pure returns (string memory) {
+    function formatTokens(int256 tokenAmount, uint8 decimals) internal pure returns (string memory) {
         if (tokenAmount == 0) return "0 tokens";
 
         bool isNegative = tokenAmount < 0;
@@ -341,9 +338,7 @@ contract CC_ERC20ToNativeHook is TestUtils {
 
         // Surplus goes to solver's unlocked balance in contract, not direct wallet transfer
         assertEq(
-            remoteLens.getUnlockedBalances(solverDest, NATIVE_TOKEN),
-            expectedSurplus,
-            "Solver should receive surplus in unlocked balance"
+            remoteLens.getUnlockedBalances(solverDest, NATIVE_TOKEN), expectedSurplus, "Solver should receive surplus in unlocked balance"
         );
 
         // Verify order status

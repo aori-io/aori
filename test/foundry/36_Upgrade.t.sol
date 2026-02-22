@@ -33,10 +33,7 @@ import { AoriLens } from "../../contracts/AoriLens.sol";
 contract MockAoriUpgraded is Aori {
     uint256 public constant VERSION = 2;
 
-    constructor(
-        address _endpoint,
-        uint32 _eid
-    ) Aori(_endpoint, _eid) { }
+    constructor(address _endpoint, uint32 _eid) Aori(_endpoint, _eid) { }
 
     function getVersion() external pure returns (uint256) {
         return VERSION;

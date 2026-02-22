@@ -58,35 +58,69 @@ abstract contract BaseScript is Script {
         ChainConfig[] memory chains = new ChainConfig[](8);
 
         chains[0] = ChainConfig({
-            name: "ethereum", chainId: 1, eid: 30101, endpoint: LZ_ENDPOINT_MAINNET, rpcEnvVar: "ETHEREUM_RPC_URL", isTestnet: false
+            name: "ethereum",
+            chainId: 1,
+            eid: 30101,
+            endpoint: LZ_ENDPOINT_MAINNET,
+            rpcEnvVar: "ETHEREUM_RPC_URL",
+            isTestnet: false
         });
 
         chains[1] = ChainConfig({
-            name: "base", chainId: 8453, eid: 30184, endpoint: LZ_ENDPOINT_MAINNET, rpcEnvVar: "BASE_RPC_URL", isTestnet: false
+            name: "base",
+            chainId: 8453,
+            eid: 30184,
+            endpoint: LZ_ENDPOINT_MAINNET,
+            rpcEnvVar: "BASE_RPC_URL",
+            isTestnet: false
         });
 
         chains[2] = ChainConfig({
-            name: "arbitrum", chainId: 42161, eid: 30110, endpoint: LZ_ENDPOINT_MAINNET, rpcEnvVar: "ARBITRUM_RPC_URL", isTestnet: false
+            name: "arbitrum",
+            chainId: 42161,
+            eid: 30110,
+            endpoint: LZ_ENDPOINT_MAINNET,
+            rpcEnvVar: "ARBITRUM_RPC_URL",
+            isTestnet: false
         });
 
         chains[3] = ChainConfig({
-            name: "optimism", chainId: 10, eid: 30111, endpoint: LZ_ENDPOINT_MAINNET, rpcEnvVar: "OPTIMISM_RPC_URL", isTestnet: false
+            name: "optimism",
+            chainId: 10,
+            eid: 30111,
+            endpoint: LZ_ENDPOINT_MAINNET,
+            rpcEnvVar: "OPTIMISM_RPC_URL",
+            isTestnet: false
         });
 
-        chains[4] = ChainConfig({
-            name: "bsc", chainId: 56, eid: 30102, endpoint: LZ_ENDPOINT_MAINNET, rpcEnvVar: "BSC_RPC_URL", isTestnet: false
-        });
+        chains[4] =
+            ChainConfig({ name: "bsc", chainId: 56, eid: 30102, endpoint: LZ_ENDPOINT_MAINNET, rpcEnvVar: "BSC_RPC_URL", isTestnet: false });
 
         chains[5] = ChainConfig({
-            name: "plasma", chainId: 9745, eid: 30383, endpoint: LZ_ENDPOINT_2_MAINNET, rpcEnvVar: "PLASMA_RPC_URL", isTestnet: false
+            name: "plasma",
+            chainId: 9745,
+            eid: 30383,
+            endpoint: LZ_ENDPOINT_2_MAINNET,
+            rpcEnvVar: "PLASMA_RPC_URL",
+            isTestnet: false
         });
 
         chains[6] = ChainConfig({
-            name: "monad", chainId: 143, eid: 30390, endpoint: LZ_ENDPOINT_2_MAINNET, rpcEnvVar: "MONAD_RPC_URL", isTestnet: false
+            name: "monad",
+            chainId: 143,
+            eid: 30390,
+            endpoint: LZ_ENDPOINT_2_MAINNET,
+            rpcEnvVar: "MONAD_RPC_URL",
+            isTestnet: false
         });
 
         chains[7] = ChainConfig({
-            name: "stable", chainId: 988, eid: 30396, endpoint: LZ_ENDPOINT_2_MAINNET, rpcEnvVar: "STABLE_RPC_URL", isTestnet: false
+            name: "stable",
+            chainId: 988,
+            eid: 30396,
+            endpoint: LZ_ENDPOINT_2_MAINNET,
+            rpcEnvVar: "STABLE_RPC_URL",
+            isTestnet: false
         });
 
         return chains;
@@ -97,7 +131,12 @@ abstract contract BaseScript is Script {
         ChainConfig[] memory chains = new ChainConfig[](4);
 
         chains[0] = ChainConfig({
-            name: "sepolia", chainId: 11155111, eid: 40161, endpoint: LZ_ENDPOINT_TESTNET, rpcEnvVar: "SEPOLIA_RPC_URL", isTestnet: true
+            name: "sepolia",
+            chainId: 11155111,
+            eid: 40161,
+            endpoint: LZ_ENDPOINT_TESTNET,
+            rpcEnvVar: "SEPOLIA_RPC_URL",
+            isTestnet: true
         });
 
         chains[1] = ChainConfig({
@@ -181,10 +220,7 @@ abstract contract BaseScript is Script {
     }
 
     /// @notice Verify caller is contract owner
-    function _requireOwner(
-        Aori aori,
-        address caller
-    ) internal view {
+    function _requireOwner(Aori aori, address caller) internal view {
         require(aori.owner() == caller, "Caller is not owner");
     }
 
@@ -198,10 +234,7 @@ abstract contract BaseScript is Script {
     /// @param salt Unique salt for this deployment
     /// @param bytecode Contract creation bytecode (can differ per chain)
     /// @return deployed The deployed contract address (same on all chains for same deployer + salt)
-    function _deployCreate3(
-        bytes32 salt,
-        bytes memory bytecode
-    ) internal returns (address deployed) {
+    function _deployCreate3(bytes32 salt, bytes memory bytecode) internal returns (address deployed) {
         // Aori CREATE3 factory interface: deploy(bytes32 salt, bytes memory creationCode) returns (address)
         (bool success, bytes memory result) = CREATE3_FACTORY.call(abi.encodeWithSignature("deploy(bytes32,bytes)", salt, bytecode));
         require(success, "CREATE3 deployment failed");
@@ -213,10 +246,7 @@ abstract contract BaseScript is Script {
     /// @param deployer The deployer address (msg.sender during deploy)
     /// @param salt The deployment salt
     /// @return The address where the contract will be deployed
-    function _computeCreate3Address(
-        address deployer,
-        bytes32 salt
-    ) internal view returns (address) {
+    function _computeCreate3Address(address deployer, bytes32 salt) internal view returns (address) {
         // Aori CREATE3 factory: getDeployed(address deployer, bytes32 salt) returns (address)
         (bool success, bytes memory result) =
             CREATE3_FACTORY.staticcall(abi.encodeWithSignature("getDeployed(address,bytes32)", deployer, salt));
@@ -229,7 +259,9 @@ abstract contract BaseScript is Script {
         address addr
     ) internal view returns (bool) {
         uint256 size;
-        assembly { size := extcodesize(addr) }
+        assembly {
+            size := extcodesize(addr)
+        }
         return size > 0;
     }
 
@@ -295,20 +327,13 @@ abstract contract BaseScript is Script {
     }
 
     /// @notice Set peer for a remote chain
-    function _setPeer(
-        Aori aori,
-        uint32 remoteEid,
-        address remoteAori
-    ) internal {
+    function _setPeer(Aori aori, uint32 remoteEid, address remoteAori) internal {
         aori.setPeer(remoteEid, _addressToBytes32(remoteAori));
         console.log("Set peer for EID", remoteEid, "to", remoteAori);
     }
 
     /// @notice Add supported chain
-    function _addSupportedChain(
-        Aori aori,
-        uint32 eid
-    ) internal {
+    function _addSupportedChain(Aori aori, uint32 eid) internal {
         aori.addSupportedChain(eid);
         console.log("Added supported chain:", eid);
     }

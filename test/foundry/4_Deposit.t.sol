@@ -363,7 +363,10 @@ contract DepositTests is TestUtils {
         address nonWhitelistedHook = address(0x999);
 
         SrcHook memory hook = SrcHook({
-            hookAddress: nonWhitelistedHook, preferredToken: address(inputToken), minPreferredTokenAmountOut: 1e18, instructions: ""
+            hookAddress: nonWhitelistedHook,
+            preferredToken: address(inputToken),
+            minPreferredTokenAmountOut: 1e18,
+            instructions: ""
         });
 
         vm.prank(userA);
@@ -514,5 +517,4 @@ contract DepositTests is TestUtils {
             options: defaultOrderOptions()
         });
     }
-
 }

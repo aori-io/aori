@@ -35,12 +35,7 @@ pragma solidity 0.8.34;
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import "forge-std/Test.sol";
 import "./TestUtils.sol";
-import {
-    PayloadType,
-    PayloadUtils,
-    settlementPayloadSize,
-    CANCELLATION_PAYLOAD_SIZE
-} from "../../contracts/utils/PayloadUtils.sol";
+import { PayloadType, PayloadUtils, settlementPayloadSize, CANCELLATION_PAYLOAD_SIZE } from "../../contracts/utils/PayloadUtils.sol";
 import { IAori } from "../../contracts/interfaces/IAori.sol";
 import "forge-std/console.sol";
 import "../../contracts/types/AoriErrors.sol";
@@ -69,10 +64,7 @@ contract PayloadTestWrapper {
         PayloadUtils.validateSettlementLen(payload);
     }
 
-    function validateSettlementLen(
-        bytes calldata payload,
-        uint16 fillCount
-    ) external pure {
+    function validateSettlementLen(bytes calldata payload, uint16 fillCount) external pure {
         PayloadUtils.validateSettlementLen(payload, fillCount);
     }
 
@@ -95,10 +87,7 @@ contract PayloadTestWrapper {
         return PayloadUtils.unpackSettlementHeader(payload);
     }
 
-    function unpackSettlementBodyAt(
-        bytes calldata payload,
-        uint256 index
-    ) external pure returns (bytes32) {
+    function unpackSettlementBodyAt(bytes calldata payload, uint256 index) external pure returns (bytes32) {
         return PayloadUtils.unpackSettlementBodyAt(payload, index);
     }
 
@@ -109,10 +98,7 @@ contract PayloadTestWrapper {
         return PayloadUtils.packCancellation(orderHash);
     }
 
-    function packSettlement(
-        address filler,
-        uint16 takeSize
-    ) external returns (bytes memory) {
+    function packSettlement(address filler, uint16 takeSize) external returns (bytes memory) {
         return fillsArray.packSettlement(filler, takeSize);
     }
 
@@ -166,9 +152,13 @@ contract PayloadPackingUnpackingTest is Test {
         wrapper = new PayloadTestWrapper();
     }
 
-    /**********************************/
+    /**
+     *
+     */
     /*    Payload Type Tests         */
-    /**********************************/
+    /**
+     *
+     */
 
     /// @dev Tests payload type detection for settlement payloads
     /// @notice Covers lines 291-292 in AoriUtils.sol
@@ -219,9 +209,13 @@ contract PayloadPackingUnpackingTest is Test {
         assertEq(uint8(payloadType), SETTLEMENT_TYPE);
     }
 
-    /**********************************/
+    /**
+     *
+     */
     /*    Validation Tests           */
-    /**********************************/
+    /**
+     *
+     */
 
     /// @dev Tests validation of correct cancellation payload length
     /// @notice Covers lines 247-248 in AoriUtils.sol
@@ -322,9 +316,13 @@ contract PayloadPackingUnpackingTest is Test {
         wrapper.validateSettlementLen(payload, fillCount);
     }
 
-    /**********************************/
+    /**
+     *
+     */
     /*    Unpacking Tests            */
-    /**********************************/
+    /**
+     *
+     */
 
     /// @dev Tests unpacking a valid cancellation payload
     /// @notice Covers lines 257-259 in AoriUtils.sol
@@ -412,9 +410,13 @@ contract PayloadPackingUnpackingTest is Test {
         wrapper.unpackSettlementBodyAt(payload, 2);
     }
 
-    /**********************************/
+    /**
+     *
+     */
     /*    Packing Tests              */
-    /**********************************/
+    /**
+     *
+     */
 
     /// @dev Tests packing a cancellation payload
     /// @notice Covers lines 402-407 in AoriUtils.sol
@@ -647,9 +649,13 @@ contract PayloadPackingUnpackingTest is Test {
         assertEq(size, expected);
     }
 
-    /**********************************/
+    /**
+     *
+     */
     /*    Integration Tests          */
-    /**********************************/
+    /**
+     *
+     */
 
     /// @dev Tests full round-trip packing and unpacking of cancellation
     function test_integration_packAndUnpack_cancellation() public view {

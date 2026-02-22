@@ -86,10 +86,7 @@ contract SingleChainHookTest is TestUtils {
     /**
      * @notice Creates hook data for the test hook
      */
-    function createHookData(
-        address tokenToReturn,
-        uint256 amount
-    ) internal pure returns (bytes memory) {
+    function createHookData(address tokenToReturn, uint256 amount) internal pure returns (bytes memory) {
         return abi.encodeWithSelector(MockHook.handleHook.selector, tokenToReturn, amount);
     }
 
@@ -229,11 +226,7 @@ contract SingleChainHookTest is TestUtils {
         );
 
         // Verify order is settled atomically
-        assertEq(
-            uint8(localAori.orderStatus(orderId)),
-            uint8(OrderStatus.Settled),
-            "Order should be settled atomically"
-        );
+        assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Settled), "Order should be settled atomically");
     }
 
     /**
@@ -418,5 +411,4 @@ contract SingleChainHookTest is TestUtils {
         vm.expectRevert(abi.encodeWithSelector(SlippageExceeded.selector, uint256(outputAmount), uint256(insufficientAmount)));
         localAori.deposit(order, signature, hook);
     }
-
 }

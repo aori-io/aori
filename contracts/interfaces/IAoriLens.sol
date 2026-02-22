@@ -29,10 +29,7 @@ interface IAoriLens {
      * @param token The token address
      * @return The locked balance amount
      */
-    function getLockedBalances(
-        address user,
-        address token
-    ) external view returns (uint256);
+    function getLockedBalances(address user, address token) external view returns (uint256);
 
     /**
      * @notice Get unlocked balance for a user and token
@@ -40,10 +37,7 @@ interface IAoriLens {
      * @param token The token address
      * @return The unlocked balance amount
      */
-    function getUnlockedBalances(
-        address user,
-        address token
-    ) external view returns (uint256);
+    function getUnlockedBalances(address user, address token) external view returns (uint256);
 
     /**
      * @notice Get max fills per settle
@@ -58,11 +52,7 @@ interface IAoriLens {
      * @param index The array index
      * @return The order ID at the specified index
      */
-    function srcEidToFillerFills(
-        uint32 srcEid,
-        address filler,
-        uint256 index
-    ) external view returns (bytes32);
+    function srcEidToFillerFills(uint32 srcEid, address filler, uint256 index) external view returns (bytes32);
 
     /**
      * @notice Get filler fills array length
@@ -70,10 +60,7 @@ interface IAoriLens {
      * @param filler The filler address
      * @return The number of fills for the filler on the source chain
      */
-    function srcEidToFillerFillsLength(
-        uint32 srcEid,
-        address filler
-    ) external view returns (uint256);
+    function srcEidToFillerFillsLength(uint32 srcEid, address filler) external view returns (uint256);
 
     /**
      * @notice Get all order hashes for a filler across multiple source endpoints
@@ -81,10 +68,7 @@ interface IAoriLens {
      * @param filler The filler address
      * @return orderHashesPerEid Array of order hash arrays, one per source endpoint
      */
-    function getPendingSettle(
-        uint32[] calldata srcEids,
-        address filler
-    ) external view returns (bytes32[][] memory orderHashesPerEid);
+    function getPendingSettle(uint32[] calldata srcEids, address filler) external view returns (bytes32[][] memory orderHashesPerEid);
 
     /**
      * @notice Get total input amounts grouped by input token for a list of order hashes
@@ -94,8 +78,5 @@ interface IAoriLens {
      */
     function getOrdersInputTotals(
         bytes32[] calldata orderHashes
-    )
-        external
-        view
-        returns (address[] memory inputTokens, uint256[] memory totalAmounts);
+    ) external view returns (address[] memory inputTokens, uint256[] memory totalAmounts);
 }
