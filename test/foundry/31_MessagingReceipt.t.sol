@@ -208,11 +208,7 @@ contract MessagingReceiptTest is TestUtils {
     /**
      * Helper function to slice a bytes array
      */
-    function slice(
-        bytes memory data,
-        uint256 start,
-        uint256 end
-    ) internal pure returns (bytes memory) {
+    function slice(bytes memory data, uint256 start, uint256 end) internal pure returns (bytes memory) {
         bytes memory result = new bytes(end - start);
         for (uint256 i = 0; i < end - start; i++) {
             result[i] = data[i + start];

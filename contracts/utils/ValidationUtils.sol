@@ -24,11 +24,7 @@ library ValidationUtils {
      * @param msgValue The msg.value sent with the transaction
      * @param sender The msg.sender of the transaction
      */
-    function validateNativeDeposit(
-        Order calldata order,
-        uint256 msgValue,
-        address sender
-    ) internal view {
+    function validateNativeDeposit(Order calldata order, uint256 msgValue, address sender) internal view {
         if (!order.inputToken.isNativeToken()) revert OrderMustSpecifyNativeToken();
         if (msgValue != order.inputAmount) revert IncorrectNativeAmount(order.inputAmount, msgValue);
         if (sender != order.offerer) revert OnlyOffererCanDepositNativeTokens();
@@ -239,12 +235,18 @@ library ValidationUtils {
      * @param hookAddress The hook address to validate
      * @param isAllowedHook Function to check hook whitelist
      */
-    function validateHook(
-        address hookAddress,
-        function(address) external view returns (bool) isAllowedHook
-    ) internal view {
+    function validateHook(address hookAddress, function(address) external view returns (bool) isAllowedHook) internal view {
         if (hookAddress == address(0)) revert MissingHook();
         if (!isAllowedHook(hookAddress)) revert InvalidHookAddress();
+    }
+
+    /**
+     * @notice Calculates the minimum acceptable output amount given slippage tolerance
+     * @param order The order containing outputAmount and slippageMbps
+     * @return The minimum output (outputAmount when slippageMbps = 0)
+     */
+    function calculateMinOutput(Order calldata order) internal pure returns (uint256) {
+        return (uint256(order.outputAmount) * (MBPS_DIVISOR - order.options.slippageMbps)) / MBPS_DIVISOR;
     }
 
     /**

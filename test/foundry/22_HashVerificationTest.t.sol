@@ -25,7 +25,7 @@ pragma solidity 0.8.34;
  */
 import "forge-std/Test.sol";
 import { Aori, IAori } from "../../contracts/Aori.sol";
-import { AoriProxy } from "../../contracts/proxy/AoriProxy.sol";
+import { AoriProxy } from "../../contracts/AoriProxy.sol";
 import { TestUtils } from "./TestUtils.sol";
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import { MockERC20 } from "../Mock/MockERC20.sol";
@@ -204,10 +204,7 @@ contract HashVerificationTest is TestUtils {
     /**
      * @notice Calculate the signing hash (EIP-712 digest) for a specific contract address
      */
-    function calculateSigningHashWithAddress(
-        Order memory order,
-        address contractAddress
-    ) public pure returns (bytes32) {
+    function calculateSigningHashWithAddress(Order memory order, address contractAddress) public pure returns (bytes32) {
         // Hash the nested Options struct first
         bytes32 optionsHash = keccak256(
             abi.encode(

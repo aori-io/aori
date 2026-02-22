@@ -27,10 +27,7 @@ import "./TestUtils.sol";
  * This hook is used to simulate a fill in which the expected output tokens are not provided.
  */
 contract FailingHook {
-    function handleHook(
-        address token,
-        uint256 expectedAmount
-    ) external {
+    function handleHook(address token, uint256 expectedAmount) external {
         // Intentionally do nothing.
     }
 }
@@ -50,14 +47,13 @@ contract FillFailTest is TestUtils {
     }
 
     /// @notice Returns a default DstSolverData for a direct fill (no hook conversion).
-    function defaultDstSolverData(
-        address _preferredToken,
-        uint256 _expectedAmount
-    ) internal pure returns (DstHook memory) {
-        return
-            DstHook({
-                hookAddress: address(0), preferredToken: _preferredToken, instructions: "", preferredDstInputAmount: _expectedAmount
-            });
+    function defaultDstSolverData(address _preferredToken, uint256 _expectedAmount) internal pure returns (DstHook memory) {
+        return DstHook({
+            hookAddress: address(0),
+            preferredToken: _preferredToken,
+            instructions: "",
+            preferredDstInputAmount: _expectedAmount
+        });
     }
 
     /// @notice Test that fill reverts when the order's startTime is after its endTime.

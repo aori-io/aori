@@ -94,9 +94,11 @@ contract CancellationTests is TestUtils {
         });
     }
 
-    /************************************
+    /**
+     *
      *   SOURCE CHAIN VALIDATION BRANCHES *
-     ************************************/
+     *
+     */
 
     /**
      * @notice Tests order.srcEid != endpointId validation
@@ -268,9 +270,11 @@ contract CancellationTests is TestUtils {
         localAori.cancel(orderId);
     }
 
-    /************************************
+    /**
+     *
      * DESTINATION CHAIN VALIDATION BRANCHES *
-     ************************************/
+     *
+     */
 
     /**
      * @notice Tests hash(order) != orderId validation
@@ -418,9 +422,11 @@ contract CancellationTests is TestUtils {
         assertEq(uint8(remoteAori.orderStatus(orderId)), uint8(OrderStatus.Cancelled), "Order should be cancelled");
     }
 
-    /************************************
+    /**
+     *
      * LAYERZERO MESSAGE HANDLING BRANCHES *
-     ************************************/
+     *
+     */
 
     /**
      * @notice Tests invalid payload length validation
@@ -506,9 +512,11 @@ contract CancellationTests is TestUtils {
         assertEq(uint8(localAori.orderStatus(orderHash)), uint8(OrderStatus.Cancelled), "Order should be cancelled on source chain");
     }
 
-    /************************************
+    /**
+     *
      *    CONTRACT STATE BRANCHES       *
-     ************************************/
+     *
+     */
 
     /**
      * @notice Tests pause on source chain

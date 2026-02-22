@@ -389,7 +389,7 @@ contract EmergencyTests is TestUtils {
         uint256 withdrawAmount = order.inputAmount / 2;
 
         // Emergency withdraw from locked balance
-        localAori.emergencyWithdrawFromUser(
+        localAori.emergencyWithdrawFromBalance(
             address(inputToken),
             withdrawAmount,
             userA,
@@ -404,7 +404,7 @@ contract EmergencyTests is TestUtils {
 
         // Should revert with arithmetic underflow (user has no unlocked balance)
         vm.expectRevert(); // arithmetic underflow panic
-        localAori.emergencyWithdrawFromUser(
+        localAori.emergencyWithdrawFromBalance(
             address(inputToken),
             1000e18,
             userA,
@@ -437,7 +437,7 @@ contract EmergencyTests is TestUtils {
         uint256 withdrawAmount = order.inputAmount / 2;
 
         // Emergency withdraw from unlocked balance
-        localAori.emergencyWithdrawFromUser(
+        localAori.emergencyWithdrawFromBalance(
             address(inputToken),
             withdrawAmount,
             solver,
@@ -459,7 +459,7 @@ contract EmergencyTests is TestUtils {
     function testEmergencyWithdrawAccountingAccessControl() public {
         vm.prank(nonOwner);
         vm.expectRevert();
-        localAori.emergencyWithdrawFromUser(address(inputToken), 100, userA, true, customRecipient);
+        localAori.emergencyWithdrawFromBalance(address(inputToken), 100, userA, true, customRecipient);
     }
 
     /**
@@ -468,15 +468,15 @@ contract EmergencyTests is TestUtils {
     function testEmergencyWithdrawAccountingInvalidParameters() public {
         // Zero amount
         vm.expectRevert(AmountMustBeGreaterThanZero.selector);
-        localAori.emergencyWithdrawFromUser(address(inputToken), 0, userA, true, customRecipient);
+        localAori.emergencyWithdrawFromBalance(address(inputToken), 0, userA, true, customRecipient);
 
         // Invalid user
         vm.expectRevert(InvalidUserAddress.selector);
-        localAori.emergencyWithdrawFromUser(address(inputToken), 100, address(0), true, customRecipient);
+        localAori.emergencyWithdrawFromBalance(address(inputToken), 100, address(0), true, customRecipient);
 
         // Invalid recipient
         vm.expectRevert(InvalidRecipient.selector);
-        localAori.emergencyWithdrawFromUser(address(inputToken), 100, userA, true, address(0));
+        localAori.emergencyWithdrawFromBalance(address(inputToken), 100, userA, true, address(0));
     }
 
     /**
@@ -485,7 +485,7 @@ contract EmergencyTests is TestUtils {
     function testEmergencyWithdrawAccountingInsufficientBalance() public {
         // Should revert with arithmetic underflow (user has 0 locked balance)
         vm.expectRevert(); // arithmetic underflow panic
-        localAori.emergencyWithdrawFromUser(
+        localAori.emergencyWithdrawFromBalance(
             address(inputToken),
             1000e18,
             userA,
@@ -518,7 +518,7 @@ contract EmergencyTests is TestUtils {
         uint256 totalLockedBefore = localLens.getLockedBalances(userA, address(inputToken));
         uint256 withdrawAmount = order1.inputAmount;
 
-        localAori.emergencyWithdrawFromUser(address(inputToken), withdrawAmount, userA, true, customRecipient);
+        localAori.emergencyWithdrawFromBalance(address(inputToken), withdrawAmount, userA, true, customRecipient);
 
         uint256 totalLockedAfter = localLens.getLockedBalances(userA, address(inputToken));
 
@@ -546,7 +546,7 @@ contract EmergencyTests is TestUtils {
         bytes32 orderId = localAori.hash(order);
 
         // Step 1: Emergency withdraw tokens
-        localAori.emergencyWithdrawFromUser(
+        localAori.emergencyWithdrawFromBalance(
             address(inputToken),
             order.inputAmount,
             userA,
@@ -649,40 +649,24 @@ contract MaliciousToken {
     mapping(address => uint256) public balanceOf;
     uint256 public totalSupply;
 
-    function mint(
-        address to,
-        uint256 amount
-    ) external {
+    function mint(address to, uint256 amount) external {
         balanceOf[to] += amount;
         totalSupply += amount;
     }
 
-    function transfer(
-        address,
-        uint256
-    ) external pure returns (bool) {
+    function transfer(address, uint256) external pure returns (bool) {
         revert("Transfer always fails");
     }
 
-    function transferFrom(
-        address,
-        address,
-        uint256
-    ) external pure returns (bool) {
+    function transferFrom(address, address, uint256) external pure returns (bool) {
         revert("TransferFrom always fails");
     }
 
-    function approve(
-        address,
-        uint256
-    ) external pure returns (bool) {
+    function approve(address, uint256) external pure returns (bool) {
         return true;
     }
 
-    function allowance(
-        address,
-        address
-    ) external pure returns (uint256) {
+    function allowance(address, address) external pure returns (uint256) {
         return type(uint256).max;
     }
 }

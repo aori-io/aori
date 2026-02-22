@@ -37,7 +37,6 @@ pragma solidity 0.8.34;
  * 19. testWithdrawAfterDeposit - Integration test: complete deposit → settle → withdraw flow
  *
  */
-
 import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import { Aori, IAori } from "../../contracts/Aori.sol";
 import "../../contracts/types/AoriErrors.sol";
@@ -59,7 +58,6 @@ contract WithdrawTests is TestUtils {
     // Counter to make orders unique
     uint256 private orderCounter;
 
-
     function setUp() public override {
         super.setUp();
 
@@ -80,10 +78,7 @@ contract WithdrawTests is TestUtils {
      * @notice Helper function to setup unlocked balance for solver through realistic trading
      * @dev Creates unlocked balance by having userA trade with solver
      */
-    function _setupSolverUnlockedBalance(
-        address tokenForSolver,
-        uint256 amount
-    ) internal {
+    function _setupSolverUnlockedBalance(address tokenForSolver, uint256 amount) internal {
         // Increment counter to make each order unique
         orderCounter++;
 
@@ -130,11 +125,7 @@ contract WithdrawTests is TestUtils {
      * @notice Helper function to setup unlocked balance for testing
      * @dev Creates unlocked balance by having the user act as a solver in a swap
      */
-    function _setupUserUnlockedBalance(
-        address user,
-        address tokenToReceive,
-        uint256 amount
-    ) internal {
+    function _setupUserUnlockedBalance(address user, address tokenToReceive, uint256 amount) internal {
         if (user == solver) {
             _setupSolverUnlockedBalance(tokenToReceive, amount);
         } else {
@@ -529,11 +520,7 @@ contract WithdrawTests is TestUtils {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     // Remove the old helper function
-    function _setupUserBalance(
-        address user,
-        address token,
-        uint256 amount
-    ) internal {
+    function _setupUserBalance(address user, address token, uint256 amount) internal {
         // This function is replaced by _setupUserUnlockedBalance
         _setupUserUnlockedBalance(user, token, amount);
     }
@@ -551,40 +538,24 @@ contract MaliciousToken {
     mapping(address => uint256) public balanceOf;
     uint256 public totalSupply;
 
-    function mint(
-        address to,
-        uint256 amount
-    ) external {
+    function mint(address to, uint256 amount) external {
         balanceOf[to] += amount;
         totalSupply += amount;
     }
 
-    function transfer(
-        address,
-        uint256
-    ) external pure returns (bool) {
+    function transfer(address, uint256) external pure returns (bool) {
         revert("Transfer always fails");
     }
 
-    function transferFrom(
-        address,
-        address,
-        uint256
-    ) external pure returns (bool) {
+    function transferFrom(address, address, uint256) external pure returns (bool) {
         revert("TransferFrom always fails");
     }
 
-    function approve(
-        address,
-        uint256
-    ) external pure returns (bool) {
+    function approve(address, uint256) external pure returns (bool) {
         return true;
     }
 
-    function allowance(
-        address,
-        address
-    ) external pure returns (uint256) {
+    function allowance(address, address) external pure returns (uint256) {
         return type(uint256).max;
     }
 }

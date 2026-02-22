@@ -319,9 +319,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
 
         // Surplus in unlocked balance
         assertEq(
-            localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN),
-            EXPECTED_SURPLUS,
-            "Solver should have surplus in unlocked native balance"
+            localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN), EXPECTED_SURPLUS, "Solver should have surplus in unlocked native balance"
         );
 
         console.log("[PASS] All assertions passed!");
@@ -349,12 +347,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
     /**
      * @notice Helper function to test Case 12 scenarios with different surplus amounts
      */
-    function _testCase12Scenario(
-        uint128 hookInput,
-        uint128 hookOutput,
-        uint128 expectedSurplus,
-        string memory scenarioName
-    ) internal {
+    function _testCase12Scenario(uint128 hookInput, uint128 hookOutput, uint128 expectedSurplus, string memory scenarioName) internal {
         console.log("=== SCENARIO:", scenarioName, "===");
 
         // Create fresh addresses to avoid state conflicts (unique for each scenario)
