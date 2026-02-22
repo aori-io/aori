@@ -25,7 +25,10 @@ library BalanceUtils {
      * @param amount The amount to decrease
      * @return success Whether the operation was successful
      */
-    function decreaseLockedNoRevert(Balance storage balance, uint128 amount) internal returns (bool success) {
+    function decreaseLockedNoRevert(
+        Balance storage balance,
+        uint128 amount
+    ) internal returns (bool success) {
         uint128 locked = balance.locked;
         unchecked {
             uint128 newLocked = locked - amount;
@@ -44,7 +47,10 @@ library BalanceUtils {
      * @param amount The amount to increase
      * @return success Whether the operation was successful
      */
-    function increaseUnlockedNoRevert(Balance storage balance, uint128 amount) internal returns (bool success) {
+    function increaseUnlockedNoRevert(
+        Balance storage balance,
+        uint128 amount
+    ) internal returns (bool success) {
         uint128 unlocked = balance.unlocked;
         unchecked {
             uint128 newUnlocked = unlocked + amount;
@@ -64,7 +70,11 @@ library BalanceUtils {
      * @param amount The amount to add
      * @return success Whether the operation was successful (false on overflow)
      */
-    function addNoRevert(mapping(address => uint256) storage map, address key, uint256 amount) internal returns (bool success) {
+    function addNoRevert(
+        mapping(address => uint256) storage map,
+        address key,
+        uint256 amount
+    ) internal returns (bool success) {
         uint256 current = map[key];
         unchecked {
             uint256 newAmount = current + amount;

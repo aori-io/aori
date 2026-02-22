@@ -24,10 +24,10 @@ struct Order {
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
 struct Options {
-    uint16 feeMbps; // Fee in millibasis points (1000 = 1%)
+    uint16 feeMbps;       // Fee in millibasis points (1000 = 1%)
     address feeRecipient; // Who receives the fee (address(0) = solver)
-    address solver; // Authorized solver (address(0) = any whitelisted)
-    uint16 slippageMbps; // 0 = limit order, >0 = market order
+    address solver;       // Authorized solver (address(0) = any whitelisted)
+    uint16 slippageMbps;  // 0 = limit order, >0 = market order
 }
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -35,11 +35,11 @@ struct Options {
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
 enum OrderStatus {
-    Unknown, // Order not found
-    Active, // Order deposited but not filled
-    Filled, // Pending settlement
-    Cancelled, // Order cancelled
-    Settled // Order settled
+    Unknown,     // Order not found
+    Active,      // Order deposited but not filled
+    Filled,      // Pending settlement
+    Cancelled,   // Order cancelled
+    Settled      // Order settled
 
 }
 
@@ -48,18 +48,17 @@ enum OrderStatus {
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
 struct SrcHook {
-    address hookAddress; //
-    address preferredToken;
-    // tokenOut
+    address hookAddress;                // hook address
+    address preferredToken;             // tokenOut
     uint256 minPreferredTokenAmountOut; // amountOut
-    bytes instructions; // call
+    bytes instructions;                 // call
 }
 
 struct DstHook {
-    address hookAddress;
-    address preferredToken; // tokenIn
-    bytes instructions; // call
-    uint256 preferredDstInputAmount; // amountIn
+    address hookAddress;               // hook address
+    address preferredToken;            // tokenIn
+    bytes instructions;                // call
+    uint256 preferredDstInputAmount;   // amountIn
 }
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -69,6 +68,6 @@ struct DstHook {
 /// @notice Balance struct for tracking locked and unlocked token amounts
 /// @dev Uses uint128 for both values to pack them into a single storage slot
 struct Balance {
-    uint128 locked; // Tokens locked in active orders
-    uint128 unlocked; // Tokens available for withdrawal
+    uint128 locked;    // Tokens locked in active orders
+    uint128 unlocked;  // Tokens available for withdrawal
 }

@@ -122,9 +122,7 @@ library AoriCancelLib {
      * @dev Updates order status, decreases locked balance, and transfers tokens back
      * @param orderId The hash of the order to cancel
      */
-    function _cancelOrder(
-        bytes32 orderId
-    ) private {
+    function _cancelOrder(bytes32 orderId) private {
         AoriStorageData storage $ = _getAoriStorage();
         if ($.orderStatus[orderId] != OrderStatus.Active) revert CanOnlyCancelActiveOrders();
 

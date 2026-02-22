@@ -26,7 +26,7 @@ import { IAori } from "./interfaces/IAori.sol";
 import "./types/AoriErrors.sol";
 import "./types/AoriTypes.sol";
 
-/**
+/*
  *                                @@@@@@@@@@@
  *                              @@         @@@@@@                     @@@@@
  *                              @@           @@@@@                    @@@@@
@@ -150,17 +150,23 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     // These view functions are used internally via function pointers - DO NOT REMOVE
-    /* forgefmt: disable-next-item */
+    
+    /// @notice Returns whether a given LayerZero endpoint ID is a supported chain
     function isSupportedChain(uint32 eid) public view returns (bool) { return _getAoriStorage().isSupportedChain[eid]; }
-    /* forgefmt: disable-next-item */
+    
+    /// @notice Returns the current status of an order by its hash
     function orderStatus(bytes32 orderId) public view returns (OrderStatus) { return _getAoriStorage().orderStatus[orderId]; }
-    /* forgefmt: disable-next-item */
+    
+    /// @notice Returns whether a hook contract is whitelisted
     function isAllowedHook(address hook) public view returns (bool) { return _getAoriStorage().isAllowedHook[hook]; }
-    /* forgefmt: disable-next-item */
+    
+    /// @notice Returns whether a solver address is whitelisted
     function isAllowedSolver(address solver) public view returns (bool) { return _getAoriStorage().isAllowedSolver[solver]; }
-    /* forgefmt: disable-next-item */
+    
+    /// @notice Reads a raw storage slot value (for off-chain introspection)
     function readStorage(bytes32 slot) external view returns (bytes32 value) { assembly { value := sload(slot) } }
-    /* forgefmt: disable-next-item */
+    
+    /// @notice Reads the length of a dynamic array at a given storage slot
     function readStorageArray(bytes32 slot) external view returns (uint256 length) { assembly { length := sload(slot) } }
 
     /// @notice Quote LayerZero messaging fee (kept in Aori.sol because it needs OApp's _quote)
@@ -218,7 +224,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
     function emergencyWithdraw(address token, uint256 amount, address recipient) external onlyOwner { AoriAdminLib.emergencyWithdraw(token, amount, recipient); }
     
     /// @notice Emergency function to withdraw tokens from a user's balance
-    function emergencyWithdrawFromUser(address token, uint256 amount, address user, bool isLocked, address recipient) external onlyOwner { AoriAdminLib.emergencyWithdrawFromUser(token, amount, user, isLocked, recipient); }
+    function emergencyWithdrawFromBalance(address token, uint256 amount, address user, bool isLocked, address recipient) external onlyOwner { AoriAdminLib.emergencyWithdrawFromBalance(token, amount, user, isLocked, recipient); }
     
     /// @notice Claims accumulated protocol fees for a token (permissionless)
     function claimProtocolFees(address token) external nonReentrant { AoriAdminLib.claimProtocolFees(token); }
@@ -327,7 +333,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
      * @dev User calls this directly and sends their own ETH via msg.value.
      * @param order The order details (must specify NATIVE_TOKEN as inputToken)
      */
-    /* forgefmt: disable-next-item */
     function depositNative(Order calldata order) external payable nonReentrant whenNotPaused {
         order.validateNativeDeposit(msg.value, msg.sender);
 
@@ -365,7 +370,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                       PERMIT2 DEPOSITS                     */
+    /*                       PERMIT2 DEPOSIT                      */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     /**
@@ -476,7 +481,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
      *      For cross-chain orders: marks as filled and queues for later settlement.
      * @param order The order details to fill
      */
-    /* forgefmt: disable-next-item */
     function fill(Order calldata order) external payable nonReentrant whenNotPaused onlySolver {
         bytes32 orderId = order.validateFill(msg.sender, ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus);
 
@@ -601,7 +605,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
      *      2. Order offerers (for their own expired single-chain orders)
      * @param orderId The hash of the order to cancel
      */
-    /* forgefmt: disable-next-item */
     function cancel(bytes32 orderId) external nonReentrant whenNotPaused {
         AoriCancelLib.cancelSingleChain(orderId, ENDPOINT_ID, msg.sender, this.orderStatus, this.isAllowedSolver);
     }
@@ -629,11 +632,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
         emit CancelSent(orderId, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 
-    /**
-     * @notice Handles cancellation payload from LayerZero
-     * @param payload The cancellation payload containing the order hash
-     */
-    /* forgefmt: disable-next-item */
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                          WITHDRAW                          */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
@@ -644,7 +642,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
      * @param token The token address to withdraw
      * @param amount The amount to withdraw (use 0 to withdraw full balance)
      */
-    /* forgefmt: disable-next-item */
     function withdraw(address token, uint256 amount) external nonReentrant whenNotPaused {
         AoriAdminLib.withdraw(token, amount, msg.sender);
     }
@@ -706,7 +703,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
      * @param order The order details
      * @return The computed digest
      */
-    /* forgefmt: disable-next-item */
     function _hashOrder712(Order calldata order) internal view returns (bytes32) {
         return _hashTypedDataSansChainId(Permit2Lib.hashOrder(order));
     }
@@ -716,7 +712,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
      * @param order The order to hash
      * @return The computed hash
      */
-    /* forgefmt: disable-next-item */
     function hash(Order calldata order) public pure returns (bytes32) { return keccak256(abi.encode(order)); }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -728,6 +723,5 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
      * @dev Only callable by the contract owner
      * @param newImplementation The address of the new implementation
      */
-    /* forgefmt: disable-next-item */
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner { }
 }

@@ -13,7 +13,6 @@ import "../types/AoriErrors.sol";
 enum PayloadType {
     Settlement, // Settlement message with multiple order fills (0)
     Cancellation // Cancellation message for a single order (1)
-
 }
 
 // Constant size of a cancellation payload: 1 byte type + 32 bytes order hash
@@ -59,7 +58,11 @@ library PayloadUtils {
      * Body
      * - Fill count * 32 bytes: Order hashes
      */
-    function packSettlement(bytes32[] storage arr, address filler, uint16 takeSize) internal returns (bytes memory) {
+    function packSettlement(
+        bytes32[] storage arr,
+        address filler,
+        uint16 takeSize
+    ) internal returns (bytes memory) {
         uint32 offset = 23;
         bytes memory payload = new bytes(offset + takeSize * 32);
 
@@ -77,7 +80,9 @@ library PayloadUtils {
             let dataPtr := add(payloadPtr, offset)
 
             // Store storage elements into memory and clear them
-            for { let i := arrLength } gt(i, min_i) { } {
+            for {
+                let i := arrLength
+            } gt(i, min_i) { } {
                 i := sub(i, 1)
                 let elementSlot := add(base, i)
 
@@ -157,7 +162,10 @@ library PayloadUtils {
      * @param payload The payload to validate
      * @param fillCount The number of fills in the payload
      */
-    function validateSettlementLen(bytes calldata payload, uint16 fillCount) internal pure {
+    function validateSettlementLen(
+        bytes calldata payload,
+        uint16 fillCount
+    ) internal pure {
         uint256 expectedLen = 23 + uint256(fillCount) * 32;
         if (payload.length != expectedLen) revert InvalidPayloadLength(expectedLen, payload.length);
     }
@@ -215,7 +223,10 @@ library PayloadUtils {
      * @param index The index of the order hash to extract
      * @return orderHash The extracted order hash
      */
-    function unpackSettlementBodyAt(bytes calldata payload, uint256 index) internal pure returns (bytes32 orderHash) {
+    function unpackSettlementBodyAt(
+        bytes calldata payload,
+        uint256 index
+    ) internal pure returns (bytes32 orderHash) {
         if (payload.length < 23) revert InvalidPayloadLength(23, payload.length);
         if (index >= (payload.length - 23) / 32) revert PayloadIndexOutOfBounds();
         assembly {
@@ -235,7 +246,11 @@ library PayloadUtils {
      * @param maxFillsPerSettle Maximum fills allowed per settlement
      * @return The calculated payload size in bytes
      */
-    function calculatePayloadSize(uint8 msgType, uint256 fillsLength, uint16 maxFillsPerSettle) internal pure returns (uint256) {
+    function calculatePayloadSize(
+        uint8 msgType,
+        uint256 fillsLength,
+        uint16 maxFillsPerSettle
+    ) internal pure returns (uint256) {
         if (msgType == uint8(PayloadType.Cancellation)) {
             return CANCELLATION_PAYLOAD_SIZE; // 1 byte type + 32 bytes order hash
         } else if (msgType == uint8(PayloadType.Settlement)) {
