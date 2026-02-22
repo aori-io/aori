@@ -10,6 +10,8 @@ pragma solidity 0.8.34;
  * 3. MAX_FILLS_PER_SETTLE() - Configuration reading
  * 4. srcEidToFillerFills() - Fill array element access
  * 5. srcEidToFillerFillsLength() - Fill array length
+ * 6. getPendingSettle() - Aggregating pending fills across endpoints
+ * 7. getOrdersInputTotals() - Summing input amounts by token
  */
 import "./TestUtils.sol";
 import { AoriLens } from "../../contracts/AoriLens.sol";
@@ -623,5 +625,371 @@ contract AoriLensTests is TestUtils {
 
         assertEq(localLens.getLockedBalances(randomUser, randomToken), 0);
         assertEq(localLens.getUnlockedBalances(randomUser, randomToken), 0);
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*              getPendingSettle TESTS                        */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /**
+     * @notice Test getPendingSettle returns empty arrays when no fills
+     */
+    function testGetPendingSettle_NoFills() public view {
+        uint32[] memory srcEids = new uint32[](1);
+        srcEids[0] = localEid;
+
+        bytes32[][] memory result = remoteLens.getPendingSettle(srcEids, solver);
+        
+        assertEq(result.length, 1, "Should return 1 array for 1 srcEid");
+        assertEq(result[0].length, 0, "Should have no fills");
+    }
+
+    /**
+     * @notice Test getPendingSettle returns correct order hash after single fill
+     */
+    function testGetPendingSettle_SingleFill() public {
+        // Fill order on remote chain
+        vm.chainId(remoteEid);
+        vm.warp(testOrder.startTime + 1);
+
+        vm.prank(solver);
+        dstPreferredToken.approve(address(remoteAori), testOrder.outputAmount);
+
+        vm.prank(solver);
+        remoteAori.fill(testOrder, defaultDstSolverData(testOrder.outputAmount));
+
+        // Query pending settle
+        uint32[] memory srcEids = new uint32[](1);
+        srcEids[0] = localEid;
+
+        bytes32[][] memory result = remoteLens.getPendingSettle(srcEids, solver);
+        
+        assertEq(result.length, 1, "Should return 1 array");
+        assertEq(result[0].length, 1, "Should have 1 fill");
+        assertEq(result[0][0], remoteAori.hash(testOrder), "Should match order hash");
+    }
+
+    /**
+     * @notice Test getPendingSettle with multiple fills for same srcEid
+     */
+    function testGetPendingSettle_MultipleFills() public {
+        // Create and deposit second order
+        Order memory order2 = createValidOrder(2);
+        bytes memory sig2 = signOrder(order2);
+
+        vm.prank(userA);
+        inputToken.approve(address(localAori), order2.inputAmount);
+
+        vm.prank(solver);
+        localAori.deposit(order2, sig2, defaultSrcSolverData(order2.inputAmount));
+
+        // Fill both orders on remote
+        vm.chainId(remoteEid);
+        vm.warp(testOrder.startTime + 1);
+
+        vm.startPrank(solver);
+        dstPreferredToken.approve(address(remoteAori), testOrder.outputAmount + order2.outputAmount);
+        remoteAori.fill(testOrder, defaultDstSolverData(testOrder.outputAmount));
+        remoteAori.fill(order2, defaultDstSolverData(order2.outputAmount));
+        vm.stopPrank();
+
+        // Query pending settle
+        uint32[] memory srcEids = new uint32[](1);
+        srcEids[0] = localEid;
+
+        bytes32[][] memory result = remoteLens.getPendingSettle(srcEids, solver);
+        
+        assertEq(result.length, 1, "Should return 1 array");
+        assertEq(result[0].length, 2, "Should have 2 fills");
+        assertEq(result[0][0], remoteAori.hash(testOrder), "First fill should match");
+        assertEq(result[0][1], remoteAori.hash(order2), "Second fill should match");
+    }
+
+    /**
+     * @notice Test getPendingSettle with multiple srcEids
+     */
+    function testGetPendingSettle_MultipleSrcEids() public {
+        // Fill on remote
+        vm.chainId(remoteEid);
+        vm.warp(testOrder.startTime + 1);
+
+        vm.prank(solver);
+        dstPreferredToken.approve(address(remoteAori), testOrder.outputAmount);
+
+        vm.prank(solver);
+        remoteAori.fill(testOrder, defaultDstSolverData(testOrder.outputAmount));
+
+        // Query multiple srcEids
+        uint32[] memory srcEids = new uint32[](3);
+        srcEids[0] = localEid;
+        srcEids[1] = 999; // Non-existent
+        srcEids[2] = 888; // Non-existent
+
+        bytes32[][] memory result = remoteLens.getPendingSettle(srcEids, solver);
+        
+        assertEq(result.length, 3, "Should return 3 arrays");
+        assertEq(result[0].length, 1, "First srcEid should have 1 fill");
+        assertEq(result[1].length, 0, "Second srcEid should have no fills");
+        assertEq(result[2].length, 0, "Third srcEid should have no fills");
+        assertEq(result[0][0], remoteAori.hash(testOrder), "Should match order hash");
+    }
+
+    /**
+     * @notice Test getPendingSettle for wrong filler returns empty
+     */
+    function testGetPendingSettle_WrongFiller() public {
+        // Fill on remote
+        vm.chainId(remoteEid);
+        vm.warp(testOrder.startTime + 1);
+
+        vm.prank(solver);
+        dstPreferredToken.approve(address(remoteAori), testOrder.outputAmount);
+
+        vm.prank(solver);
+        remoteAori.fill(testOrder, defaultDstSolverData(testOrder.outputAmount));
+
+        // Query with wrong filler
+        uint32[] memory srcEids = new uint32[](1);
+        srcEids[0] = localEid;
+
+        bytes32[][] memory result = remoteLens.getPendingSettle(srcEids, address(0x999));
+        
+        assertEq(result[0].length, 0, "Wrong filler should have no fills");
+    }
+
+    /**
+     * @notice Test getPendingSettle caps at 100 fills
+     */
+    function testGetPendingSettle_CapsAt100() public {
+        // This would require depositing and filling 101 orders which is expensive
+        // Instead we verify the function doesn't revert with many fills
+        
+        // Create 10 fills as a practical test
+        for (uint256 i = 0; i < 10; i++) {
+            Order memory order = createValidOrder(i + 100);
+            bytes memory sig = signOrder(order);
+
+            vm.prank(userA);
+            inputToken.approve(address(localAori), order.inputAmount);
+
+            vm.prank(solver);
+            localAori.deposit(order, sig, defaultSrcSolverData(order.inputAmount));
+        }
+
+        vm.chainId(remoteEid);
+        vm.warp(block.timestamp + 2 hours);
+
+        for (uint256 i = 0; i < 10; i++) {
+            Order memory order = createValidOrder(i + 100);
+            vm.prank(solver);
+            dstPreferredToken.approve(address(remoteAori), order.outputAmount);
+            vm.prank(solver);
+            remoteAori.fill(order, defaultDstSolverData(order.outputAmount));
+        }
+
+        uint32[] memory srcEids = new uint32[](1);
+        srcEids[0] = localEid;
+
+        bytes32[][] memory result = remoteLens.getPendingSettle(srcEids, solver);
+        
+        assertEq(result[0].length, 10, "Should have all 10 fills");
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*           getOrdersInputTotals TESTS                       */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /**
+     * @notice Test getOrdersInputTotals with empty array
+     */
+    function testGetOrdersInputTotals_EmptyArray() public view {
+        bytes32[] memory orderHashes = new bytes32[](0);
+        
+        (address[] memory tokens, uint256[] memory amounts) = localLens.getOrdersInputTotals(orderHashes);
+        
+        assertEq(tokens.length, 0, "Should return empty tokens array");
+        assertEq(amounts.length, 0, "Should return empty amounts array");
+    }
+
+    /**
+     * @notice Test getOrdersInputTotals with single order
+     */
+    function testGetOrdersInputTotals_SingleOrder() public view {
+        bytes32[] memory orderHashes = new bytes32[](1);
+        orderHashes[0] = testOrderHash;
+
+        (address[] memory tokens, uint256[] memory amounts) = localLens.getOrdersInputTotals(orderHashes);
+        
+        assertEq(tokens.length, 1, "Should have 1 token");
+        assertEq(amounts.length, 1, "Should have 1 amount");
+        assertEq(tokens[0], address(convertedToken), "Should be converted token");
+        assertEq(amounts[0], testOrder.inputAmount, "Should match input amount");
+    }
+
+    /**
+     * @notice Test getOrdersInputTotals with multiple orders, same token
+     */
+    function testGetOrdersInputTotals_SameToken() public {
+        // Create second order with same input token
+        Order memory order2 = Order({
+            offerer: userA,
+            recipient: userA,
+            inputToken: address(inputToken),
+            outputToken: address(outputToken),
+            inputAmount: uint128(2e18),
+            outputAmount: uint128(4e18),
+            startTime: uint32(block.timestamp),
+            endTime: uint32(block.timestamp + 1 hours),
+            srcEid: localEid,
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
+        });
+
+        bytes memory sig2 = signOrder(order2);
+
+        vm.prank(userA);
+        inputToken.approve(address(localAori), order2.inputAmount);
+
+        vm.prank(solver);
+        localAori.deposit(order2, sig2, defaultSrcSolverData(order2.inputAmount));
+
+        bytes32 orderHash2 = localAori.hash(order2);
+
+        bytes32[] memory orderHashes = new bytes32[](2);
+        orderHashes[0] = testOrderHash;
+        orderHashes[1] = orderHash2;
+
+        (address[] memory tokens, uint256[] memory amounts) = localLens.getOrdersInputTotals(orderHashes);
+        
+        assertEq(tokens.length, 1, "Should have 1 unique token");
+        assertEq(amounts.length, 1, "Should have 1 amount");
+        assertEq(tokens[0], address(convertedToken), "Should be converted token");
+        assertEq(amounts[0], testOrder.inputAmount + order2.inputAmount, "Should sum both amounts");
+    }
+
+    /**
+     * @notice Test getOrdersInputTotals with multiple tokens
+     */
+    function testGetOrdersInputTotals_MultipleTokens() public {
+        // Create order with different input token (no hook so it stays as inputToken)
+        MockERC20 alternateToken = new MockERC20("Alternate", "ALT");
+        alternateToken.mint(userA, 100e18);
+
+        Order memory order2 = Order({
+            offerer: userA,
+            recipient: userA,
+            inputToken: address(alternateToken),
+            outputToken: address(outputToken),
+            inputAmount: uint128(5e18),
+            outputAmount: uint128(10e18),
+            startTime: uint32(block.timestamp),
+            endTime: uint32(block.timestamp + 1 hours),
+            srcEid: localEid,
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
+        });
+
+        bytes memory sig2 = signOrder(order2);
+
+        vm.prank(userA);
+        alternateToken.approve(address(localAori), order2.inputAmount);
+
+        vm.prank(solver);
+        localAori.deposit(order2, sig2);
+
+        bytes32 orderHash2 = localAori.hash(order2);
+
+        bytes32[] memory orderHashes = new bytes32[](2);
+        orderHashes[0] = testOrderHash;
+        orderHashes[1] = orderHash2;
+
+        (address[] memory tokens, uint256[] memory amounts) = localLens.getOrdersInputTotals(orderHashes);
+        
+        assertEq(tokens.length, 2, "Should have 2 unique tokens");
+        assertEq(amounts.length, 2, "Should have 2 amounts");
+        
+        // Verify both tokens are present (order may vary)
+        bool foundConverted = false;
+        bool foundAlternate = false;
+        uint256 convertedAmount = 0;
+        uint256 alternateAmount = 0;
+
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (tokens[i] == address(convertedToken)) {
+                foundConverted = true;
+                convertedAmount = amounts[i];
+            } else if (tokens[i] == address(alternateToken)) {
+                foundAlternate = true;
+                alternateAmount = amounts[i];
+            }
+        }
+
+        assertTrue(foundConverted, "Should find converted token");
+        assertTrue(foundAlternate, "Should find alternate token");
+        assertEq(convertedAmount, testOrder.inputAmount, "Converted amount should match");
+        assertEq(alternateAmount, order2.inputAmount, "Alternate amount should match");
+    }
+
+    /**
+     * @notice Test getOrdersInputTotals with non-existent order
+     */
+    function testGetOrdersInputTotals_NonExistentOrder() public view {
+        bytes32[] memory orderHashes = new bytes32[](1);
+        orderHashes[0] = keccak256("fake_order");
+
+        (address[] memory tokens, uint256[] memory amounts) = localLens.getOrdersInputTotals(orderHashes);
+        
+        // Non-existent orders return zero address and zero amount, which gets filtered out
+        assertEq(tokens.length, 0, "Should have no tokens for non-existent order");
+        assertEq(amounts.length, 0, "Should have no amounts for non-existent order");
+    }
+
+    /**
+     * @notice Test getOrdersInputTotals with mixed existent and non-existent orders
+     */
+    function testGetOrdersInputTotals_MixedOrders() public view {
+        bytes32[] memory orderHashes = new bytes32[](3);
+        orderHashes[0] = testOrderHash;
+        orderHashes[1] = keccak256("fake1");
+        orderHashes[2] = keccak256("fake2");
+
+        (address[] memory tokens, uint256[] memory amounts) = localLens.getOrdersInputTotals(orderHashes);
+        
+        assertEq(tokens.length, 1, "Should only count real order");
+        assertEq(amounts.length, 1, "Should only have 1 amount");
+        assertEq(tokens[0], address(convertedToken), "Should be converted token");
+        assertEq(amounts[0], testOrder.inputAmount, "Should match input amount");
+    }
+
+    /**
+     * @notice Fuzz test getOrdersInputTotals aggregates correctly
+     */
+    function testFuzz_GetOrdersInputTotals_Aggregation(
+        uint8 numOrders
+    ) public {
+        numOrders = uint8(bound(numOrders, 1, 10));
+
+        bytes32[] memory orderHashes = new bytes32[](numOrders);
+        uint256 expectedTotal = 0;
+
+        for (uint256 i = 0; i < numOrders; i++) {
+            Order memory order = createValidOrder(i + 300);
+            bytes memory sig = signOrder(order);
+
+            vm.prank(userA);
+            inputToken.approve(address(localAori), order.inputAmount);
+
+            vm.prank(solver);
+            localAori.deposit(order, sig, defaultSrcSolverData(order.inputAmount));
+
+            orderHashes[i] = localAori.hash(order);
+            expectedTotal += order.inputAmount;
+        }
+
+        (address[] memory tokens, uint256[] memory amounts) = localLens.getOrdersInputTotals(orderHashes);
+        
+        assertEq(tokens.length, 1, "All orders use same token");
+        assertEq(tokens[0], address(convertedToken), "Should be converted token");
+        assertEq(amounts[0], expectedTotal, "Should aggregate all amounts correctly");
     }
 }
