@@ -159,6 +159,9 @@ error UnexpectedNativeTokens();
 /// @notice Thrown when native transfer fails
 error NativeTransferFailed();
 
+/// @notice Thrown when the received token amount does not match the expected transfer amount
+error TransferAmountMismatch();
+
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                      PERMIT2 ERRORS                        */
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
