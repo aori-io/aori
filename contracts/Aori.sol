@@ -517,9 +517,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
             if (msg.value != 0) revert UnexpectedNativeTokens();
         }
 
-        // Calculate minimum acceptable output (returns outputAmount when slippageMbps = 0)
-        uint256 minOutput =
-            (uint256(order.outputAmount) * (ValidationUtils.MBPS_DIVISOR - order.options.slippageMbps)) / ValidationUtils.MBPS_DIVISOR;
+        uint256 minOutput = order.calculateMinOutput();
 
         // Execute hook to convert preferred tokens to output tokens, validates minOutput
         uint256 amountReceived = HookUtils.executeHook(hook.hookAddress, hook.instructions, order.outputToken, minOutput);
