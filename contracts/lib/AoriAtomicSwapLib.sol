@@ -57,7 +57,7 @@ library AoriAtomicSwapLib {
     ) external returns (uint256 amountReceived) {
         AoriStorageData storage $ = _getAoriStorage();
 
-        // Effects first — mark settled before any external interaction
+        // Update storage
         $.orders[orderId] = order;
         $.orderStatus[orderId] = OrderStatus.Settled;
 
