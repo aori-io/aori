@@ -424,9 +424,9 @@ forge script script/UpgradeAori.s.sol:VerifyUpgrade \
 
 The chain ID is not configured in `BaseScript.sol`. Add the chain configuration or verify you're on the correct network.
 
-### "CREATE3 factory not deployed on this chain"
+### CREATE3 factory or LZ endpoint not visible in fork
 
-The Aori CREATE3 factory (`0x2Dfcc7415D89af828cbef005F0d072D8b3F23183`) is not deployed on this chain. Contact the Aori team to deploy the factory.
+Some Forge nightly builds fail to load contract code on certain chain forks (e.g. `extcodesize` returns 0 for Arbitrum). The deploy script handles this automatically by using `vm.etch` to set known bytecode during simulation. If you see "Warning: CREATE3 factory not visible in fork, using vm.etch" in the output, this is expected and does not affect real broadcasts.
 
 ### "Implementation address mismatch!"
 
