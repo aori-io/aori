@@ -35,11 +35,7 @@ contract ExecutionTestWrapper {
      * @param observedToken The token to observe balance changes for
      * @return The balance change (positive if tokens received)
      */
-    function observeBalanceChange(
-        address target,
-        bytes calldata data,
-        address observedToken
-    ) external returns (uint256) {
+    function observeBalanceChange(address target, bytes calldata data, address observedToken) external returns (uint256) {
         // Pass minAmount = 0 to skip validation for tests
         return HookUtils.executeHook(target, data, observedToken, 0);
     }
@@ -47,11 +43,7 @@ contract ExecutionTestWrapper {
 
 // Define this contract outside the test
 contract ObserveTestWrapper {
-    function observeSelfChange(
-        address target,
-        bytes calldata data,
-        address token
-    ) external returns (uint256) {
+    function observeSelfChange(address target, bytes calldata data, address token) external returns (uint256) {
         // Record balance before call
         uint256 beforeBalance = IERC20(token).balanceOf(address(this));
         console.log("WRAPPER beforeBalance:", beforeBalance);
@@ -97,9 +89,13 @@ contract HookUtilsTest is Test {
         token.approve(address(mockHook), type(uint256).max);
     }
 
-    /**********************************/
+    /**
+     *
+     */
     /*    Basic Functionality Tests   */
-    /**********************************/
+    /**
+     *
+     */
 
     /// @dev Tests executeHook with a positive balance change
     /// @notice Covers lines 180-189 in AoriUtils.sol
@@ -168,9 +164,13 @@ contract HookUtilsTest is Test {
         assertEq(token.balanceOf(address(this)), DEFAULT_BALANCE - decreaseAmount, "Final balance incorrect");
     }
 
-    /**********************************/
+    /**
+     *
+     */
     /*    Edge Cases Tests           */
-    /**********************************/
+    /**
+     *
+     */
 
     /// @dev Tests executeHook with zero token address
     /// @notice Covers lines 180-189 in AoriUtils.sol (should revert when calling balanceOf on address(0))
@@ -246,9 +246,13 @@ contract HookUtilsTest is Test {
     //     assertEq(token.balanceOf(address(this)), DEFAULT_BALANCE + maxTestValue, "Final balance should include max test value");
     // }
 
-    /**********************************/
+    /**
+     *
+     */
     /*    Integration Tests          */
-    /**********************************/
+    /**
+     *
+     */
 
     /// @dev Tests multiple operations in sequence
     // function test_integration_observeBalChg_sequence() public {

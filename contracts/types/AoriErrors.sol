@@ -227,10 +227,3 @@ error NoPendingFees();
 
 /// @notice Thrown when combined protocol fee and max additional fee would exceed 100%
 error CombinedFeesTooHigh();
-
-/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-/*                    PERIPHERY ERRORS                        */
-/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-/// @notice Thrown when Aori address is invalid
-error InvalidAoriAddress();

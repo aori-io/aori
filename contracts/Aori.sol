@@ -1,32 +1,32 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.34;
 
-import { OAppUpgradeable, Origin, MessagingFee, MessagingReceipt } from "@layerzerolabs/oapp-evm-upgradeable/contracts/oapp/OAppUpgradeable.sol";
-import { PayloadType, PayloadUtils } from "./utils/PayloadUtils.sol";
+import {OAppUpgradeable, Origin, MessagingFee, MessagingReceipt} from "@layerzerolabs/oapp-evm-upgradeable/contracts/oapp/OAppUpgradeable.sol";
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ISignatureTransfer } from "@permit2/src/interfaces/ISignatureTransfer.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import { ValidationUtils } from "./utils/ValidationUtils.sol";
-import { AoriAtomicSwapLib } from "./lib/AoriAtomicSwapLib.sol";
-import { HookUtils } from "./utils/HookUtils.sol";
-import { AoriStorage, AoriStorageData } from "./storage/AoriStorage.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { PayloadType, PayloadUtils } from "./utils/PayloadUtils.sol";
+import { PayloadType, PayloadUtils } from "./utils/PayloadUtils.sol";
+import { AoriStorage, AoriStorageData } from "./AoriStorage.sol";
+import { AoriAtomicSwapLib } from "./lib/AoriAtomicSwapLib.sol";
+import { ValidationUtils } from "./utils/ValidationUtils.sol";
 import { BalanceUtils } from "./utils/BalanceUtils.sol";
-import { AoriAdminLib } from "./lib/AoriAdminLib.sol";
 import { AoriCancelLib } from "./lib/AoriCancelLib.sol";
 import { AoriSettleLib } from "./lib/AoriSettleLib.sol";
+import { AoriAdminLib } from "./lib/AoriAdminLib.sol";
+import { EIP712 } from "solady/src/utils/EIP712.sol";
 import { TokenUtils } from "./utils/TokenUtils.sol";
 import { Permit2Lib } from "./utils/Permit2Lib.sol";
-import { EIP712 } from "solady/src/utils/EIP712.sol";
 import { ECDSA } from "solady/src/utils/ECDSA.sol";
+import { HookUtils } from "./utils/HookUtils.sol";
 import { IAori } from "./interfaces/IAori.sol";
 import "./types/AoriErrors.sol";
 import "./types/AoriTypes.sol";
 
-
-/**
+/*
  *                                @@@@@@@@@@@
  *                              @@         @@@@@@                     @@@@@
  *                              @@           @@@@@                    @@@@@
@@ -53,7 +53,6 @@ import "./types/AoriTypes.sol";
  * Connecting users and solvers from any chain to any chain,
  * facilitating peer to peer exchange from any token to any token.
  */
-
 contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSUpgradeable, EIP712 {
     using PayloadUtils for bytes32[];
     using PayloadUtils for bytes;
@@ -104,10 +103,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor(
-        address _endpoint,
-        uint32 _eid
-    ) OAppUpgradeable(_endpoint) {
+    constructor(address _endpoint, uint32 _eid) OAppUpgradeable(_endpoint) {
         ENDPOINT_ID = _eid;
         _disableInitializers();
     }
@@ -154,19 +150,23 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     // These view functions are used internally via function pointers - DO NOT REMOVE
-    /* forgefmt: disable-next-item */
+    
+    /// @notice Returns whether a given LayerZero endpoint ID is a supported chain
     function isSupportedChain(uint32 eid) public view returns (bool) { return _getAoriStorage().isSupportedChain[eid]; }
-    /* forgefmt: disable-next-item */
+    
+    /// @notice Returns the current status of an order by its hash
     function orderStatus(bytes32 orderId) public view returns (OrderStatus) { return _getAoriStorage().orderStatus[orderId]; }
-    /* forgefmt: disable-next-item */
+    
+    /// @notice Returns whether a hook contract is whitelisted
     function isAllowedHook(address hook) public view returns (bool) { return _getAoriStorage().isAllowedHook[hook]; }
-    /* forgefmt: disable-next-item */
+    
+    /// @notice Returns whether a solver address is whitelisted
     function isAllowedSolver(address solver) public view returns (bool) { return _getAoriStorage().isAllowedSolver[solver]; }
-
-    // Storage read helpers for AoriLens - enables external view contract without adding bytecode
-    /* forgefmt: disable-next-item */
+    
+    /// @notice Reads a raw storage slot value (for off-chain introspection)
     function readStorage(bytes32 slot) external view returns (bytes32 value) { assembly { value := sload(slot) } }
-    /* forgefmt: disable-next-item */
+    
+    /// @notice Reads the length of a dynamic array at a given storage slot
     function readStorageArray(bytes32 slot) external view returns (uint256 length) { assembly { length := sload(slot) } }
 
     /// @notice Quote LayerZero messaging fee (kept in Aori.sol because it needs OApp's _quote)
@@ -185,84 +185,72 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                      OWNER FUNCTIONS                       */
+    /*                      ADMIN FUNCTIONS                       */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    /**
-     * @notice Pauses all contract operations
-     * @dev Only callable by the contract owner
-     */
-    function pause() external onlyOwner {
-        _pause();
-    }
-
-    /**
-     * @notice Unpauses all contract operations
-     * @dev Only callable by the contract owner
-     */
-    function unpause() external onlyOwner {
-        _unpause();
-    }
-
-    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                    ADMIN FUNCTIONS                          */
-    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
-    // NOTE: Simple management functions are kept inline rather than delegating to AoriAdminLib.
-    // This is intentional: the DELEGATECALL overhead for these one-liners exceeds the inline bytecode,
-    // so keeping them here actually saves contract size. Complex functions use the library.
+    /// @notice Pauses all contract operations
+    function pause() external onlyOwner { _pause(); }
 
     /// @notice Add a hook to the whitelist
-    /* forgefmt: disable-next-item */
+    function unpause() external onlyOwner { _unpause(); }
+
+    /// @notice Add a hook to the whitelist
     function addAllowedHook(address hook) external onlyOwner { _getAoriStorage().isAllowedHook[hook] = true; emit HookAdded(hook); }
+    
     /// @notice Remove a hook from the whitelist
-    /* forgefmt: disable-next-item */
     function removeAllowedHook(address hook) external onlyOwner { _getAoriStorage().isAllowedHook[hook] = false; emit HookRemoved(hook); }
+    
     /// @notice Add a solver to the whitelist
-    /* forgefmt: disable-next-item */
     function addAllowedSolver(address solver) external onlyOwner { _getAoriStorage().isAllowedSolver[solver] = true; emit SolverAdded(solver); }
+    
     /// @notice Remove a solver from the whitelist
-    /* forgefmt: disable-next-item */
     function removeAllowedSolver(address solver) external onlyOwner { _getAoriStorage().isAllowedSolver[solver] = false; emit SolverRemoved(solver); }
+    
     /// @notice Add a chain to the supported chains list
-    /* forgefmt: disable-next-item */
     function addSupportedChain(uint32 eid) external onlyOwner { _getAoriStorage().isSupportedChain[eid] = true; emit ChainSupported(eid); }
+    
     /// @notice Remove a chain from the supported chains list
-    /* forgefmt: disable-next-item */
     function removeSupportedChain(uint32 eid) external onlyOwner { _getAoriStorage().isSupportedChain[eid] = false; emit ChainRemoved(eid); }
 
-    // Complex administrative functions delegated to AoriAdminLib to save bytecode
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                   ADMIN LIB FUNCTIONS                      */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+    // Complex administrative functions delegated to AoriAdminLib
 
     /// @notice Emergency function to cancel an order and return funds to recipient
-    /* forgefmt: disable-next-item */
     function emergencyCancel(bytes32 orderId, address recipient) external onlyOwner { AoriAdminLib.emergencyCancel(orderId, recipient, ENDPOINT_ID); }
+    
     /// @notice Emergency function to withdraw tokens from the contract
-    /* forgefmt: disable-next-item */
     function emergencyWithdraw(address token, uint256 amount, address recipient) external onlyOwner { AoriAdminLib.emergencyWithdraw(token, amount, recipient); }
+    
     /// @notice Emergency function to withdraw tokens from a user's balance
-    /* forgefmt: disable-next-item */
-    function emergencyWithdrawFromUser(address token, uint256 amount, address user, bool isLocked, address recipient) external onlyOwner { AoriAdminLib.emergencyWithdrawFromUser(token, amount, user, isLocked, recipient); }
+    function emergencyWithdrawFromBalance(address token, uint256 amount, address user, bool isLocked, address recipient) external onlyOwner { AoriAdminLib.emergencyWithdrawFromBalance(token, amount, user, isLocked, recipient); }
+    
     /// @notice Claims accumulated protocol fees for a token (permissionless)
-    /* forgefmt: disable-next-item */
     function claimProtocolFees(address token) external nonReentrant { AoriAdminLib.claimProtocolFees(token); }
 
-
-    // Protocol fee admin functions delegated to AoriAdminLib
-    /* forgefmt: disable-next-item */
+    /// @notice Sets the protocol fee in millibasis points (cross-validated with maxFeeMbps)
     function setProtocolFee(uint16 feeMbps) external onlyOwner { AoriAdminLib.setProtocolFee(feeMbps); }
-    /* forgefmt: disable-next-item */
+
+    /// @notice Sets the protocol treasury address that receives protocol fees
     function setProtocolTreasury(address treasury) external onlyOwner { AoriAdminLib.setProtocolTreasury(treasury); }
-    /* forgefmt: disable-next-item */
+
+    /// @notice Returns the current protocol fee and treasury address
     function getProtocolConfig() external view returns (uint16 feeMbps, address treasury) { return AoriAdminLib.getProtocolConfig(); }
-    /* forgefmt: disable-next-item */
+
+    /// @notice Returns the accumulated unclaimed protocol fees for a given token
     function getPendingProtocolFees(address token) external view returns (uint256) { return AoriAdminLib.getPendingProtocolFees(token); }
-    /* forgefmt: disable-next-item */
+
+    /// @notice Sets the maximum allowed additional fee in millibasis points (cross-validated with protocolFeeMbps)
     function setMaxFee(uint16 maxFeeMbps) external onlyOwner { AoriAdminLib.setMaxFee(maxFeeMbps); }
-    /* forgefmt: disable-next-item */
+
+    /// @notice Returns the current maximum allowed additional fee
     function getMaxFee() external view returns (uint16) { return AoriAdminLib.getMaxFee(); }
-    /* forgefmt: disable-next-item */
+
+    /// @notice Sets the maximum number of fills processed per settlement batch
     function setMaxFillsPerSettle(uint16 maxFills) external onlyOwner { AoriAdminLib.setMaxFillsPerSettle(maxFills); }
-    /* forgefmt: disable-next-item */
+
+    /// @notice Returns the current maximum fills per settlement batch
     function getMaxFillsPerSettle() external view returns (uint16) { return AoriAdminLib.getMaxFillsPerSettle(); }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -288,13 +276,12 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
      * @param order The order details
      * @param signature The user's EIP712 signature over the order
      */
-    function deposit(
-        Order calldata order,
-        bytes calldata signature
-    ) external nonReentrant whenNotPaused onlySolver {
+    function deposit(Order calldata order, bytes calldata signature) external nonReentrant whenNotPaused onlySolver {
         if (order.inputToken.isNativeToken()) revert UseDepositNativeForNativeTokens();
 
-        bytes32 orderId = order.validateDeposit(signature, _hashOrder712(order), ENDPOINT_ID, _getAoriStorage().maxFeeMbps, msg.sender, this.orderStatus, this.isSupportedChain);
+        bytes32 orderId = order.validateDeposit(
+            signature, _hashOrder712(order), ENDPOINT_ID, _getAoriStorage().maxFeeMbps, msg.sender, this.orderStatus, this.isSupportedChain
+        );
 
         order.inputToken.safeTransferFromChecked(order.offerer, address(this), order.inputAmount);
         _postDeposit(order.inputToken, order.inputAmount, order, orderId, address(0), 0);
@@ -316,7 +303,9 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
     ) external nonReentrant whenNotPaused onlySolver {
         if (order.inputToken.isNativeToken()) revert UseDepositNativeForNativeTokens();
 
-        bytes32 orderId = order.validateDeposit(signature, _hashOrder712(order), ENDPOINT_ID, _getAoriStorage().maxFeeMbps, msg.sender, this.orderStatus, this.isSupportedChain);
+        bytes32 orderId = order.validateDeposit(
+            signature, _hashOrder712(order), ENDPOINT_ID, _getAoriStorage().maxFeeMbps, msg.sender, this.orderStatus, this.isSupportedChain
+        );
         ValidationUtils.validateHook(hook.hookAddress, this.isAllowedHook);
 
         // Transfer input tokens to hook
@@ -328,45 +317,22 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
             AoriAtomicSwapLib.executeSwap(orderId, order, hook, solver);
         } else {
             // Non-atomic path: convert to preferredToken, lock for settlement
-            uint256 amountReceived = HookUtils.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut);
+            uint256 amountReceived =
+                HookUtils.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut);
 
             _postDeposit(hook.preferredToken, amountReceived, order, orderId, hook.preferredToken, amountReceived);
         }
     }
 
-    /**
-     * @notice Posts a deposit and updates the order status
-     * @param depositToken The token address to deposit
-     * @param depositAmount The amount of tokens to deposit
-     * @param order The order details
-     * @param orderId The unique identifier for the order
-     * @param srcHookTokenOut The token received from srcHook (address(0) if no hook)
-     * @param srcHookAmountOut The amount received from srcHook (0 if no hook)
-     */
-    function _postDeposit(
-        address depositToken,
-        uint256 depositAmount,
-        Order calldata order,
-        bytes32 orderId,
-        address srcHookTokenOut,
-        uint256 srcHookAmountOut
-    ) internal {
-        AoriStorageData storage $ = _getAoriStorage();
-        $.balances[order.offerer][depositToken].lock(SafeCast.toUint128(depositAmount));
-        $.orderStatus[orderId] = OrderStatus.Active;
-        $.orders[orderId] = order;
-        $.orders[orderId].inputToken = depositToken;
-        $.orders[orderId].inputAmount = SafeCast.toUint128(depositAmount);
-
-        emit Deposit(orderId, order, srcHookTokenOut, srcHookAmountOut);
-    }
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                       NATIVE DEPOSIT                       */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     /**
      * @notice Deposits native tokens to the contract without a hook call
      * @dev User calls this directly and sends their own ETH via msg.value.
      * @param order The order details (must specify NATIVE_TOKEN as inputToken)
      */
-    /* forgefmt: disable-next-item */
     function depositNative(Order calldata order) external payable nonReentrant whenNotPaused {
         order.validateNativeDeposit(msg.value, msg.sender);
 
@@ -381,10 +347,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
      * @param order The order details (must specify NATIVE_TOKEN as inputToken)
      * @param hook The pre-hook configuration for token conversion
      */
-    function depositNative(
-        Order calldata order,
-        SrcHook calldata hook
-    ) external payable nonReentrant whenNotPaused {
+    function depositNative(Order calldata order, SrcHook calldata hook) external payable nonReentrant whenNotPaused {
         order.validateNativeDeposit(msg.value, msg.sender);
         bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
         ValidationUtils.validateHook(hook.hookAddress, this.isAllowedHook);
@@ -399,14 +362,15 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
             AoriAtomicSwapLib.executeSwap(orderId, order, hook, solver);
         } else {
             // Non-atomic path: convert to preferredToken, lock for settlement
-            uint256 amountReceived = HookUtils.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut);
+            uint256 amountReceived =
+                HookUtils.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut);
 
             _postDeposit(hook.preferredToken, amountReceived, order, orderId, hook.preferredToken, amountReceived);
         }
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                    PERMIT2 DEPOSITS                        */
+    /*                       PERMIT2 DEPOSIT                      */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     /**
@@ -469,10 +433,42 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
             AoriAtomicSwapLib.executeSwap(orderId, order, hook, solver);
         } else {
             // Non-atomic path: convert to preferredToken, lock for settlement
-            uint256 amountReceived = HookUtils.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut);
+            uint256 amountReceived =
+                HookUtils.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut);
 
             _postDeposit(hook.preferredToken, amountReceived, order, orderId, hook.preferredToken, amountReceived);
         }
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                      DEPOSIT UTILS                         */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /**
+     * @notice Posts a deposit and updates the order status
+     * @param depositToken The token address to deposit
+     * @param depositAmount The amount of tokens to deposit
+     * @param order The order details
+     * @param orderId The unique identifier for the order
+     * @param srcHookTokenOut The token received from srcHook (address(0) if no hook)
+     * @param srcHookAmountOut The amount received from srcHook (0 if no hook)
+     */
+    function _postDeposit(
+        address depositToken,
+        uint256 depositAmount,
+        Order calldata order,
+        bytes32 orderId,
+        address srcHookTokenOut,
+        uint256 srcHookAmountOut
+    ) internal {
+        AoriStorageData storage $ = _getAoriStorage();
+        $.balances[order.offerer][depositToken].lock(SafeCast.toUint128(depositAmount));
+        $.orderStatus[orderId] = OrderStatus.Active;
+        $.orders[orderId] = order;
+        $.orders[orderId].inputToken = depositToken;
+        $.orders[orderId].inputAmount = SafeCast.toUint128(depositAmount);
+
+        emit Deposit(orderId, order, srcHookTokenOut, srcHookAmountOut);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -485,7 +481,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
      *      For cross-chain orders: marks as filled and queues for later settlement.
      * @param order The order details to fill
      */
-    /* forgefmt: disable-next-item */
     function fill(Order calldata order) external payable nonReentrant whenNotPaused onlySolver {
         bytes32 orderId = order.validateFill(msg.sender, ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus);
 
@@ -510,10 +505,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
      * @param order The order details to fill
      * @param hook The hook configuration for token conversion
      */
-    function fill(
-        Order calldata order,
-        DstHook calldata hook
-    ) external payable nonReentrant whenNotPaused onlySolver {
+    function fill(Order calldata order, DstHook calldata hook) external payable nonReentrant whenNotPaused onlySolver {
         bytes32 orderId = order.validateFill(msg.sender, ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus);
         ValidationUtils.validateHook(hook.hookAddress, this.isAllowedHook);
 
@@ -525,15 +517,16 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
             if (msg.value != 0) revert UnexpectedNativeTokens();
         }
 
-        // Calculate minimum acceptable output (returns outputAmount when slippageMbps = 0)
-        uint256 minOutput = (uint256(order.outputAmount) * (ValidationUtils.MBPS_DIVISOR - order.options.slippageMbps)) / ValidationUtils.MBPS_DIVISOR;
+        uint256 minOutput = order.calculateMinOutput();
 
         // Execute hook to convert preferred tokens to output tokens, validates minOutput
         uint256 amountReceived = HookUtils.executeHook(hook.hookAddress, hook.instructions, order.outputToken, minOutput);
 
         // Update contract state
         if (order.isSingleChainSwap()) {
-            AoriSettleLib.settleSingleChainSwap(orderId, order, msg.sender, hook.preferredToken, hook.preferredDstInputAmount, amountReceived);
+            AoriSettleLib.settleSingleChainSwap(
+                orderId, order, msg.sender, hook.preferredToken, hook.preferredDstInputAmount, amountReceived
+            );
         } else {
             _postFill(orderId, order, hook.preferredToken, hook.preferredDstInputAmount, amountReceived);
         }
@@ -548,6 +541,10 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
             _getAoriStorage().balances[msg.sender][order.outputToken].unlocked += SafeCast.toUint128(surplus);
         }
     }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                        FILL UTILS                          */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     /**
      * @notice Processes an order after successful filling
@@ -581,11 +578,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
      * @param filler The filler address
      * @param extraOptions Additional LayerZero options
      */
-    function settle(
-        uint32 srcEid,
-        address filler,
-        bytes calldata extraOptions
-    ) external payable nonReentrant whenNotPaused onlySolver {
+    function settle(uint32 srcEid, address filler, bytes calldata extraOptions) external payable nonReentrant whenNotPaused onlySolver {
         AoriStorageData storage $ = _getAoriStorage();
         bytes32[] storage arr = $.srcEidToFillerFills[srcEid][filler];
         uint256 arrLength = arr.length;
@@ -610,7 +603,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
      *      2. Order offerers (for their own expired single-chain orders)
      * @param orderId The hash of the order to cancel
      */
-    /* forgefmt: disable-next-item */
     function cancel(bytes32 orderId) external nonReentrant whenNotPaused {
         AoriCancelLib.cancelSingleChain(orderId, ENDPOINT_ID, msg.sender, this.orderStatus, this.isAllowedSolver);
     }
@@ -638,11 +630,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
         emit CancelSent(orderId, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 
-    /**
-     * @notice Handles cancellation payload from LayerZero
-     * @param payload The cancellation payload containing the order hash
-     */
-    /* forgefmt: disable-next-item */
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                          WITHDRAW                          */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
@@ -653,7 +640,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
      * @param token The token address to withdraw
      * @param amount The amount to withdraw (use 0 to withdraw full balance)
      */
-    /* forgefmt: disable-next-item */
     function withdraw(address token, uint256 amount) external nonReentrant whenNotPaused {
         AoriAdminLib.withdraw(token, amount, msg.sender);
     }
@@ -670,11 +656,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
      * @param extraOptions Additional options
      * @return receipt The messaging receipt containing transaction details (guid, nonce, fee)
      */
-    function __lzSend(
-        uint32 eId,
-        bytes memory payload,
-        bytes calldata extraOptions
-    ) internal returns (MessagingReceipt memory receipt) {
+    function __lzSend(uint32 eId, bytes memory payload, bytes calldata extraOptions) internal returns (MessagingReceipt memory receipt) {
         return _lzSend(eId, payload, extraOptions, MessagingFee(msg.value, 0), payable(msg.sender));
     }
 
@@ -719,7 +701,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
      * @param order The order details
      * @return The computed digest
      */
-    /* forgefmt: disable-next-item */
     function _hashOrder712(Order calldata order) internal view returns (bytes32) {
         return _hashTypedDataSansChainId(Permit2Lib.hashOrder(order));
     }
@@ -729,7 +710,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
      * @param order The order to hash
      * @return The computed hash
      */
-    /* forgefmt: disable-next-item */
     function hash(Order calldata order) public pure returns (bytes32) { return keccak256(abi.encode(order)); }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -741,6 +721,5 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
      * @dev Only callable by the contract owner
      * @param newImplementation The address of the new implementation
      */
-    /* forgefmt: disable-next-item */
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner { }
 }

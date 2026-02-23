@@ -472,4 +472,3 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
         localAori.depositNative{ value: INPUT_AMOUNT }(order, badHook);
     }
 }
-

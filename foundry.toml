@@ -46,7 +46,7 @@ number_underscore = "preserve"
 single_line_statement_blocks = "preserve"
 override_spacing = false
 wrap_comments = false
-ignore = []
+ignore = ["contracts/Aori.sol", "contracts/interfaces/IAori.sol", "contracts/types/AoriErrors.sol", "contracts/types/AoriTypes.sol"]
 # Extra size optimizations
 [profile.default.optimizer_details]
 yul = true

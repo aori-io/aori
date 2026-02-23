@@ -539,4 +539,3 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
         // but we can verify the hook output the expected amount
     }
 }
-

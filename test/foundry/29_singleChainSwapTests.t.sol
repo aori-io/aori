@@ -95,10 +95,7 @@ contract SingleChainSwapTests is TestUtils {
     /**
      * @notice Creates hook data for the test hook
      */
-    function createHookData(
-        address tokenToReturn,
-        uint256 amount
-    ) internal pure returns (bytes memory) {
+    function createHookData(address tokenToReturn, uint256 amount) internal pure returns (bytes memory) {
         return abi.encodeWithSelector(MockHook.handleHook.selector, tokenToReturn, amount);
     }
 
@@ -676,7 +673,11 @@ contract SingleChainSwapTests is TestUtils {
         // Verify solver received the surplus
         uint256 expectedSurplus = extraOutputAmount - OUTPUT_AMOUNT;
         assertEq(outputToken.balanceOf(solver), initialSolverBalance, "Solver external balance should not change from surplus");
-        assertEq(localLens.getUnlockedBalances(solver, address(outputToken)), expectedSurplus, "Solver should receive surplus tokens in unlocked balance");
+        assertEq(
+            localLens.getUnlockedBalances(solver, address(outputToken)),
+            expectedSurplus,
+            "Solver should receive surplus tokens in unlocked balance"
+        );
     }
 
     // =========================================================================

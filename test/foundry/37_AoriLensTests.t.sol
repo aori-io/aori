@@ -91,12 +91,7 @@ contract AoriLensTests is TestUtils {
             endTime: uint32(block.timestamp + 1 hours),
             srcEid: localEid,
             dstEid: remoteEid,
-            options: Options({
-                feeMbps: 500,
-                feeRecipient: feeRecipient,
-                solver: optionsSolver,
-                slippageMbps: 100
-            })
+            options: Options({ feeMbps: 500, feeRecipient: feeRecipient, solver: optionsSolver, slippageMbps: 100 })
         });
 
         bytes memory signature = signOrder(order);
@@ -616,10 +611,7 @@ contract AoriLensTests is TestUtils {
     /**
      * @notice Fuzz test random user/token queries return zero
      */
-    function testFuzz_Balances_RandomQueries(
-        address randomUser,
-        address randomToken
-    ) public view {
+    function testFuzz_Balances_RandomQueries(address randomUser, address randomToken) public view {
         vm.assume(randomUser != userA && randomUser != address(0));
         vm.assume(randomToken != address(convertedToken) && randomToken != address(0));
 
@@ -639,7 +631,7 @@ contract AoriLensTests is TestUtils {
         srcEids[0] = localEid;
 
         bytes32[][] memory result = remoteLens.getPendingSettle(srcEids, solver);
-        
+
         assertEq(result.length, 1, "Should return 1 array for 1 srcEid");
         assertEq(result[0].length, 0, "Should have no fills");
     }
@@ -663,7 +655,7 @@ contract AoriLensTests is TestUtils {
         srcEids[0] = localEid;
 
         bytes32[][] memory result = remoteLens.getPendingSettle(srcEids, solver);
-        
+
         assertEq(result.length, 1, "Should return 1 array");
         assertEq(result[0].length, 1, "Should have 1 fill");
         assertEq(result[0][0], remoteAori.hash(testOrder), "Should match order hash");
@@ -698,7 +690,7 @@ contract AoriLensTests is TestUtils {
         srcEids[0] = localEid;
 
         bytes32[][] memory result = remoteLens.getPendingSettle(srcEids, solver);
-        
+
         assertEq(result.length, 1, "Should return 1 array");
         assertEq(result[0].length, 2, "Should have 2 fills");
         assertEq(result[0][0], remoteAori.hash(testOrder), "First fill should match");
@@ -726,7 +718,7 @@ contract AoriLensTests is TestUtils {
         srcEids[2] = 888; // Non-existent
 
         bytes32[][] memory result = remoteLens.getPendingSettle(srcEids, solver);
-        
+
         assertEq(result.length, 3, "Should return 3 arrays");
         assertEq(result[0].length, 1, "First srcEid should have 1 fill");
         assertEq(result[1].length, 0, "Second srcEid should have no fills");
@@ -753,7 +745,7 @@ contract AoriLensTests is TestUtils {
         srcEids[0] = localEid;
 
         bytes32[][] memory result = remoteLens.getPendingSettle(srcEids, address(0x999));
-        
+
         assertEq(result[0].length, 0, "Wrong filler should have no fills");
     }
 
@@ -763,7 +755,7 @@ contract AoriLensTests is TestUtils {
     function testGetPendingSettle_CapsAt100() public {
         // This would require depositing and filling 101 orders which is expensive
         // Instead we verify the function doesn't revert with many fills
-        
+
         // Create 10 fills as a practical test
         for (uint256 i = 0; i < 10; i++) {
             Order memory order = createValidOrder(i + 100);
@@ -791,7 +783,7 @@ contract AoriLensTests is TestUtils {
         srcEids[0] = localEid;
 
         bytes32[][] memory result = remoteLens.getPendingSettle(srcEids, solver);
-        
+
         assertEq(result[0].length, 10, "Should have all 10 fills");
     }
 
@@ -804,9 +796,9 @@ contract AoriLensTests is TestUtils {
      */
     function testGetOrdersInputTotals_EmptyArray() public view {
         bytes32[] memory orderHashes = new bytes32[](0);
-        
+
         (address[] memory tokens, uint256[] memory amounts) = localLens.getOrdersInputTotals(orderHashes);
-        
+
         assertEq(tokens.length, 0, "Should return empty tokens array");
         assertEq(amounts.length, 0, "Should return empty amounts array");
     }
@@ -819,7 +811,7 @@ contract AoriLensTests is TestUtils {
         orderHashes[0] = testOrderHash;
 
         (address[] memory tokens, uint256[] memory amounts) = localLens.getOrdersInputTotals(orderHashes);
-        
+
         assertEq(tokens.length, 1, "Should have 1 token");
         assertEq(amounts.length, 1, "Should have 1 amount");
         assertEq(tokens[0], address(convertedToken), "Should be converted token");
@@ -860,7 +852,7 @@ contract AoriLensTests is TestUtils {
         orderHashes[1] = orderHash2;
 
         (address[] memory tokens, uint256[] memory amounts) = localLens.getOrdersInputTotals(orderHashes);
-        
+
         assertEq(tokens.length, 1, "Should have 1 unique token");
         assertEq(amounts.length, 1, "Should have 1 amount");
         assertEq(tokens[0], address(convertedToken), "Should be converted token");
@@ -904,10 +896,10 @@ contract AoriLensTests is TestUtils {
         orderHashes[1] = orderHash2;
 
         (address[] memory tokens, uint256[] memory amounts) = localLens.getOrdersInputTotals(orderHashes);
-        
+
         assertEq(tokens.length, 2, "Should have 2 unique tokens");
         assertEq(amounts.length, 2, "Should have 2 amounts");
-        
+
         // Verify both tokens are present (order may vary)
         bool foundConverted = false;
         bool foundAlternate = false;
@@ -938,7 +930,7 @@ contract AoriLensTests is TestUtils {
         orderHashes[0] = keccak256("fake_order");
 
         (address[] memory tokens, uint256[] memory amounts) = localLens.getOrdersInputTotals(orderHashes);
-        
+
         // Non-existent orders return zero address and zero amount, which gets filtered out
         assertEq(tokens.length, 0, "Should have no tokens for non-existent order");
         assertEq(amounts.length, 0, "Should have no amounts for non-existent order");
@@ -954,7 +946,7 @@ contract AoriLensTests is TestUtils {
         orderHashes[2] = keccak256("fake2");
 
         (address[] memory tokens, uint256[] memory amounts) = localLens.getOrdersInputTotals(orderHashes);
-        
+
         assertEq(tokens.length, 1, "Should only count real order");
         assertEq(amounts.length, 1, "Should only have 1 amount");
         assertEq(tokens[0], address(convertedToken), "Should be converted token");
@@ -987,7 +979,7 @@ contract AoriLensTests is TestUtils {
         }
 
         (address[] memory tokens, uint256[] memory amounts) = localLens.getOrdersInputTotals(orderHashes);
-        
+
         assertEq(tokens.length, 1, "All orders use same token");
         assertEq(tokens[0], address(convertedToken), "Should be converted token");
         assertEq(amounts[0], expectedTotal, "Should aggregate all amounts correctly");

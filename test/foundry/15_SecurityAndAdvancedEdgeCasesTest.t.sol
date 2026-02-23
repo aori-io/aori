@@ -27,25 +27,15 @@ import "../../contracts/types/AoriErrors.sol";
  * @notice Extension of Aori contract for testing purposes
  */
 contract TestAori is Aori {
-    constructor(
-        address _endpoint,
-        uint32 _eid
-    ) Aori(_endpoint, _eid) { }
+    constructor(address _endpoint, uint32 _eid) Aori(_endpoint, _eid) { }
 
     // Helper function to get the fills array length for a specific srcEid and filler
-    function getFillsLength(
-        uint32 srcEid,
-        address filler
-    ) external view returns (uint256) {
+    function getFillsLength(uint32 srcEid, address filler) external view returns (uint256) {
         return _getAoriStorage().srcEidToFillerFills[srcEid][filler].length;
     }
 
     // Helper function to manually add orders to the fills array (for testing batch limits)
-    function addToFills(
-        uint32 srcEid,
-        address filler,
-        bytes32 orderId
-    ) external {
+    function addToFills(uint32 srcEid, address filler, bytes32 orderId) external {
         _getAoriStorage().srcEidToFillerFills[srcEid][filler].push(orderId);
     }
 }
@@ -334,7 +324,10 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         // Test non-whitelisted hook
         address nonWhitelistedHook = address(0x400);
         SrcHook memory srcData = SrcHook({
-            hookAddress: nonWhitelistedHook, preferredToken: address(inputToken), minPreferredTokenAmountOut: 1000, instructions: ""
+            hookAddress: nonWhitelistedHook,
+            preferredToken: address(inputToken),
+            minPreferredTokenAmountOut: 1000,
+            instructions: ""
         });
 
         vm.prank(solver);
@@ -514,11 +507,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
      * @notice Signs an order using EIP712 with a specific contract address
      * This function is needed when testing with custom contract instances
      */
-    function signOrderWithContract(
-        Order memory order,
-        uint256 privKey,
-        address contractAddress
-    ) internal pure returns (bytes memory) {
+    function signOrderWithContract(Order memory order, uint256 privKey, address contractAddress) internal pure returns (bytes memory) {
         // Hash the nested Options struct first
         bytes32 optionsHash = keccak256(
             abi.encode(

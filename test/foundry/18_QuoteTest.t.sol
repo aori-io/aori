@@ -76,15 +76,12 @@ contract QuoteTest is TestUtils {
         bytes memory options = defaultOptions();
 
         // Get quote for cancel message (msgType 1)
-        uint256 cancelFee =
-            localAori.quote(
-                remoteEid, // destination endpoint
-                1, // message type (1 for cancel)
-                options,
-                false, // payInLzToken
-                0, // srcEid (not used for cancel)
-                address(0) // filler (not used for cancel)
-            ).nativeFee;
+        uint256 cancelFee = localAori.quote(remoteEid, 1, options, false, 0, address(0)) // destination endpoint
+                // message type (1 for cancel)
+                // payInLzToken
+                // srcEid (not used for cancel)
+                // filler (not used for cancel)
+            .nativeFee;
 
         // Verify quote is non-zero
         assertGt(cancelFee, 0, "Cancel message fee should be non-zero");
@@ -99,15 +96,12 @@ contract QuoteTest is TestUtils {
         vm.chainId(remoteEid);
 
         // First, let's test an empty settle message (no fills)
-        uint256 emptyFee =
-            remoteAori.quote(
-                localEid, // destination endpoint
-                0, // message type (0 for settle)
-                options,
-                false, // payInLzToken
-                localEid, // srcEid
-                solver // whitelisted solver
-            ).nativeFee;
+        uint256 emptyFee = remoteAori.quote(localEid, 0, options, false, localEid, solver) // destination endpoint
+                // message type (0 for settle)
+                // payInLzToken
+                // srcEid
+                // whitelisted solver
+            .nativeFee;
 
         // Now deposit and fill multiple orders to test quotes with different payload sizes
         vm.chainId(localEid);
@@ -134,15 +128,12 @@ contract QuoteTest is TestUtils {
             remoteAori.fill(orders[i]);
 
             // Get quote for settle message after each fill
-            uint256 settleFee =
-                remoteAori.quote(
-                    localEid, // destination endpoint
-                    0, // message type (0 for settle)
-                    options,
-                    false, // payInLzToken
-                    localEid, // srcEid
-                    solver // whitelisted solver
-                ).nativeFee;
+            uint256 settleFee = remoteAori.quote(localEid, 0, options, false, localEid, solver) // destination endpoint
+                    // message type (0 for settle)
+                    // payInLzToken
+                    // srcEid
+                    // whitelisted solver
+                .nativeFee;
 
             // Verify fee is non-zero and increases with each additional fill
             assertGt(settleFee, 0, "Settle message fee should be non-zero");
@@ -206,15 +197,12 @@ contract QuoteTest is TestUtils {
             }
 
             // Get quote for settle with filled orders
-            fees[testCase] =
-            remoteAori.quote(
-                    localEid, // destination endpoint
-                    0, // message type (0 for settle)
-                    options,
-                    false, // payInLzToken
-                    localEid, // srcEid
-                    solver // whitelisted solver
-                ).nativeFee;
+            fees[testCase] = remoteAori.quote(localEid, 0, options, false, localEid, solver) // destination endpoint
+                    // message type (0 for settle)
+                    // payInLzToken
+                    // srcEid
+                    // whitelisted solver
+                .nativeFee;
             // Reset for next test case
             vm.chainId(localEid);
         }
@@ -230,15 +218,12 @@ contract QuoteTest is TestUtils {
         bytes memory options = defaultOptions();
 
         // Get quote for cancel message (33 bytes)
-        uint256 cancelFee =
-            localAori.quote(
-                remoteEid, // destination endpoint
-                1, // message type (1 for cancel)
-                options,
-                false, // payInLzToken
-                0, // srcEid
-                address(0) // filler
-            ).nativeFee;
+        uint256 cancelFee = localAori.quote(remoteEid, 1, options, false, 0, address(0)) // destination endpoint
+                // message type (1 for cancel)
+                // payInLzToken
+                // srcEid
+                // filler
+            .nativeFee;
 
         // Create and fill a single order to get a settle quote
         vm.chainId(localEid);
@@ -256,15 +241,12 @@ contract QuoteTest is TestUtils {
         remoteAori.fill(order);
 
         // Get quote for settle message with 1 fill (1 + 20 + 2 + 32 = 55 bytes)
-        uint256 settleFee =
-            remoteAori.quote(
-                localEid, // destination endpoint
-                0, // message type (0 for settle)
-                options,
-                false, // payInLzToken
-                localEid, // srcEid
-                solver // whitelisted solver
-            ).nativeFee;
+        uint256 settleFee = remoteAori.quote(localEid, 0, options, false, localEid, solver) // destination endpoint
+                // message type (0 for settle)
+                // payInLzToken
+                // srcEid
+                // whitelisted solver
+            .nativeFee;
         // Settle fee should be greater than cancel fee because the payload is larger
         assertGt(settleFee, cancelFee, "Settle fee should be greater than cancel fee due to larger payload");
     }
