@@ -224,12 +224,32 @@ deploy_chain() {
     log "${GREEN}=== Deploying to $chain_name ===${NC}"
     log "RPC: $rpc_var"
 
+    # Pre-check: dry run first to detect already-deployed chains.
+    # This avoids broadcasting library CREATE2 txs that fail on chains
+    # where everything is already deployed.
+    if [ -n "$BROADCAST" ]; then
+        local dry_output
+        dry_output=$(forge script script/DeployMultichain.s.sol:DeployMultichain \
+            --rpc-url "$rpc_url" \
+            --private-key "$PRIVATE_KEY" \
+            --non-interactive \
+            $FORGE_QUIET 2>&1) || true
+        if echo "$dry_output" | grep -q "SKIPPING: Already Deployed"; then
+            local proxy_addr=$(echo "$dry_output" | grep -E "Proxy already exists at:" | awk '{print $NF}')
+            DEPLOY_SKIPPED+=("$chain_name")
+            DEPLOYED_ADDRESSES+=("$chain_name|$proxy_addr|skipped")
+            log "${YELLOW}Skipped (already deployed): $chain_name${NC}"
+            return 0
+        fi
+    fi
+
     # Capture output to parse addresses
     local output
     local exit_code=0
     output=$(forge script script/DeployMultichain.s.sol:DeployMultichain \
         --rpc-url "$rpc_url" \
         --private-key "$PRIVATE_KEY" \
+        --non-interactive \
         $BROADCAST $VERIFY $FORGE_QUIET 2>&1) || exit_code=$?
 
     if [ $exit_code -eq 0 ]; then
@@ -294,6 +314,7 @@ upgrade_chain() {
     if forge script script/UpgradeAori.s.sol:UpgradeMultichain \
         --rpc-url "$rpc_url" \
         --private-key "$PRIVATE_KEY" \
+        --non-interactive \
         $BROADCAST $VERIFY $FORGE_QUIET; then
         UPGRADE_SUCCESS+=("$chain_name")
         log "${GREEN}Upgrade success: $chain_name${NC}"

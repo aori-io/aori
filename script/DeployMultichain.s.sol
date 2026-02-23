@@ -79,7 +79,8 @@ contract DeployMultichain is BaseScript {
         console.log("  Proxy:", expectedProxy);
 
         // Check if already deployed - skip if so
-        if (_isDeployed(expectedProxy)) {
+        // Uses vm.rpc because some Forge nightly builds return extcodesize=0 on certain forks
+        if (_isAoriDeployed(expectedProxy)) {
             console.log("");
             console.log("=== SKIPPING: Already Deployed ===");
             console.log("Proxy already exists at:", expectedProxy);
