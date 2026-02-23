@@ -146,7 +146,12 @@ contract UpgradeMultichain is BaseScript {
         console.log("Chain:", config.name);
         console.log("Proxy:", proxyAddress);
 
-        _requireOwner(aori, owner);
+        // Pre-flight owner check (skipped on Arbitrum where forge script can't read proxy state)
+        if (block.chainid != 42161) {
+            _requireOwner(aori, owner);
+        } else {
+            console.log("Skipping pre-flight owner check on Arbitrum (RPC simulation limitation)");
+        }
 
         vm.startBroadcast(ownerPrivateKey);
 
@@ -154,8 +159,14 @@ contract UpgradeMultichain is BaseScript {
         Aori newImpl = new Aori(config.endpoint, config.eid);
         console.log("New implementation:", address(newImpl));
 
-        // Upgrade
-        aori.upgradeToAndCall(address(newImpl), "");
+        // Upgrade — use low-level call for Arbitrum compatibility
+        // (forge script can't simulate calls to the proxy on Arbitrum due to RPC issues)
+        if (block.chainid != 42161) {
+            aori.upgradeToAndCall(address(newImpl), "");
+        } else {
+            (bool success,) = proxyAddress.call(abi.encodeWithSignature("upgradeToAndCall(address,bytes)", address(newImpl), ""));
+            require(success, "Arbitrum upgrade call failed");
+        }
 
         vm.stopBroadcast();
 

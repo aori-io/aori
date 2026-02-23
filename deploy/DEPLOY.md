@@ -36,6 +36,12 @@ AORI_PROXY_ADDRESS=0x... ./deploy/deploy.sh testnet --configure-peers
 
 # Quiet mode (suppress verbose output)
 ./deploy/deploy.sh testnet --broadcast --quiet
+
+# Upgrade dry run on all mainnets
+AORI_PROXY_ADDRESS=0x... ./deploy/deploy.sh mainnet --upgrade
+
+# Upgrade all mainnets for real
+AORI_PROXY_ADDRESS=0x... ./deploy/deploy.sh mainnet --upgrade --broadcast
 ```
 
 **Features:**
@@ -322,7 +328,34 @@ forge script script/DeployMultichain.s.sol:VerifyDeployments \
 
 ## Upgrading Contracts
 
-### Prepare Upgrade (Deploy New Implementation)
+### All-at-Once Upgrade (Recommended)
+
+Use the deploy script to upgrade all chains in one command. It continues on failure so you can retry individual chains.
+
+```bash
+# Step 1: Dry run (simulation only, no transactions sent)
+AORI_PROXY_ADDRESS=0x... ./deploy/deploy.sh mainnet --upgrade
+
+# Step 2: Upgrade for real
+AORI_PROXY_ADDRESS=0x... ./deploy/deploy.sh mainnet --upgrade --broadcast
+```
+
+The script will:
+- Deploy a new implementation on each chain (with correct endpoint/EID)
+- Upgrade the proxy to the new implementation
+- Continue to the next chain if one fails
+- Print a summary showing success/failure per chain
+
+**Environment variables required:**
+- `PRIVATE_KEY` - Owner private key (must control the proxy)
+- `AORI_PROXY_ADDRESS` - Proxy address (same on all chains)
+- RPC URLs for all target chains
+
+### Manual Single-Chain Upgrade
+
+For upgrading individual chains or more control over the process:
+
+#### Prepare Upgrade (Deploy New Implementation Only)
 
 ```bash
 AORI_PROXY_ADDRESS=0x... \
@@ -331,7 +364,7 @@ forge script script/UpgradeAori.s.sol:PrepareUpgrade \
   --broadcast --verify
 ```
 
-### Execute Upgrade
+#### Execute Upgrade
 
 ```bash
 # Using newly deployed implementation
@@ -346,19 +379,6 @@ AORI_PROXY_ADDRESS=0x... \
 forge script script/UpgradeAori.s.sol:UpgradeAori \
   --rpc-url $RPC_URL \
   --broadcast --verify
-```
-
-### Multichain Upgrade
-
-Run on each chain:
-
-```bash
-AORI_PROXY_ADDRESS=0x... \
-forge script script/UpgradeAori.s.sol:UpgradeMultichain \
-  --rpc-url $ETHEREUM_RPC_URL \
-  --broadcast --verify
-
-# Repeat for all chains...
 ```
 
 ### Verify Upgrade
@@ -404,9 +424,9 @@ forge script script/UpgradeAori.s.sol:VerifyUpgrade \
 
 The chain ID is not configured in `BaseScript.sol`. Add the chain configuration or verify you're on the correct network.
 
-### "CREATE3 factory not deployed on this chain"
+### CREATE3 factory or LZ endpoint not visible in fork
 
-The Aori CREATE3 factory (`0x2Dfcc7415D89af828cbef005F0d072D8b3F23183`) is not deployed on this chain. Contact the Aori team to deploy the factory.
+Some Forge nightly builds fail to load contract code on certain chain forks (e.g. `extcodesize` returns 0 for Arbitrum). The deploy script handles this automatically by using `vm.etch` to set known bytecode during simulation. If you see "Warning: CREATE3 factory not visible in fork, using vm.etch" in the output, this is expected and does not affect real broadcasts.
 
 ### "Implementation address mismatch!"
 
@@ -455,10 +475,10 @@ forge verify-contract $ADDRESS Aori \
 | `ConfigurePeers.s.sol` | `AddSolvers` | Whitelist solvers |
 | `ConfigurePeers.s.sol` | `AddHooks` | Whitelist hooks |
 | `ConfigurePeers.s.sol` | `AddSupportedChains` | Add chain EIDs |
-| `UpgradeAori.s.sol` | `UpgradeAori` | Upgrade proxy |
-| `UpgradeAori.s.sol` | `PrepareUpgrade` | Deploy new implementation |
+| `UpgradeAori.s.sol` | `UpgradeAori` | Upgrade single chain proxy |
+| `UpgradeAori.s.sol` | `PrepareUpgrade` | Deploy new implementation only |
 | `UpgradeAori.s.sol` | `VerifyUpgrade` | Verify upgrade success |
-| `UpgradeAori.s.sol` | `UpgradeMultichain` | Upgrade on each chain |
+| `UpgradeAori.s.sol` | `UpgradeMultichain` | Deploy + upgrade on one chain (used by deploy.sh) |
 
 ---
 

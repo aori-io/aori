@@ -1,0 +1,18 @@
+#!/usr/bin/expect -f
+set timeout 300
+spawn forge script script/UpgradeAori.s.sol:UpgradeMultichain \
+  --rpc-url $env(ARBITRUM_RPC_URL) \
+  --libraries contracts/lib/AoriAdminLib.sol:AoriAdminLib:0x7d15675B9A6d4b34285e46cBf7C438D44a5B4B70 \
+  --libraries contracts/lib/AoriSettleLib.sol:AoriSettleLib:0x0696154B8C83F279ab477fF00D585361A52DA167 \
+  --libraries contracts/lib/AoriCancelLib.sol:AoriCancelLib:0x5edb1337f0DFB57Ac4cfB1BCE002bBb7F3741841 \
+  --libraries contracts/lib/AoriAtomicSwapLib.sol:AoriAtomicSwapLib:0x434363172EB083E558fAA88BAd616fC6AACdfeF2 \
+  --broadcast --verify -vvv
+expect {
+    "Do you wish to continue?" {
+        send "y\r"
+        exp_continue
+    }
+    eof
+}
+catch wait result
+exit [lindex $result 3]

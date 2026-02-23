@@ -19,8 +19,10 @@
     "deploy:mainnet:dry": "./deploy/deploy.sh mainnet",
     "deploy:mainnet:peers": "./deploy/deploy.sh mainnet --configure-peers",
     "deploy:mainnet:full": "./deploy/deploy.sh mainnet --full",
-    "upgrade:testnet": "./deploy/deploy.sh testnet --upgrade",
-    "upgrade:mainnet": "./deploy/deploy.sh mainnet --upgrade",
+    "upgrade:testnet": "./deploy/deploy.sh testnet --upgrade --broadcast",
+    "upgrade:testnet:dry": "./deploy/deploy.sh testnet --upgrade",
+    "upgrade:mainnet": "./deploy/deploy.sh mainnet --upgrade --broadcast",
+    "upgrade:mainnet:dry": "./deploy/deploy.sh mainnet --upgrade",
     "verify": "forge script script/DeployMultichain.s.sol:VerifyDeployments"
   },
   "resolutions": {
