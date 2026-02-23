@@ -19,10 +19,10 @@ import { MockAoriUpgraded } from "./36_Upgrade.t.sol";
 
 contract ForkUpgradeTests is Test, BaseScript {
     /// @notice Default deployed proxy address (same on all chains via CREATE3)
-    address constant DEFAULT_PROXY = 0x7417dE230d7635C7906fEb6aE73d0C551e2aF339;
+    address constant DEFAULT_PROXY = 0x7572F9CaC44b2Ed2567Ccd23A3d3dBdf165Cd8af;
 
-    /// @notice Default on-chain owner (multisig)
-    address constant DEFAULT_OWNER = 0x1c6DDEbD6C7BAf821395bBeBDc8B3678B98950e5;
+    /// @notice Default on-chain owner
+    address constant DEFAULT_OWNER = 0x9a19fbC43b65D02E6ccf6b56Af492A3389DF51AB;
 
     /// @notice Resolved addresses (from env or defaults)
     address internal PROXY;
