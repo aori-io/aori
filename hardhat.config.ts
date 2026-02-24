@@ -138,6 +138,12 @@ const config: HardhatUserConfig & { etherscan?: any } = {
             url: process.env.MEGAETH_RPC_URL || '',
             accounts,
         },
+        rootstock: {
+            eid: 30333,
+            chainId: 30,
+            url: process.env.ROOTSTOCK_RPC_URL || '',
+            accounts,
+        },
         hardhat: {
             // Needed in testing because TestHelperOz5.sol was exceeding the compiled contract size limit.
             allowUnlimitedContractSize: true,
