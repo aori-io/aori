@@ -78,7 +78,12 @@ contract AoriLensTests is TestUtils {
     function testOrders_AllFieldsCorrect() public {
         address distinctRecipient = address(0xBBBB);
         address feeRecipient = address(0xCCCC);
-        address optionsSolver = solver;
+        address srcSolverAddr = solver;
+        address dstSolverAddr = address(0xDDDD);
+
+        // Whitelist dstSolver so the order is valid
+        vm.prank(localAori.owner());
+        localAori.addAllowedSolver(dstSolverAddr);
 
         Order memory order = Order({
             offerer: userA,
@@ -91,7 +96,13 @@ contract AoriLensTests is TestUtils {
             endTime: uint32(block.timestamp + 1 hours),
             srcEid: localEid,
             dstEid: remoteEid,
-            options: Options({ feeMbps: 500, slippageMbps: 100, feeRecipient: feeRecipient, srcSolver: optionsSolver, dstSolver: address(0) })
+            options: Options({
+                feeMbps: 500,
+                slippageMbps: 100,
+                feeRecipient: feeRecipient,
+                srcSolver: srcSolverAddr,
+                dstSolver: dstSolverAddr
+            })
         });
 
         bytes memory signature = signOrder(order);
@@ -117,6 +128,7 @@ contract AoriLensTests is TestUtils {
         assertEq(r.options.feeRecipient, order.options.feeRecipient, "feeRecipient");
         assertEq(r.options.srcSolver, order.options.srcSolver, "srcSolver");
         assertEq(r.options.dstSolver, order.options.dstSolver, "dstSolver");
+        assertTrue(r.options.dstSolver != address(0), "dstSolver should be non-zero to validate slot 7 read");
         assertEq(r.options.slippageMbps, order.options.slippageMbps, "slippageMbps");
     }
 
@@ -175,6 +187,27 @@ contract AoriLensTests is TestUtils {
         assertEq(retrieved2.offerer, userA, "Order 2 offerer mismatch");
         assertEq(retrieved2.recipient, distinctRecipient, "Order 2 recipient mismatch");
         assertTrue(retrieved2.offerer != retrieved2.recipient, "offerer and recipient must differ to validate slot reads");
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                      hash() TESTS                           */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /**
+     * @notice Test hash() returns keccak256(abi.encode(order))
+     */
+    function testHash_MatchesKeccak() public view {
+        bytes32 lensHash = localLens.hash(testOrder);
+        bytes32 expected = keccak256(abi.encode(testOrder));
+        assertEq(lensHash, expected, "Lens hash should match keccak256(abi.encode(order))");
+    }
+
+    /**
+     * @notice Test hash() matches the order ID used during deposit
+     */
+    function testHash_MatchesDepositOrderId() public view {
+        bytes32 lensHash = localLens.hash(testOrder);
+        assertEq(lensHash, testOrderHash, "Lens hash should match deposit order ID");
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
