@@ -723,7 +723,10 @@ library NativeTokenUtils {
             (bool success, ) = payable(to).call{value: amount}("");
             require(success, "Native transfer failed");
         } else {
-            IERC20(token).safeTransfer(to, amount);
+            (bool success, bytes memory data) = token.call(
+                abi.encodeWithSelector(IERC20.transfer.selector, to, amount)
+            );
+            require(success && (data.length == 0 || abi.decode(data, (bool))), "Transfer failed");
         }
     }
 
