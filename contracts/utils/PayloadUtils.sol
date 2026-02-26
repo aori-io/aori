@@ -141,45 +141,6 @@ library PayloadUtils {
     }
 
     /**
-     * @notice Validates the minimum length of a settlement payload
-     * @dev Ensures the payload is at least 23 bytes (header size)
-     * @param payload The payload to validate
-     */
-    /* forgefmt: disable-next-item */
-    function validateSettlementLen(bytes calldata payload) internal pure {
-        if (payload.length < 23) revert InvalidPayloadLength(23, payload.length);
-    }
-
-    /**
-     * @notice Validates the length of a settlement payload for a specific fill count
-     * @dev Ensures the payload matches the expected size based on fill count
-     * @param payload The payload to validate
-     * @param fillCount The number of fills in the payload
-     */
-    function validateSettlementLen(bytes calldata payload, uint16 fillCount) internal pure {
-        uint256 expectedLen = 23 + uint256(fillCount) * 32;
-        if (payload.length != expectedLen) revert InvalidPayloadLength(expectedLen, payload.length);
-    }
-
-    /**
-     * @notice Unpacks the header from a settlement payload
-     * @dev Extracts the filler address (20 bytes) and fill count (2 bytes)
-     * @param payload The settlement payload to unpack
-     * @return filler The filler address
-     * @return fillCount The number of fills in the payload
-     */
-    function unpackSettlementHeader(
-        bytes calldata payload
-    ) internal pure returns (address filler, uint16 fillCount) {
-        if (payload.length < 23) revert InvalidPayloadLength(23, payload.length);
-        assembly {
-            let word := calldataload(add(payload.offset, 1))
-            filler := shr(96, word)
-        }
-        fillCount = (uint16(uint8(payload[21])) << 8) | uint16(uint8(payload[22]));
-    }
-
-    /**
      * @notice Validates and unpacks a settlement payload in a single operation
      * @dev Consolidates validateSettlementLen() + unpackSettlementHeader() + validateSettlementLen(fillCount)
      *      More gas efficient at runtime by avoiding multiple function calls
