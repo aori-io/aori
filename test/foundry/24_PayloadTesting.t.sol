@@ -10,22 +10,16 @@ pragma solidity 0.8.34;
  * 3. test_getType_invalid - Tests payload type detection with invalid types
  * 4. test_validateCancellationLen_valid - Tests validation of correct cancellation payload length
  * 5. test_validateCancellationLen_invalid - Tests validation fails with incorrect cancellation payload length
- * 6. test_validateSettlementLen_validMin - Tests validation of minimum valid settlement payload length
- * 7. test_validateSettlementLen_invalidTooShort - Tests validation fails with too short settlement payload
- * 8. test_validateSettlementLen_withFillCount_valid - Tests validation with specific fill count
- * 9. test_validateSettlementLen_withFillCount_invalid - Tests validation fails with incorrect fill count length
- * 10. test_unpackCancellation_valid - Tests unpacking a valid cancellation payload
- * 11. test_unpackSettlementHeader_valid - Tests unpacking a valid settlement header
- * 12. test_unpackSettlementHeader_invalidLength - Tests unpacking fails with invalid header length
- * 13. test_unpackSettlementBodyAt_validIndex - Tests unpacking valid order hash at specific index
- * 14. test_unpackSettlementBodyAt_invalidIndex - Tests unpacking fails with invalid index
- * 15. test_packCancellation - Tests packing a cancellation payload
- * 16. test_packSettlement_singleOrder - Tests packing a settlement payload with a single order
- * 17. test_packSettlement_multipleOrders - Tests packing a settlement payload with multiple orders
- * 18. test_packSettlement_maxOrders - Tests packing with maximum number of orders
- * 19. test_settlementPayloadSize - Tests the calculation of settlement payload size
- * 20. test_integration_packAndUnpack_cancellation - Tests full round-trip packing and unpacking of cancellation
- * 21. test_integration_packAndUnpack_settlement - Tests full round-trip packing and unpacking of settlement
+ * 6. test_unpackCancellation_valid - Tests unpacking a valid cancellation payload
+ * 7. test_unpackSettlementBodyAt_validIndex - Tests unpacking valid order hash at specific index
+ * 8. test_unpackSettlementBodyAt_invalidIndex - Tests unpacking fails with invalid index
+ * 9. test_packCancellation - Tests packing a cancellation payload
+ * 10. test_packSettlement_singleOrder - Tests packing a settlement payload with a single order
+ * 11. test_packSettlement_multipleOrders - Tests packing a settlement payload with multiple orders
+ * 12. test_packSettlement_maxOrders - Tests packing with maximum number of orders
+ * 13. test_settlementPayloadSize - Tests the calculation of settlement payload size
+ * 14. test_integration_packAndUnpack_cancellation - Tests full round-trip packing and unpacking of cancellation
+ * 15. test_integration_packAndUnpack_settlement - Tests full round-trip packing and unpacking of settlement
  *
  * This test file verifies all payload packing and unpacking functions, with special focus on
  * assembly-level implementations and proper validation of payload formats. Edge cases like
@@ -58,16 +52,6 @@ contract PayloadTestWrapper {
         PayloadUtils.validateCancellationLen(payload);
     }
 
-    function validateSettlementLen(
-        bytes calldata payload
-    ) external pure {
-        PayloadUtils.validateSettlementLen(payload);
-    }
-
-    function validateSettlementLen(bytes calldata payload, uint16 fillCount) external pure {
-        PayloadUtils.validateSettlementLen(payload, fillCount);
-    }
-
     // Unpacking functions
     function getType(
         bytes calldata payload
@@ -79,12 +63,6 @@ contract PayloadTestWrapper {
         bytes calldata payload
     ) external pure returns (bytes32) {
         return PayloadUtils.unpackCancellation(payload);
-    }
-
-    function unpackSettlementHeader(
-        bytes calldata payload
-    ) external pure returns (address filler, uint16 fillCount) {
-        return PayloadUtils.unpackSettlementHeader(payload);
     }
 
     function unpackSettlementBodyAt(bytes calldata payload, uint256 index) external pure returns (bytes32) {
@@ -252,70 +230,6 @@ contract PayloadPackingUnpackingTest is Test {
         wrapper.validateCancellationLen(payload);
     }
 
-    /// @dev Tests validation of minimum valid settlement payload length
-    /// @notice Covers lines 268-269 in AoriUtils.sol
-    function test_validateSettlementLen_validMin() public view {
-        // Arrange - minimal valid settlement payload (23 bytes)
-        bytes memory payload = abi.encodePacked(
-            uint8(PayloadType.Settlement),
-            bytes20(TEST_FILLER), // filler address
-            uint16(0) // 0 fills
-        );
-
-        // Act & Assert - should not revert
-        wrapper.validateSettlementLen(payload);
-    }
-
-    /// @dev Tests validation fails with too short settlement payload
-    /// @notice Covers lines 268-269 in AoriUtils.sol
-    function test_validateSettlementLen_invalidTooShort() public {
-        // Arrange - too short (22 bytes - missing 1 byte from fill count)
-        bytes memory payload = abi.encodePacked(
-            uint8(PayloadType.Settlement),
-            bytes20(TEST_FILLER), // filler address
-            bytes1(0) // only 1 byte of fill count
-        );
-
-        // Act & Assert - payload is 22 bytes, expected 23
-        vm.expectRevert(abi.encodeWithSelector(InvalidPayloadLength.selector, 23, 22));
-        wrapper.validateSettlementLen(payload);
-    }
-
-    /// @dev Tests validation with specific fill count
-    /// @notice Covers lines 278-284 in AoriUtils.sol
-    function test_validateSettlementLen_withFillCount_valid() public view {
-        // Arrange - 2 fills (header + 2 order hashes = 23 + 64 = 87 bytes)
-        uint16 fillCount = 2;
-        bytes memory payload = abi.encodePacked(
-            uint8(PayloadType.Settlement),
-            bytes20(TEST_FILLER), // filler address
-            fillCount, // fill count
-            TEST_ORDER_HASH, // order hash 1
-            TEST_ORDER_HASH // order hash 2
-        );
-
-        // Act & Assert - should not revert
-        wrapper.validateSettlementLen(payload, fillCount);
-    }
-
-    /// @dev Tests validation fails with incorrect fill count length
-    /// @notice Covers lines 278-284 in AoriUtils.sol
-    function test_validateSettlementLen_withFillCount_invalid() public {
-        // Arrange - payload for 2 fills but specify 3 fills
-        uint16 fillCount = 3;
-        bytes memory payload = abi.encodePacked(
-            uint8(PayloadType.Settlement),
-            bytes20(TEST_FILLER), // filler address
-            uint16(2), // actual fill count in payload
-            TEST_ORDER_HASH, // order hash 1
-            TEST_ORDER_HASH // order hash 2
-        );
-
-        // Act & Assert - expected = 23 + 3*32 = 119, actual = 23 + 2*32 = 87
-        vm.expectRevert(abi.encodeWithSelector(InvalidPayloadLength.selector, 119, 87));
-        wrapper.validateSettlementLen(payload, fillCount);
-    }
-
     /**
      *
      */
@@ -335,39 +249,6 @@ contract PayloadPackingUnpackingTest is Test {
 
         // Assert
         assertEq(orderHash, TEST_ORDER_HASH);
-    }
-
-    /// @dev Tests unpacking a valid settlement header
-    /// @notice Covers lines 302-310 in AoriUtils.sol
-    function test_unpackSettlementHeader_valid() public view {
-        // Arrange
-        uint16 fillCount = 5;
-        bytes memory payload = abi.encodePacked(
-            uint8(PayloadType.Settlement),
-            bytes20(TEST_FILLER), // filler address
-            fillCount // fill count
-        );
-
-        // Act
-        (address filler, uint16 unpacked_fillCount) = wrapper.unpackSettlementHeader(payload);
-
-        // Assert
-        assertEq(filler, TEST_FILLER);
-        assertEq(unpacked_fillCount, fillCount);
-    }
-
-    /// @dev Tests unpacking fails with invalid header length
-    /// @notice Covers lines 302-310 in AoriUtils.sol
-    function test_unpackSettlementHeader_invalidLength() public {
-        // Arrange - too short
-        bytes memory payload = abi.encodePacked(
-            uint8(PayloadType.Settlement),
-            bytes19(0) // Only 19 bytes instead of 20 for address
-        );
-
-        // Act & Assert - payload is 20 bytes, expected >= 23
-        vm.expectRevert(abi.encodeWithSelector(InvalidPayloadLength.selector, 23, 20));
-        wrapper.unpackSettlementHeader(payload);
     }
 
     /// @dev Tests unpacking valid order hash at specific index
@@ -490,8 +371,14 @@ contract PayloadPackingUnpackingTest is Test {
         console.log("  Expected:", SETTLEMENT_TYPE);
         console.log("  Actual:", uint8(payload[0]));
 
-        // Extract filler address using unpackSettlementHeader function
-        (address unpackedFiller, uint16 unpackedFillCount) = wrapper.unpackSettlementHeader(payload);
+        // Extract filler address from payload manually
+        address unpackedFiller;
+        uint16 unpackedFillCount;
+        assembly {
+            let word := mload(add(payload, 33))
+            unpackedFiller := shr(96, word)
+        }
+        unpackedFillCount = (uint16(uint8(payload[21])) << 8) | uint16(uint8(payload[22]));
         console.log("UNPACKED HEADER:");
         console.log("  Filler Address:");
         console.logAddress(unpackedFiller);
@@ -568,8 +455,14 @@ contract PayloadPackingUnpackingTest is Test {
         console.log("  Expected Length:", 23 + takeSize * 32);
         console.log("  Actual Length:", payload.length);
 
-        // Extract header using unpackSettlementHeader
-        (address unpackedFiller, uint16 unpackedFillCount) = wrapper.unpackSettlementHeader(payload);
+        // Extract header manually
+        address unpackedFiller;
+        uint16 unpackedFillCount;
+        assembly {
+            let word := mload(add(payload, 33))
+            unpackedFiller := shr(96, word)
+        }
+        unpackedFillCount = (uint16(uint8(payload[21])) << 8) | uint16(uint8(payload[22]));
         console.log("UNPACKED HEADER:");
         console.log("  Filler Address:");
         console.logAddress(unpackedFiller);
@@ -747,8 +640,13 @@ contract PayloadPackingUnpackingTest is Test {
 
         // Act - Unpack
         PayloadType payloadType = wrapper.getType(payload);
-        wrapper.validateSettlementLen(payload);
-        (address unpackedFiller, uint16 unpackedFillCount) = wrapper.unpackSettlementHeader(payload);
+        address unpackedFiller;
+        uint16 unpackedFillCount;
+        assembly {
+            let word := mload(add(payload, 33))
+            unpackedFiller := shr(96, word)
+        }
+        unpackedFillCount = (uint16(uint8(payload[21])) << 8) | uint16(uint8(payload[22]));
 
         // Log the unpacked header details
         console.log("UNPACKED HEADER:");
