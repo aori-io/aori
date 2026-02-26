@@ -120,7 +120,7 @@ contract SingleChainSwapTests is TestUtils {
         uint256 initialOutputTokenRecipient = outputToken.balanceOf(recipient);
 
         // Calculate order ID
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Step 1: Execute deposit - This is the key operation we're testing
         vm.prank(solver);
@@ -182,7 +182,7 @@ contract SingleChainSwapTests is TestUtils {
         uint256 initialOutputTokenRecipient = outputToken.balanceOf(recipient);
 
         // Calculate order ID
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Step 1: Execute deposit with primary solver
         vm.prank(solver);
@@ -245,7 +245,7 @@ contract SingleChainSwapTests is TestUtils {
         inputToken.approve(address(localAori), type(uint256).max);
 
         // Calculate order ID
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Step 1: Execute deposit
         vm.prank(solver);
@@ -301,7 +301,7 @@ contract SingleChainSwapTests is TestUtils {
         uint256 initialOutputTokenRecipient = outputToken.balanceOf(recipient);
 
         // Calculate order ID
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Step 1: Execute deposit
         vm.prank(solver);
@@ -367,7 +367,7 @@ contract SingleChainSwapTests is TestUtils {
         inputToken.approve(address(localAori), type(uint256).max);
 
         // Calculate order ID
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Step 1: Execute deposit
         vm.prank(solver);
@@ -421,7 +421,7 @@ contract SingleChainSwapTests is TestUtils {
         inputToken.approve(address(localAori), type(uint256).max);
 
         // Calculate order ID
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Step 1: Execute deposit
         vm.prank(solver);
@@ -464,7 +464,7 @@ contract SingleChainSwapTests is TestUtils {
         inputToken.approve(address(localAori), type(uint256).max);
 
         // Calculate order ID
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Step 1: Execute deposit
         vm.prank(solver);
@@ -502,7 +502,7 @@ contract SingleChainSwapTests is TestUtils {
         inputToken.approve(address(localAori), type(uint256).max);
 
         // Calculate order ID
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Step 1: Execute deposit
         vm.prank(solver);
@@ -606,7 +606,7 @@ contract SingleChainSwapTests is TestUtils {
         // Record balances before operation
         uint256 initialInputBalance = inputToken.balanceOf(userA);
         uint256 initialRecipientBalance = outputToken.balanceOf(recipient);
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Execute deposit with hook
         vm.prank(solver);
@@ -808,8 +808,8 @@ contract SingleChainSwapTests is TestUtils {
         assertEq(outputToken.balanceOf(recipient), OUTPUT_AMOUNT * 2, "Recipient should receive the same amount from both paths");
 
         // Verify all orders have the same final status
-        bytes32 id1 = localAori.hash(order1);
-        bytes32 id2 = localAori.hash(order2);
+        bytes32 id1 = keccak256(abi.encode(order1));
+        bytes32 id2 = keccak256(abi.encode(order2));
 
         assertEq(uint8(localAori.orderStatus(id1)), uint8(OrderStatus.Settled), "Order 1 should be settled");
         assertEq(uint8(localAori.orderStatus(id2)), uint8(OrderStatus.Settled), "Order 2 should be settled");

@@ -140,9 +140,10 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
             dstEid: localEid, // same chain
             options: Options({
                 feeMbps: 0,
+                slippageMbps: 0,
                 feeRecipient: address(0),
-                solver: solverSC, // Solver gets surplus
-                slippageMbps: 0
+                srcSolver: solverSC, // Solver gets surplus
+                dstSolver: address(0)
             })
         });
     }
@@ -199,7 +200,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
         );
 
         // Verify order status is Settled
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Settled, "Order should be Settled");
     }
 
     /**
@@ -263,7 +264,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
     function testSingleChainNativeHookOrderStatus() public {
         _executeDepositNativeWithHook();
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Settled, "Single-chain swap should be immediately Settled");
     }
 
@@ -355,7 +356,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
      */
     /**
      * @notice Test that surplus goes to specified solver in order.options
-     * @dev Solver validation is now done via order.options.solver, not srcHook.solver
+     * @dev Solver validation is now done via order.options.srcSolver, not srcHook.solver
      */
     function testSurplusGoesToSpecifiedSolver() public {
         vm.chainId(localEid);
@@ -376,9 +377,10 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
             dstEid: localEid,
             options: Options({
                 feeMbps: 0,
+                slippageMbps: 0,
                 feeRecipient: address(0),
-                solver: specifiedSolver, // Surplus should go here
-                slippageMbps: 0
+                srcSolver: specifiedSolver, // Surplus should go here
+                dstSolver: address(0)
             })
         });
 
@@ -460,7 +462,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
         assertEq(address(mockHook2).balance, initialHookNative + INPUT_AMOUNT, "Hook received 1 ETH");
         assertEq(outputToken.balanceOf(address(mockHook2)), initialHookTokens - HOOK_OUTPUT, "Hook sent 1100 tokens");
 
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order is Settled");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Settled, "Order is Settled");
 
         console.log("All assertions passed!");
     }

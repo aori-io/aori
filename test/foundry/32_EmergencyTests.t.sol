@@ -95,7 +95,7 @@ contract EmergencyTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         uint256 userBalanceBefore = inputToken.balanceOf(userA);
 
         // Execute emergency cancel
@@ -120,7 +120,7 @@ contract EmergencyTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         uint256 recipientBalanceBefore = inputToken.balanceOf(customRecipient);
 
         // Emergency cancel to custom recipient
@@ -146,7 +146,7 @@ contract EmergencyTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Should work on source chain (order.srcEid == localEid)
         localAori.emergencyCancel(orderId, userA);
@@ -170,7 +170,7 @@ contract EmergencyTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Non-owner should fail
         vm.prank(nonOwner);
@@ -195,7 +195,7 @@ contract EmergencyTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Invalid recipient (address(0))
         vm.expectRevert(InvalidRecipient.selector);
@@ -215,7 +215,7 @@ contract EmergencyTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Drain contract balance
         uint256 contractBalance = inputToken.balanceOf(payable(address(localAori)));
@@ -244,7 +244,7 @@ contract EmergencyTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Cancel once
         localAori.emergencyCancel(orderId, userA);
@@ -543,7 +543,7 @@ contract EmergencyTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Step 1: Emergency withdraw tokens
         localAori.emergencyWithdrawFromBalance(
@@ -577,7 +577,7 @@ contract EmergencyTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Emergency cancel
         localAori.emergencyCancel(orderId, userA);
@@ -594,7 +594,7 @@ contract EmergencyTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(newOrder, newSig);
 
-        bytes32 newOrderId = localAori.hash(newOrder);
+        bytes32 newOrderId = keccak256(abi.encode(newOrder));
         assertEq(uint8(localAori.orderStatus(newOrderId)), uint8(OrderStatus.Active), "New order should be active");
 
         // 2. Can perform swaps
@@ -613,7 +613,7 @@ contract EmergencyTests is TestUtils {
         vm.prank(solver);
         localAori.fill(swapOrder);
 
-        bytes32 swapOrderId = localAori.hash(swapOrder);
+        bytes32 swapOrderId = keccak256(abi.encode(swapOrder));
         assertEq(uint8(localAori.orderStatus(swapOrderId)), uint8(OrderStatus.Settled), "Swap should be settled");
 
         // 3. Can withdraw unlocked balances

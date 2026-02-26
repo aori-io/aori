@@ -330,7 +330,7 @@ contract UpgradeTests is TestHelperOz5 {
             endTime: uint32(block.timestamp + 1 days),
             srcEid: LOCAL_EID,
             dstEid: REMOTE_EID,
-            options: Options({ feeMbps: 0, feeRecipient: address(0), solver: address(0), slippageMbps: 0 })
+            options: Options({ feeMbps: 0, slippageMbps: 0, feeRecipient: address(0), srcSolver: address(0), dstSolver: address(0) })
         });
 
         // Deposit native tokens as userA
@@ -360,7 +360,7 @@ contract UpgradeTests is TestHelperOz5 {
             endTime: uint32(block.timestamp + 1 days),
             srcEid: LOCAL_EID,
             dstEid: LOCAL_EID, // Same chain for simplicity
-            options: Options({ feeMbps: 0, feeRecipient: address(0), solver: address(0), slippageMbps: 0 })
+            options: Options({ feeMbps: 0, slippageMbps: 0, feeRecipient: address(0), srcSolver: address(0), dstSolver: address(0) })
         });
 
         vm.deal(userA, 10e18);
@@ -377,7 +377,7 @@ contract UpgradeTests is TestHelperOz5 {
         vm.warp(order.endTime + 1);
 
         // Cancel the order - this directly transfers tokens back to offerer
-        bytes32 orderId = aori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         vm.prank(userA);
         aori.cancel(orderId);
 
@@ -407,11 +407,11 @@ contract UpgradeTests is TestHelperOz5 {
             endTime: uint32(block.timestamp + 1 days),
             srcEid: LOCAL_EID,
             dstEid: REMOTE_EID,
-            options: Options({ feeMbps: 0, feeRecipient: address(0), solver: address(0), slippageMbps: 0 })
+            options: Options({ feeMbps: 0, slippageMbps: 0, feeRecipient: address(0), srcSolver: address(0), dstSolver: address(0) })
         });
 
         // Hash should work through proxy
-        bytes32 orderHash = aori.hash(order);
+        bytes32 orderHash = keccak256(abi.encode(order));
         assertTrue(orderHash != bytes32(0), "Order hash should not be zero");
     }
 

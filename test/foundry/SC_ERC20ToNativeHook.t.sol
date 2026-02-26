@@ -184,7 +184,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         );
 
         // Verify order status is Settled (atomic settlement for single-chain with hook)
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Settled, "Order should be Settled");
     }
 
     /**
@@ -266,7 +266,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         console.log("");
 
         // Verify final state
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Settled, "Order should be Settled");
 
         // Verify no locked balances remain (atomic settlement)
         assertEq(localLens.getLockedBalances(userSC, address(inputToken)), 0, "User should have no locked balance after atomic settlement");
@@ -286,7 +286,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         assertEq(localLens.getLockedBalances(userSC, address(inputToken)), 0);
 
         // Order should be immediately settled
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Settled, "Order should be Settled");
     }
 
     /**
@@ -327,7 +327,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         );
 
         bytes memory signature = signOrder(order, userSCPrivKey);
-        bytes32 expectedOrderId = localAori.hash(order);
+        bytes32 expectedOrderId = keccak256(abi.encode(order));
 
         SrcHook memory srcHook = SrcHook({
             hookAddress: address(mockHook2),
@@ -456,7 +456,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         _createAndExecuteDepositWithHook();
 
         // Verify order was settled atomically (not just filled)
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Single-chain swap should be immediately settled");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Settled, "Single-chain swap should be immediately settled");
 
         // Verify no locked balances remain (atomic settlement)
         // For single-chain swaps with deposit hooks, no balance accounting is used
@@ -475,7 +475,7 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         // Execute first swap
         _createAndExecuteDepositWithHook();
         assertTrue(
-            localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "First single-chain swap should be immediately settled"
+            localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Settled, "First single-chain swap should be immediately settled"
         );
 
         // Setup and execute second swap with different amounts
@@ -514,8 +514,8 @@ contract SC_ERC20ToNativeHook_Test is TestUtils {
         localAori.deposit(order2, signature2, srcHook2);
 
         // Verify both orders were settled immediately
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "First order should be settled");
-        assertTrue(localAori.orderStatus(localAori.hash(order2)) == OrderStatus.Settled, "Second order should be settled");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Settled, "First order should be settled");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order2))) == OrderStatus.Settled, "Second order should be settled");
 
         // Verify no locked balances remain for either order
         assertEq(localLens.getLockedBalances(userSC, address(inputToken)), 0, "User should have no locked balance after both swaps");

@@ -36,7 +36,7 @@ contract AoriLensTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(testOrder, signature, defaultSrcSolverData(testOrder.inputAmount));
 
-        testOrderHash = localAori.hash(testOrder);
+        testOrderHash = keccak256(abi.encode(testOrder));
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -91,7 +91,7 @@ contract AoriLensTests is TestUtils {
             endTime: uint32(block.timestamp + 1 hours),
             srcEid: localEid,
             dstEid: remoteEid,
-            options: Options({ feeMbps: 500, feeRecipient: feeRecipient, solver: optionsSolver, slippageMbps: 100 })
+            options: Options({ feeMbps: 500, slippageMbps: 100, feeRecipient: feeRecipient, srcSolver: optionsSolver, dstSolver: address(0) })
         });
 
         bytes memory signature = signOrder(order);
@@ -100,7 +100,7 @@ contract AoriLensTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        bytes32 orderHash = localAori.hash(order);
+        bytes32 orderHash = keccak256(abi.encode(order));
         Order memory r = localLens.orders(orderHash);
 
         assertEq(r.inputAmount, order.inputAmount, "inputAmount");
@@ -115,7 +115,8 @@ contract AoriLensTests is TestUtils {
         assertEq(r.recipient, order.recipient, "recipient");
         assertEq(r.options.feeMbps, order.options.feeMbps, "feeMbps");
         assertEq(r.options.feeRecipient, order.options.feeRecipient, "feeRecipient");
-        assertEq(r.options.solver, order.options.solver, "solver");
+        assertEq(r.options.srcSolver, order.options.srcSolver, "srcSolver");
+        assertEq(r.options.dstSolver, order.options.dstSolver, "dstSolver");
         assertEq(r.options.slippageMbps, order.options.slippageMbps, "slippageMbps");
     }
 
@@ -162,7 +163,7 @@ contract AoriLensTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order2, sig2);
 
-        bytes32 orderHash2 = localAori.hash(order2);
+        bytes32 orderHash2 = keccak256(abi.encode(order2));
 
         // Both orders should be readable
         Order memory retrieved1 = localLens.orders(testOrderHash);
@@ -245,7 +246,7 @@ contract AoriLensTests is TestUtils {
         }
         payload[21] = 0x00;
         payload[22] = 0x01; // 1 fill
-        bytes32 orderHash = localAori.hash(testOrder);
+        bytes32 orderHash = keccak256(abi.encode(testOrder));
         for (uint256 i = 0; i < 32; i++) {
             payload[23 + i] = orderHash[i];
         }
@@ -317,7 +318,7 @@ contract AoriLensTests is TestUtils {
 
         // Check the fill was recorded
         bytes32 fillHash = remoteLens.srcEidToFillerFills(localEid, solver, 0);
-        bytes32 expectedHash = remoteAori.hash(testOrder);
+        bytes32 expectedHash = keccak256(abi.encode(testOrder));
         assertEq(fillHash, expectedHash, "Fill hash should match order hash");
     }
 
@@ -556,7 +557,7 @@ contract AoriLensTests is TestUtils {
             endTime: uint32(block.timestamp + 1 hours),
             srcEid: localEid,
             dstEid: remoteEid,
-            options: Options({ feeMbps: 0, feeRecipient: address(0), solver: address(0), slippageMbps: 0 })
+            options: Options({ feeMbps: 0, slippageMbps: 0, feeRecipient: address(0), srcSolver: address(0), dstSolver: address(0) })
         });
 
         vm.prank(userA);
@@ -658,7 +659,7 @@ contract AoriLensTests is TestUtils {
 
         assertEq(result.length, 1, "Should return 1 array");
         assertEq(result[0].length, 1, "Should have 1 fill");
-        assertEq(result[0][0], remoteAori.hash(testOrder), "Should match order hash");
+        assertEq(result[0][0], keccak256(abi.encode(testOrder)), "Should match order hash");
     }
 
     /**
@@ -693,8 +694,8 @@ contract AoriLensTests is TestUtils {
 
         assertEq(result.length, 1, "Should return 1 array");
         assertEq(result[0].length, 2, "Should have 2 fills");
-        assertEq(result[0][0], remoteAori.hash(testOrder), "First fill should match");
-        assertEq(result[0][1], remoteAori.hash(order2), "Second fill should match");
+        assertEq(result[0][0], keccak256(abi.encode(testOrder)), "First fill should match");
+        assertEq(result[0][1], keccak256(abi.encode(order2)), "Second fill should match");
     }
 
     /**
@@ -723,7 +724,7 @@ contract AoriLensTests is TestUtils {
         assertEq(result[0].length, 1, "First srcEid should have 1 fill");
         assertEq(result[1].length, 0, "Second srcEid should have no fills");
         assertEq(result[2].length, 0, "Third srcEid should have no fills");
-        assertEq(result[0][0], remoteAori.hash(testOrder), "Should match order hash");
+        assertEq(result[0][0], keccak256(abi.encode(testOrder)), "Should match order hash");
     }
 
     /**
@@ -845,7 +846,7 @@ contract AoriLensTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order2, sig2, defaultSrcSolverData(order2.inputAmount));
 
-        bytes32 orderHash2 = localAori.hash(order2);
+        bytes32 orderHash2 = keccak256(abi.encode(order2));
 
         bytes32[] memory orderHashes = new bytes32[](2);
         orderHashes[0] = testOrderHash;
@@ -889,7 +890,7 @@ contract AoriLensTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order2, sig2);
 
-        bytes32 orderHash2 = localAori.hash(order2);
+        bytes32 orderHash2 = keccak256(abi.encode(order2));
 
         bytes32[] memory orderHashes = new bytes32[](2);
         orderHashes[0] = testOrderHash;
@@ -974,7 +975,7 @@ contract AoriLensTests is TestUtils {
             vm.prank(solver);
             localAori.deposit(order, sig, defaultSrcSolverData(order.inputAmount));
 
-            orderHashes[i] = localAori.hash(order);
+            orderHashes[i] = keccak256(abi.encode(order));
             expectedTotal += order.inputAmount;
         }
 
