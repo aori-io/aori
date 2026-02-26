@@ -83,7 +83,7 @@ contract NativeTokenTests is TestUtils {
         assertEq(localLens.getLockedBalances(user, NATIVE_TOKEN), initialLocked + INPUT_AMOUNT, "Locked balance should increase");
 
         // Verify order status
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
     }
 
@@ -110,7 +110,7 @@ contract NativeTokenTests is TestUtils {
         localAori.depositNative{ value: INPUT_AMOUNT }(order);
 
         // Verify order status
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
     }
 
@@ -136,7 +136,7 @@ contract NativeTokenTests is TestUtils {
         vm.prank(user);
         localAori.depositNative{ value: INPUT_AMOUNT }(order);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
     }
 
@@ -322,7 +322,7 @@ contract NativeTokenTests is TestUtils {
         vm.prank(user);
         localAori.depositNative{ value: INPUT_AMOUNT }(order);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
     }
 
@@ -619,7 +619,7 @@ contract NativeTokenTests is TestUtils {
         vm.prank(user);
         localAori.depositNative{ value: maxAmount }(order);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
     }
 
@@ -645,7 +645,7 @@ contract NativeTokenTests is TestUtils {
         vm.prank(user);
         localAori.depositNative{ value: minAmount }(order);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
     }
 
@@ -673,7 +673,7 @@ contract NativeTokenTests is TestUtils {
         vm.prank(user);
         localAori.depositNative{ value: INPUT_AMOUNT }(order);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
     }
 
@@ -704,7 +704,7 @@ contract NativeTokenTests is TestUtils {
             vm.prank(user);
             localAori.depositNative{ value: INPUT_AMOUNT }(order);
 
-            bytes32 orderId = localAori.hash(order);
+            bytes32 orderId = keccak256(abi.encode(order));
             assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
         }
 
@@ -730,7 +730,7 @@ contract NativeTokenTests is TestUtils {
         );
 
         bytes memory signature = signOrder(order, userPrivKey);
-        bytes32 expectedOrderId = localAori.hash(order);
+        bytes32 expectedOrderId = keccak256(abi.encode(order));
 
         vm.expectEmit(true, false, false, true);
         emit IAori.Deposit(expectedOrderId, order, address(0), 0);

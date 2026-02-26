@@ -109,7 +109,7 @@ contract CancellationTests is TestUtils {
         // Create order with different srcEid
         Order memory order = createSingleChainOrder();
         order.srcEid = remoteEid; // Different from current chain
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         vm.prank(solver);
         vm.expectRevert(NotOnSourceChain.selector);
@@ -132,7 +132,7 @@ contract CancellationTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Cancel it first to make it inactive
         vm.prank(solver);
@@ -159,7 +159,7 @@ contract CancellationTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         vm.prank(solver);
         vm.expectRevert(CrossChainOrdersMustBeCancelledFromDestinationChain.selector);
@@ -181,7 +181,7 @@ contract CancellationTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Random user tries to cancel before expiry
         address randomUser = makeAddr("random");
@@ -205,7 +205,7 @@ contract CancellationTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Advance time past expiry
         vm.warp(order.endTime + 1);
@@ -233,7 +233,7 @@ contract CancellationTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Solver can cancel before expiry
         vm.prank(solver);
@@ -258,7 +258,7 @@ contract CancellationTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Drain contract balance
         uint256 contractBalance = inputToken.balanceOf(payable(address(localAori)));
@@ -284,7 +284,7 @@ contract CancellationTests is TestUtils {
 
         // Create order and modify it to create hash mismatch
         Order memory order = createCrossChainOrder();
-        bytes32 orderId = remoteAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Modify order to create mismatch
         order.inputAmount = uint128(2e18);
@@ -305,7 +305,7 @@ contract CancellationTests is TestUtils {
         // Create cross-chain order but try to cancel from wrong chain
         Order memory order = createCrossChainOrder();
         order.dstEid = localEid; // This would cause LayerZero NoPeer error
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
 
         vm.prank(solver);
@@ -321,7 +321,7 @@ contract CancellationTests is TestUtils {
 
         // Create order and set it to Cancelled status on destination chain
         Order memory order = createCrossChainOrder();
-        bytes32 orderId = remoteAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
 
         // First cancel the order to set it to Cancelled status
@@ -345,7 +345,7 @@ contract CancellationTests is TestUtils {
         vm.chainId(remoteEid);
 
         Order memory order = createCrossChainOrder();
-        bytes32 orderId = remoteAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
 
         address randomUser = makeAddr("random");
@@ -361,7 +361,7 @@ contract CancellationTests is TestUtils {
         vm.chainId(remoteEid);
 
         Order memory order = createCrossChainOrder();
-        bytes32 orderId = remoteAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
 
         // Advance time past expiry
@@ -386,7 +386,7 @@ contract CancellationTests is TestUtils {
         Order memory order = createCrossChainOrder();
         address recipient = makeAddr("recipient");
         order.recipient = recipient;
-        bytes32 orderId = remoteAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
 
         // Advance time past expiry
@@ -409,7 +409,7 @@ contract CancellationTests is TestUtils {
         vm.chainId(remoteEid);
 
         Order memory order = createCrossChainOrder();
-        bytes32 orderId = remoteAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
 
         uint256 cancelFee = remoteAori.quote(localEid, 1, options, false, localEid, solver).nativeFee;
@@ -482,7 +482,7 @@ contract CancellationTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        bytes32 orderHash = localAori.hash(order);
+        bytes32 orderHash = keccak256(abi.encode(order));
 
         // PHASE 2: Cancel from destination chain
         vm.chainId(remoteEid);
@@ -533,7 +533,7 @@ contract CancellationTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Pause contract
         vm.prank(address(this));
@@ -555,7 +555,7 @@ contract CancellationTests is TestUtils {
         remoteAori.pause();
 
         Order memory order = createCrossChainOrder();
-        bytes32 orderId = remoteAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
 
         vm.prank(solver);
@@ -577,7 +577,7 @@ contract CancellationTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Test exactly at expiry time (should fail)
         vm.warp(order.endTime);
@@ -601,7 +601,7 @@ contract CancellationTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Test one second after expiry (should succeed)
         vm.warp(order.endTime + 1);

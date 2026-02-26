@@ -59,7 +59,7 @@ contract CrossChainCancelAndSettleTest is TestUtils {
         vm.chainId(remoteEid);
 
         // Set up the order on the destination chain
-        bytes32 orderHash = remoteAori.hash(order);
+        bytes32 orderHash = keccak256(abi.encode(order));
         remoteLens.orders(orderHash); // This will create the order in storage
 
         // Calculate LZ message fee
@@ -107,7 +107,7 @@ contract CrossChainCancelAndSettleTest is TestUtils {
         vm.chainId(remoteEid);
 
         // Set up the order on the destination chain
-        bytes32 orderHash = remoteAori.hash(order);
+        bytes32 orderHash = keccak256(abi.encode(order));
         remoteLens.orders(orderHash); // This will create the order in storage
 
         // Warp past endTime

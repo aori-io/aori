@@ -25,7 +25,7 @@ contract OrderIdConsistencyTest is TestUtils {
         order = createValidOrder();
 
         // Calculate the expected orderId using the hash function
-        bytes32 expectedOrderId = localAori.hash(order);
+        bytes32 expectedOrderId = keccak256(abi.encode(order));
 
         // Generate signature and approve tokens
         bytes memory signature = signOrder(order);

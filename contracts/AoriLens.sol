@@ -115,6 +115,11 @@ contract AoriLens {
     }
 
     /**
+     * @notice Computes the hash of an order
+     */
+    function hash(Order calldata order) external pure returns (bytes32) { return keccak256(abi.encode(order)); }
+
+    /**
      * @notice Get locked balance for a user and token
      */
     function getLockedBalances(address user, address token) external view returns (uint256) {

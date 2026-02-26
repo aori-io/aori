@@ -704,13 +704,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
         return _hashTypedDataSansChainId(Permit2Lib.hashOrder(order));
     }
 
-    /**
-     * @notice Computes the hash of an order
-     * @param order The order to hash
-     * @return The computed hash
-     */
-    function hash(Order calldata order) public pure returns (bytes32) { return keccak256(abi.encode(order)); }
-
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                     UUPS UPGRADEABILITY                     */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/

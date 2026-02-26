@@ -135,7 +135,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         settlementPayload[22] = bytes1(uint8(uint16(fillCount)));
 
         // Order hash
-        bytes32 orderHash = localAori.hash(order);
+        bytes32 orderHash = keccak256(abi.encode(order));
         for (uint256 i = 0; i < 32; i++) {
             settlementPayload[23 + i] = orderHash[i];
         }
@@ -182,7 +182,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         vm.warp(order.endTime + 1);
 
         // Whitelisted solver cancels the order
-        bytes32 orderHash = localAori.hash(order);
+        bytes32 orderHash = keccak256(abi.encode(order));
         vm.prank(solver);
         localAori.cancel(orderHash);
 
@@ -224,7 +224,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         vm.warp(order.endTime + 1);
 
         // Non-whitelisted solver tries to cancel - should fail
-        bytes32 orderHash = localAori.hash(order);
+        bytes32 orderHash = keccak256(abi.encode(order));
 
         // Place expectRevert directly before the call that should revert
         vm.prank(nonWhitelistedSolver);
@@ -285,7 +285,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         // Try to cancel after fill - should revert
         vm.deal(userA, fee);
         vm.prank(userA);
-        bytes32 orderHash = localAori.hash(order);
+        bytes32 orderHash = keccak256(abi.encode(order));
         // Add a check to verify the order state is actually Filled
         assertEq(uint8(remoteAori.orderStatus(orderHash)), uint8(OrderStatus.Filled), "Order should be in filled state");
         vm.expectRevert(abi.encodeWithSelector(OrderAlreadyProcessed.selector, OrderStatus.Filled));
@@ -323,7 +323,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
 
         vm.deal(userA, cancelFee);
         vm.startPrank(userA);
-        bytes32 orderHash = localAori.hash(order);
+        bytes32 orderHash = keccak256(abi.encode(order));
         remoteAori.cancel{ value: cancelFee }(orderHash, order, options);
         vm.stopPrank();
 
