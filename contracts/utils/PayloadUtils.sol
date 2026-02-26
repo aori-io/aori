@@ -142,8 +142,6 @@ library PayloadUtils {
 
     /**
      * @notice Validates and unpacks a settlement payload in a single operation
-     * @dev Consolidates validateSettlementLen() + unpackSettlementHeader() + validateSettlementLen(fillCount)
-     *      More gas efficient at runtime by avoiding multiple function calls
      * @param payload The settlement payload to validate and unpack
      * @return filler The filler address
      * @return fillCount The number of fills in the payload
