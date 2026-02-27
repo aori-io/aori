@@ -8,6 +8,36 @@ Aori is designed to securely facilitate omnichain trading, with low latency exec
 
 Solvers can expose a simple API to ingest and process orderflow directly to their trading system. The Aori Protocol's smart contracts ensure that the user's intents are satisfied by the Solver on the destination chain according to the parameters of a user signed intent submitted on the source chain.
 
+## 📚 Documentation
+
+For detailed documentation on the Rust CLI, Solana integration, and migration guides, see the [docs/](./docs/) directory.
+
+**Quick Links:**
+- [Rust CLI Implementation Guide](./docs/IMPLEMENTATION_COMPLETE.md)
+- [CLI Cheat Sheet](./cli/CHEAT_SHEET.md)
+- [TypeScript Migration Guide](./docs/MIGRATION_CHECKLIST.md)
+
+## 🛠️ Development Tools
+
+### **Rust CLI for Cross-Chain Operations**
+
+Aori includes a native Rust CLI for Solana and EVM cross-chain operations:
+
+```bash
+cd cli
+
+# Initialize Solana OApp
+cargo run -- init --program-id <YOUR_PROGRAM_ID> --network testnet
+
+# Send cross-chain message
+cargo run -- send --from solana --to arbitrum --message "Hello!" --network testnet
+
+# Debug state
+cargo run -- debug --chain solana --network testnet
+```
+
+See [cli/README.md](./cli/README.md) for full CLI documentation.
+
 ## Core Contract Components
 
 ### Order

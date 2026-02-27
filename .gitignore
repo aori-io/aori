@@ -32,3 +32,15 @@ pnpm-error.log
 .idea
 .vscode
 _docs
+
+# Anchor/Solana specific
+target/
+test-ledger/
+.anchor
+**/*.rs.bk
+**/*.swp
+**/*.swo
+**/yarn.lock
+
+# Generated TypeScript bindings from Anchor
+lib/client/generated/
