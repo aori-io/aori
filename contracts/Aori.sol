@@ -343,7 +343,13 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
     /**
      * @notice Deposits native tokens to the contract with a hook call for token conversion
      * @dev Handles both single-chain atomic swaps and cross-chain deposits with hook.
-     *      User calls this directly and sends their own ETH via msg.value.
+     *      User calls this directly and sends their own ETH via msg.value.      
+     *
+     *      NOTE: Unlike deposit(order, signature, hook) which is onlySolver, this function is                                                 
+     *      called by the offerer. The offerer provides the SrcHook struct, including preferredToken.                                          
+     *      The hookAddress is validated against the whitelist, but preferredToken is not restricted.                                          
+     *      Solvers should verify the source-side preferredToken before filling on the destination chain. 
+     * 
      * @param order The order details (must specify NATIVE_TOKEN as inputToken)
      * @param hook The pre-hook configuration for token conversion
      */
