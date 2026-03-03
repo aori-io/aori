@@ -15,6 +15,7 @@ const AORI_ADDRESSES: Record<string, string> = {
     monad: '0x17c770e756dda78e5f93f8f34c87fba158dc3755', // DEV
     megaeth: '0x0de615Aa773F12e9072062BD891D330976022667', // DEV
     rootstock: '0xd95464D11D447eAB68Df8Cff4b0A7751C0EfDeB4', // DEV
+    tron: '0x37e86efe08a412a16f3c3245368f4bd128484a14', // DEV
     // ethereum: '0x0736bdc975af0675b9a045384efed91360d25479', // PROD
     // base: '0xc6868edf1d2a7a8b759856cb8afa333210dfeda6', // PROD
     // 'arbitrum-one': '0xc6868edf1d2a7a8b759856cb8afa333210dfeda6', // PROD
