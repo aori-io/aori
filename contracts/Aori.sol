@@ -20,6 +20,7 @@ import { AoriAdminLib } from "./lib/AoriAdminLib.sol";
 import { EIP712 } from "solady/src/utils/EIP712.sol";
 import { TokenUtils } from "./utils/TokenUtils.sol";
 import { Permit2Lib } from "./utils/Permit2Lib.sol";
+import { SolverQuoteLib } from "./utils/SolverQuoteLib.sol";
 import { ECDSA } from "solady/src/utils/ECDSA.sol";
 import { HookUtils } from "./utils/HookUtils.sol";
 import { IAori } from "./interfaces/IAori.sol";
@@ -119,7 +120,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
         __Ownable_init(_owner);
         __OApp_init(_owner);
         __Pausable_init();
-        __UUPSUpgradeable_init();
 
         AoriStorageData storage $ = _getAoriStorage();
         $.maxFillsPerSettle = _maxFillsPerSettle;
@@ -329,43 +329,48 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     /**
-     * @notice Deposits native tokens to the contract without a hook call
+     * @notice Deposits native tokens with optional hook for token conversion
      * @dev User calls this directly and sends their own ETH via msg.value.
+     *      Requires solver quote signature to prevent manipulation and spam.
+     *      For deposits without hook, pass empty SrcHook with all fields zeroed.
      * @param order The order details (must specify NATIVE_TOKEN as inputToken)
+     * @param srcHook The source hook configuration (hookAddress = address(0) if no hook needed)
+     * @param quoteSignature Solver's EIP-712 signature over SolverQuote(orderId, srcHook)
      */
-    function depositNative(Order calldata order) external payable nonReentrant whenNotPaused {
-        order.validateNativeDeposit(msg.value, msg.sender);
-
-        bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
-        _postDeposit(order.inputToken, order.inputAmount, order, orderId, address(0), 0);
-    }
-
-    /**
-     * @notice Deposits native tokens to the contract with a hook call for token conversion
-     * @dev Handles both single-chain atomic swaps and cross-chain deposits with hook.
-     *      User calls this directly and sends their own ETH via msg.value.
-     * @param order The order details (must specify NATIVE_TOKEN as inputToken)
-     * @param hook The pre-hook configuration for token conversion
-     */
-    function depositNative(Order calldata order, SrcHook calldata hook) external payable nonReentrant whenNotPaused {
+    function depositNative(
+        Order calldata order,
+        SrcHook calldata srcHook,
+        bytes calldata quoteSignature
+    ) external payable nonReentrant whenNotPaused {
         order.validateNativeDeposit(msg.value, msg.sender);
         bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
-        ValidationUtils.validateHook(hook.hookAddress, this.isAllowedHook);
 
-        // Send native tokens to hook
-        (bool success,) = payable(hook.hookAddress).call{ value: order.inputAmount }("");
-        if (!success) revert NativeTransferFailed();
+        // Validate solver quote signature (prevents manipulation + spam)
+        SolverQuoteLib.validateSolverQuote(orderId, order, srcHook, quoteSignature, _hashTypedDataSansChainId, this.isAllowedSolver);
 
-        if (order.isSingleChainSwap()) {
-            // Atomic path: execute swap with slippage + fee logic
-            address solver = order.options.solver == address(0) ? msg.sender : order.options.solver;
-            AoriAtomicSwapLib.executeSwap(orderId, order, hook, solver);
+        bool hasHook = srcHook.hookAddress != address(0);
+
+        if (hasHook) {
+            ValidationUtils.validateHook(srcHook.hookAddress, this.isAllowedHook);
+
+            // Send native tokens to hook
+            (bool success,) = payable(srcHook.hookAddress).call{ value: order.inputAmount }("");
+            if (!success) revert NativeTransferFailed();
+
+            if (order.isSingleChainSwap()) {
+                // Atomic path: execute swap with slippage + fee logic
+                address solver = order.options.solver == address(0) ? msg.sender : order.options.solver;
+                AoriAtomicSwapLib.executeSwap(orderId, order, srcHook, solver);
+            } else {
+                // Non-atomic path: convert to preferredToken, lock for settlement
+                uint256 amountReceived =
+                    HookUtils.executeHook(srcHook.hookAddress, srcHook.instructions, srcHook.preferredToken, srcHook.minPreferredTokenAmountOut);
+
+                _postDeposit(srcHook.preferredToken, amountReceived, order, orderId, srcHook.preferredToken, amountReceived);
+            }
         } else {
-            // Non-atomic path: convert to preferredToken, lock for settlement
-            uint256 amountReceived =
-                HookUtils.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut);
-
-            _postDeposit(hook.preferredToken, amountReceived, order, orderId, hook.preferredToken, amountReceived);
+            // No hook - direct native deposit
+            _postDeposit(order.inputToken, order.inputAmount, order, orderId, address(0), 0);
         }
     }
 
