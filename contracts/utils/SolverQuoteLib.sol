@@ -99,7 +99,6 @@ library SolverQuoteLib {
 
         // Recover signer from signature
         address signer = ECDSA.recoverCalldata(digest, signature);
-        if (signer == address(0)) revert InvalidSolverQuoteSignature();
 
         // If order specifies a solver, signer must match that solver
         if (order.options.solver != address(0)) {
