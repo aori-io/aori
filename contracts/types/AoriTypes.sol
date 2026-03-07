@@ -71,3 +71,4 @@ struct Balance {
     uint128 locked;    // Tokens locked in active orders
     uint128 unlocked;  // Tokens available for withdrawal
 }
+    

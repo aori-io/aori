@@ -7,12 +7,12 @@ import { Order, SrcHook } from "../types/AoriTypes.sol";
 import "../types/AoriErrors.sol";
 
 /**
- * @title SolverQuoteLib
+ * @title QuoteSigLib
  * @notice Library for validating solver quote signatures for native deposits
  * @dev Implements EIP-712 signature validation to prevent users from manipulating
  *      order options and srcHook parameters in atomic native swaps.
  */
-library SolverQuoteLib {
+library QuoteSigLib {
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    EIP-712 TYPEHASHES                      */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
@@ -81,14 +81,14 @@ library SolverQuoteLib {
      * @param hashTypedData Function pointer to compute EIP-712 digest
      * @param isAllowedSolver Function pointer to check if address is whitelisted solver
      */
-    function validateSolverQuote(
+    function validateQuoteSignature(
         bytes32 orderId,
         Order calldata order,
         SrcHook calldata hook,
         bytes calldata signature,
         function(bytes32) internal view returns (bytes32) hashTypedData,
         function(address) external view returns (bool) isAllowedSolver
-    ) internal view {
+    ) internal view returns (address signer) {
         // Hash the solver quote (orderId + srcHook)
         // NOTE: The orderId passed here is from the submitted order, and is included in the hash.
         // This binds the signature to both the specific order AND the srcHook.
@@ -98,7 +98,7 @@ library SolverQuoteLib {
         bytes32 digest = hashTypedData(quoteHash);
 
         // Recover signer from signature
-        address signer = ECDSA.recoverCalldata(digest, signature);
+        signer = ECDSA.recoverCalldata(digest, signature);
 
         // If order specifies a solver, signer must match that solver
         if (order.options.solver != address(0)) {
