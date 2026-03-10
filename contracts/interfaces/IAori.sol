@@ -227,9 +227,11 @@ interface IAori {
 
     function deposit(Order calldata order, bytes calldata signature, SrcHook calldata data) external;
 
-    function depositNative(Order calldata order) external payable;
-
-    function depositNative(Order calldata order, SrcHook calldata hook) external payable;
+    function depositNative(
+        Order calldata order,
+        SrcHook calldata srcHook,
+        bytes calldata quoteSignature
+    ) external payable;
 
     function depositWithPermit2(
         Order calldata order,
