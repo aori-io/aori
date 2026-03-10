@@ -77,7 +77,7 @@ contract NativeTokenTests is TestUtils {
         assertEq(address(localAori).balance, initialContractBalance + INPUT_AMOUNT, "Contract should receive ETH");
         assertEq(localLens.getLockedBalances(user, NATIVE_TOKEN), initialLocked + INPUT_AMOUNT, "Locked balance should increase");
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = localLens.hash(order);
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
     }
 
@@ -97,7 +97,7 @@ contract NativeTokenTests is TestUtils {
         vm.prank(user);
         localAori.depositNative{ value: INPUT_AMOUNT }(order, noHook, quoteSig);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = localLens.hash(order);
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
     }
 
@@ -511,7 +511,7 @@ contract NativeTokenTests is TestUtils {
 
         SrcHook memory noHook = emptySrcHook();
         bytes memory quoteSig = signQuote(order, noHook);
-        bytes32 expectedOrderId = localAori.hash(order);
+        bytes32 expectedOrderId = localLens.hash(order);
 
         vm.expectEmit(true, false, false, true);
         emit IAori.Deposit(expectedOrderId, order, address(0), 0);

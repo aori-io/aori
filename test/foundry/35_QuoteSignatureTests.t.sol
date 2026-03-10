@@ -53,7 +53,7 @@ contract QuoteSignatureTests is TestUtils {
         vm.prank(user);
         localAori.depositNative{ value: INPUT_AMOUNT }(order, noHook, quoteSig);
 
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Active);
+        assertTrue(localAori.orderStatus(localLens.hash(order)) == OrderStatus.Active);
     }
 
     /**
@@ -74,7 +74,8 @@ contract QuoteSignatureTests is TestUtils {
             options: Options({
                 feeMbps: 0,
                 feeRecipient: address(0),
-                solver: solver, // Specific solver
+                srcSolver: solver, // Specific solver
+                dstSolver: address(0),
                 slippageMbps: 0
             })
         });
@@ -85,7 +86,7 @@ contract QuoteSignatureTests is TestUtils {
         vm.prank(user);
         localAori.depositNative{ value: INPUT_AMOUNT }(order, noHook, quoteSig);
 
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Active);
+        assertTrue(localAori.orderStatus(localLens.hash(order)) == OrderStatus.Active);
     }
 
     /**
@@ -104,7 +105,7 @@ contract QuoteSignatureTests is TestUtils {
         vm.prank(user);
         localAori.depositNative{ value: INPUT_AMOUNT }(order, srcHook, quoteSig);
 
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Active);
+        assertTrue(localAori.orderStatus(localLens.hash(order)) == OrderStatus.Active);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -155,7 +156,8 @@ contract QuoteSignatureTests is TestUtils {
             options: Options({
                 feeMbps: 0,
                 feeRecipient: address(0),
-                solver: solver, // Expects solver to sign
+                srcSolver: solver, // Expects solver to sign
+                dstSolver: address(0),
                 slippageMbps: 0
             })
         });
@@ -187,7 +189,8 @@ contract QuoteSignatureTests is TestUtils {
             options: Options({
                 feeMbps: 100, // 0.1% fee
                 feeRecipient: address(0),
-                solver: address(0),
+                srcSolver: address(0),
+                dstSolver: address(0),
                 slippageMbps: 0
             })
         });
@@ -266,7 +269,8 @@ contract QuoteSignatureTests is TestUtils {
             options: Options({
                 feeMbps: 100,
                 feeRecipient: address(0),
-                solver: solver,
+                srcSolver: solver,
+                dstSolver: address(0),
                 slippageMbps: 0
             })
         });
@@ -276,7 +280,7 @@ contract QuoteSignatureTests is TestUtils {
 
         // User tampers: change solver to address(0) to bypass fee
         Order memory tamperedOrder = originalOrder;
-        tamperedOrder.options.solver = address(0);
+        tamperedOrder.options.srcSolver = address(0);
 
         vm.expectRevert(InvalidSolverQuoteSignature.selector);
         vm.prank(user);
@@ -391,7 +395,8 @@ contract QuoteSignatureTests is TestUtils {
             options: Options({
                 feeMbps: 0,
                 feeRecipient: address(0),
-                solver: address(0),
+                srcSolver: address(0),
+                dstSolver: address(0),
                 slippageMbps: 0
             })
         });

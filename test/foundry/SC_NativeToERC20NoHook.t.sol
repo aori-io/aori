@@ -173,7 +173,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
             localEid // dstEid (same chain)
         );
 
-        orderId = localAori.hash(order);
+        orderId = localLens.hash(order);
 
         // User deposits native tokens directly
         vm.prank(userSC);
@@ -305,7 +305,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
             localEid // dstEid (same chain)
         );
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = localLens.hash(order);
 
         // Phase 1: User deposits native tokens
         vm.prank(userSC);
@@ -352,7 +352,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
             localEid
         );
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = localLens.hash(order);
 
         // Initial: Unknown
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Unknown, "Order should start as Unknown");
@@ -392,7 +392,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
             localEid
         );
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = localLens.hash(order);
 
         // Phase 1: Deposit should emit Deposit event
         vm.expectEmit(true, false, false, true);
@@ -541,7 +541,7 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
             localEid
         );
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = localLens.hash(order);
 
         // Deposit
         vm.prank(userSC);
