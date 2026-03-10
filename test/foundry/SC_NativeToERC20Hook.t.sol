@@ -170,12 +170,9 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
             localEid // dstEid (same chain)
         );
 
-        // Generate signature
-        bytes memory signature = signOrder(order, userSCPrivKey);
-
         // User deposits their own native tokens directly
         vm.prank(userSC);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, emptySrcHook(), signQuote(order, emptySrcHook()));
     }
 
     /**

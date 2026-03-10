@@ -229,7 +229,7 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
         SrcHook memory srcHook = _createSrcHook();
 
         vm.prank(userSource);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order, srcHook);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, srcHook, signQuote(order, srcHook));
     }
 
     /**

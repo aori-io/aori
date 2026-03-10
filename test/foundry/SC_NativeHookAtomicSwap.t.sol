@@ -172,7 +172,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
 
         // User executes depositNative with srcHook
         vm.prank(userSC);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order, srcHook);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, srcHook, signQuote(order, srcHook, solverSCPrivKey));
     }
 
     /**
@@ -254,7 +254,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
 
         vm.prank(userSC);
         vm.expectRevert(abi.encodeWithSelector(SlippageExceeded.selector, OUTPUT_AMOUNT, OUTPUT_AMOUNT - 1));
-        localAori.depositNative{ value: INPUT_AMOUNT }(order, srcHook);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, srcHook, signQuote(order, srcHook));
     }
 
     /**
@@ -308,7 +308,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
         vm.deal(solverSC, 5 ether);
         vm.prank(solverSC);
         vm.expectRevert(OnlyOffererCanDepositNativeTokens.selector);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order, srcHook);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, srcHook, signQuote(order, srcHook, solverSCPrivKey));
     }
 
     /**
@@ -320,7 +320,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
 
         vm.prank(userSC);
         vm.expectRevert(abi.encodeWithSelector(IncorrectNativeAmount.selector, INPUT_AMOUNT, INPUT_AMOUNT - 1));
-        localAori.depositNative{ value: INPUT_AMOUNT - 1 }(order, srcHook);
+        localAori.depositNative{ value: INPUT_AMOUNT - 1 }(order, srcHook, signQuote(order, srcHook, solverSCPrivKey));
     }
 
     /**
@@ -347,7 +347,7 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
 
         vm.prank(userSC);
         vm.expectRevert(OrderMustSpecifyNativeToken.selector);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order, srcHook);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, srcHook, signQuote(order, srcHook, solverSCPrivKey));
     }
 
     /**
@@ -360,7 +360,9 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
     function testSurplusGoesToSpecifiedSolver() public {
         vm.chainId(localEid);
 
-        address specifiedSolver = makeAddr("specifiedSolver");
+        uint256 specifiedSolverKey = uint256(keccak256("specifiedSolver"));
+        address specifiedSolver = vm.addr(specifiedSolverKey);
+        localAori.addAllowedSolver(specifiedSolver);
 
         // Create order with specific solver in options
         order = Order({
@@ -384,10 +386,8 @@ contract SC_NativeHookAtomicSwap_Test is TestUtils {
 
         SrcHook memory srcHook = _createSrcHook();
 
-        uint256 solverBalBefore = outputToken.balanceOf(specifiedSolver);
-
         vm.prank(userSC);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order, srcHook);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, srcHook, signQuote(order, srcHook, specifiedSolverKey));
 
         // Surplus goes to specified solver's unlocked balance in contract
         assertEq(
