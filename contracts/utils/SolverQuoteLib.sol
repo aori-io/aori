@@ -73,7 +73,7 @@ library SolverQuoteLib {
      * @dev Verifies that the signature was created by a whitelisted solver over the exact
      *      order and srcHook parameters. Prevents users from manipulating quote terms.
      *      The signature commits to both the orderId and srcHook, preventing quote reuse.
-     *      If order.options.solver is specified, the signer must match that address.
+     *      If order.options.srcSolver is specified, the signer must match that address.
      * @param orderId The computed order hash from the submitted order (keccak256(abi.encode(order)))
      * @param order The order details
      * @param hook The source hook configuration
@@ -101,8 +101,8 @@ library SolverQuoteLib {
         address signer = ECDSA.recoverCalldata(digest, signature);
 
         // If order specifies a solver, signer must match that solver
-        if (order.options.solver != address(0)) {
-            if (signer != order.options.solver) revert InvalidSolverQuoteSignature();
+        if (order.options.srcSolver != address(0)) {
+            if (signer != order.options.srcSolver) revert InvalidSolverQuoteSignature();
         }
 
         // Signer must be a whitelisted solver
