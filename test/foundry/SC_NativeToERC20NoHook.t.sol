@@ -173,12 +173,11 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
             localEid // dstEid (same chain)
         );
 
-        bytes memory signature = signOrder(order, userSCPrivKey);
-        orderId = keccak256(abi.encode(order));
+        orderId = localAori.hash(order);
 
         // User deposits native tokens directly
         vm.prank(userSC);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, emptySrcHook(), signQuote(order, emptySrcHook()));
 
         // Log state after deposit
         console.log("After Native Deposit:");
@@ -306,12 +305,11 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
             localEid // dstEid (same chain)
         );
 
-        bytes memory signature = signOrder(order, userSCPrivKey);
-        bytes32 orderId = keccak256(abi.encode(order));
+        bytes32 orderId = localAori.hash(order);
 
         // Phase 1: User deposits native tokens
         vm.prank(userSC);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, emptySrcHook(), signQuote(order, emptySrcHook()));
 
         // Verify deposit state
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active after deposit");
@@ -354,15 +352,14 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
             localEid
         );
 
-        bytes memory signature = signOrder(order, userSCPrivKey);
-        bytes32 orderId = keccak256(abi.encode(order));
+        bytes32 orderId = localAori.hash(order);
 
         // Initial: Unknown
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Unknown, "Order should start as Unknown");
 
         // After deposit: Active
         vm.prank(userSC);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, emptySrcHook(), signQuote(order, emptySrcHook()));
 
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active after deposit");
 
@@ -395,15 +392,14 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
             localEid
         );
 
-        bytes memory signature = signOrder(order, userSCPrivKey);
-        bytes32 orderId = keccak256(abi.encode(order));
+        bytes32 orderId = localAori.hash(order);
 
         // Phase 1: Deposit should emit Deposit event
         vm.expectEmit(true, false, false, true);
         emit IAori.Deposit(orderId, order, address(0), 0);
 
         vm.prank(userSC);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, emptySrcHook(), signQuote(order, emptySrcHook()));
 
         // Phase 2: Fill should emit Fill and Settle events (atomic settlement)
         vm.prank(solverSC);
@@ -439,12 +435,10 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
             localEid
         );
 
-        bytes memory signature = signOrder(order, userSCPrivKey);
-
         // Try to deposit less than required
         vm.expectRevert(abi.encodeWithSelector(IncorrectNativeAmount.selector, INPUT_AMOUNT, INPUT_AMOUNT - 1));
         vm.prank(userSC);
-        localAori.depositNative{ value: INPUT_AMOUNT - 1 }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT - 1 }(order, emptySrcHook(), signQuote(order, emptySrcHook()));
     }
 
     /**
@@ -471,11 +465,9 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
             localEid
         );
 
-        bytes memory signature = signOrder(order, userSCPrivKey);
-
         // User deposits correctly
         vm.prank(userSC);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, emptySrcHook(), signQuote(order, emptySrcHook()));
 
         // Poor solver tries to fill without enough tokens
         vm.prank(poorSolver);
@@ -508,14 +500,12 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
             localEid
         );
 
-        bytes memory signature = signOrder(order, userSCPrivKey);
-
         uint256 initialUserNative = userSC.balance;
         uint256 initialUserTokens = outputToken.balanceOf(userSC);
 
         // User deposits
         vm.prank(userSC);
-        localAori.depositNative{ value: customInputAmount }(order);
+        localAori.depositNative{ value: customInputAmount }(order, emptySrcHook(), signQuote(order, emptySrcHook()));
 
         // Solver fills
         vm.prank(solverSC);
@@ -551,12 +541,11 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
             localEid
         );
 
-        bytes memory signature = signOrder(order, userSCPrivKey);
-        bytes32 orderId = keccak256(abi.encode(order));
+        bytes32 orderId = localAori.hash(order);
 
         // Deposit
         vm.prank(userSC);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, emptySrcHook(), signQuote(order, emptySrcHook()));
 
         // Fill
         vm.prank(solverSC);
@@ -596,11 +585,9 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
             localEid
         );
 
-        bytes memory signature = signOrder(order, userSCPrivKey);
-
         // Complete the swap
         vm.prank(userSC);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, emptySrcHook(), signQuote(order, emptySrcHook()));
 
         vm.prank(solverSC);
         outputToken.approve(address(localAori), OUTPUT_AMOUNT);

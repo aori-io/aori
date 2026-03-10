@@ -60,6 +60,7 @@ contract UpgradeTests is TestHelperOz5 {
 
     // Addresses
     address public owner;
+    uint256 public solverPrivKey = 0x50170E;
     address public solver;
     address public nonOwner;
     uint256 public userAPrivKey = 0xBEEF;
@@ -72,7 +73,7 @@ contract UpgradeTests is TestHelperOz5 {
 
     function setUp() public virtual override {
         owner = address(this);
-        solver = address(0x200);
+        solver = vm.addr(solverPrivKey);
         nonOwner = address(0x300);
         userA = vm.addr(userAPrivKey);
 
@@ -109,6 +110,49 @@ contract UpgradeTests is TestHelperOz5 {
         // Setup mock hook
         mockHook = new MockHook();
         aori.addAllowedHook(address(mockHook));
+    }
+
+    function _emptySrcHook() internal pure returns (SrcHook memory) {
+        return SrcHook({
+            hookAddress: address(0),
+            preferredToken: address(0),
+            minPreferredTokenAmountOut: 0,
+            instructions: ""
+        });
+    }
+
+    function _signQuote(Order memory order, SrcHook memory srcHook, uint256 privKey) internal view returns (bytes memory) {
+        bytes32 orderId = keccak256(abi.encode(order));
+        bytes32 srcHookHash = keccak256(
+            abi.encode(
+                keccak256("SrcHook(address hookAddress,address preferredToken,uint256 minPreferredTokenAmountOut,bytes instructions)"),
+                srcHook.hookAddress,
+                srcHook.preferredToken,
+                srcHook.minPreferredTokenAmountOut,
+                keccak256(srcHook.instructions)
+            )
+        );
+        bytes32 quoteHash = keccak256(
+            abi.encode(
+                keccak256(
+                    "SolverQuote(bytes32 orderId,SrcHook srcHook)"
+                    "SrcHook(address hookAddress,address preferredToken,uint256 minPreferredTokenAmountOut,bytes instructions)"
+                ),
+                orderId,
+                srcHookHash
+            )
+        );
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,address verifyingContract)"),
+                keccak256("Aori"),
+                keccak256("0.4.0"),
+                address(aori)
+            )
+        );
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, quoteHash));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privKey, digest);
+        return abi.encodePacked(r, s, v);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -336,7 +380,7 @@ contract UpgradeTests is TestHelperOz5 {
         // Deposit native tokens as userA
         vm.deal(userA, 10e18);
         vm.prank(userA);
-        aori.depositNative{ value: order.inputAmount }(order);
+        aori.depositNative{ value: order.inputAmount }(order, _emptySrcHook(), _signQuote(order, _emptySrcHook(), solverPrivKey));
 
         // Verify locked balance
         assertEq(lens.getLockedBalances(userA, order.inputToken), order.inputAmount, "Native tokens should be locked");
@@ -367,7 +411,7 @@ contract UpgradeTests is TestHelperOz5 {
         uint256 balanceBefore = userA.balance;
 
         vm.prank(userA);
-        aori.depositNative{ value: order.inputAmount }(order);
+        aori.depositNative{ value: order.inputAmount }(order, _emptySrcHook(), _signQuote(order, _emptySrcHook(), solverPrivKey));
 
         // Verify locked balance
         assertEq(lens.getLockedBalances(userA, order.inputToken), order.inputAmount, "Native tokens should be locked after deposit");

@@ -19,7 +19,7 @@ import { AoriAdminLib } from "./lib/AoriAdminLib.sol";
 import { EIP712 } from "solady/src/utils/EIP712.sol";
 import { TokenUtils } from "./utils/TokenUtils.sol";
 import { Permit2Lib } from "./utils/Permit2Lib.sol";
-import { SolverQuoteLib } from "./utils/SolverQuoteLib.sol";
+import { QuoteSigLib } from "./utils/QuoteSigLib.sol";
 import { ECDSA } from "solady/src/utils/ECDSA.sol";
 import { HookUtils } from "./utils/HookUtils.sol";
 import { IAori } from "./interfaces/IAori.sol";
@@ -345,7 +345,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
         bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
 
         // Validate solver quote signature (prevents manipulation + spam)
-        SolverQuoteLib.validateSolverQuote(orderId, order, srcHook, quoteSignature, _hashTypedDataSansChainId, this.isAllowedSolver);
+        address quoteSigner = QuoteSigLib.validateQuoteSignature(orderId, order, srcHook, quoteSignature, _hashTypedDataSansChainId, this.isAllowedSolver);
 
         bool hasHook = srcHook.hookAddress != address(0);
 
@@ -358,7 +358,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
 
             if (order.isSingleChainSwap()) {
                 // Atomic path: execute swap with slippage + fee logic
-                address solver = order.options.srcSolver == address(0) ? msg.sender : order.options.srcSolver;
+                address solver = order.options.srcSolver == address(0) ? quoteSigner : order.options.srcSolver;
                 AoriAtomicSwapLib.executeSwap(orderId, order, srcHook, solver);
             } else {
                 // Non-atomic path: convert to preferredToken, lock for settlement

@@ -155,12 +155,9 @@ contract CC_NativeToNativeHook is TestUtils {
             remoteEid // dstEid
         );
 
-        // Generate signature
-        bytes memory signature = signOrder(order, userSourcePrivKey);
-
         // User deposits their own native tokens directly
         vm.prank(userSource);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, emptySrcHook(), signQuote(order, emptySrcHook()));
     }
 
     /**

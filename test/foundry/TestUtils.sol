@@ -92,7 +92,8 @@ contract TestUtils is TestHelperOz5 {
     // Common addresses
     uint256 public userAPrivKey = 0xBEEF;
     address public userA;
-    address public solver = address(0x200);
+    uint256 public solverPrivKey = 0x50170E;
+    address public solver;
 
     // Common constants
     uint32 public constant localEid = 1;
@@ -103,8 +104,9 @@ contract TestUtils is TestHelperOz5 {
      * @notice Common setup function for all tests
      */
     function setUp() public virtual override {
-        // Derive userA
+        // Derive userA and solver
         userA = vm.addr(userAPrivKey);
+        solver = vm.addr(solverPrivKey);
 
         // Setup LayerZero endpoints
         setUpEndpoints(2, LibraryType.UltraLightNode);
@@ -374,6 +376,82 @@ contract TestUtils is TestHelperOz5 {
      */
     function defaultOptions() public pure returns (bytes memory) {
         return OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
+    }
+
+    /**
+     * @notice Creates an empty SrcHook for no-hook native deposits
+     */
+    function emptySrcHook() public pure returns (SrcHook memory) {
+        return SrcHook({
+            hookAddress: address(0),
+            preferredToken: address(0),
+            minPreferredTokenAmountOut: 0,
+            instructions: ""
+        });
+    }
+
+    /**
+     * @notice Signs a solver quote using EIP-712 (for depositNative quoteSignature param)
+     * @param order The order to quote
+     * @param srcHook The source hook configuration
+     * @param privKey The solver's private key
+     * @param aoriContract The Aori contract address (for domain separator)
+     */
+    function signQuote(
+        Order memory order,
+        SrcHook memory srcHook,
+        uint256 privKey,
+        address aoriContract
+    ) public view returns (bytes memory) {
+        bytes32 orderId = keccak256(abi.encode(order));
+
+        bytes32 srcHookHash = keccak256(
+            abi.encode(
+                keccak256("SrcHook(address hookAddress,address preferredToken,uint256 minPreferredTokenAmountOut,bytes instructions)"),
+                srcHook.hookAddress,
+                srcHook.preferredToken,
+                srcHook.minPreferredTokenAmountOut,
+                keccak256(srcHook.instructions)
+            )
+        );
+
+        bytes32 quoteHash = keccak256(
+            abi.encode(
+                keccak256(
+                    "SolverQuote(bytes32 orderId,SrcHook srcHook)"
+                    "SrcHook(address hookAddress,address preferredToken,uint256 minPreferredTokenAmountOut,bytes instructions)"
+                ),
+                orderId,
+                srcHookHash
+            )
+        );
+
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,address verifyingContract)"),
+                keccak256("Aori"),
+                keccak256("0.4.0"),
+                aoriContract
+            )
+        );
+
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, quoteHash));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privKey, digest);
+        return abi.encodePacked(r, s, v);
+    }
+
+    /**
+     * @notice Signs a solver quote using default solver key and local Aori
+     */
+    function signQuote(Order memory order, SrcHook memory srcHook) public view returns (bytes memory) {
+        return signQuote(order, srcHook, solverPrivKey, address(localAori));
+    }
+
+    /**
+     * @notice Signs a solver quote using a specific private key and local Aori
+     */
+    function signQuote(Order memory order, SrcHook memory srcHook, uint256 privKey) public view returns (bytes memory) {
+        return signQuote(order, srcHook, privKey, address(localAori));
     }
 
     /**

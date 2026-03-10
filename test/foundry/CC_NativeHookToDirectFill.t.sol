@@ -180,7 +180,7 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
         SrcHook memory srcHook = _createSrcHook();
 
         vm.prank(userSource);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order, srcHook);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, srcHook, signQuote(order, srcHook));
     }
 
     /**
@@ -469,6 +469,6 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
 
         vm.prank(userSource);
         vm.expectRevert(abi.encodeWithSelector(SlippageExceeded.selector, MIN_PREFERRED_OUT, MIN_PREFERRED_OUT - 1));
-        localAori.depositNative{ value: INPUT_AMOUNT }(order, badHook);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, badHook, signQuote(order, badHook));
     }
 }
