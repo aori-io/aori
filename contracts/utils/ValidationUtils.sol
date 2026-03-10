@@ -77,7 +77,7 @@ library ValidationUtils {
         if (!SignatureCheckerLib.isValidSignatureNowCalldata(order.offerer, digest, signature)) {
             revert InvalidSignature();
         }
-        if (order.options.solver != address(0) && solver != order.options.solver) {
+        if (order.options.srcSolver != address(0) && solver != order.options.srcSolver) {
             revert UnauthorizedSolver();
         }
         validateCommonOrderParams(order, maxFeeMbps);
@@ -109,14 +109,14 @@ library ValidationUtils {
     }
 
     /**
-     * @notice Validates that the caller is the solver specified in the order
-     * @dev No-op when order.options.solver is address(0) (any whitelisted solver allowed)
+     * @notice Validates that the caller is the srcSolver specified in the order
+     * @dev No-op when order.options.srcSolver is address(0) (any whitelisted solver allowed)
      * @param order The order to check
      * @param solver The address to validate (typically msg.sender)
      */
     /* forgefmt: disable-next-item */
     function validateSolverAuthorization(Order calldata order, address solver) internal pure {
-        if (order.options.solver != address(0) && solver != order.options.solver) revert UnauthorizedSolver();
+        if (order.options.srcSolver != address(0) && solver != order.options.srcSolver) revert UnauthorizedSolver();
     }
 
     /**
@@ -140,8 +140,8 @@ library ValidationUtils {
         validateCommonOrderParams(order, maxFeeMbps);
         if (order.dstEid != endpointId) revert ChainMismatch(endpointId, order.dstEid);
 
-        // Solver authorization: if order specifies a solver, only that solver can fill
-        if (order.options.solver != address(0) && solver != order.options.solver) {
+        // Solver authorization: if order specifies a dstSolver, only that solver can fill
+        if (order.options.dstSolver != address(0) && solver != order.options.dstSolver) {
             revert UnauthorizedSolver();
         }
 

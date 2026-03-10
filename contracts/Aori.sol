@@ -9,7 +9,6 @@ import { ISignatureTransfer } from "@permit2/src/interfaces/ISignatureTransfer.s
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { PayloadType, PayloadUtils } from "./utils/PayloadUtils.sol";
-import { PayloadType, PayloadUtils } from "./utils/PayloadUtils.sol";
 import { AoriStorage, AoriStorageData } from "./AoriStorage.sol";
 import { AoriAtomicSwapLib } from "./lib/AoriAtomicSwapLib.sol";
 import { ValidationUtils } from "./utils/ValidationUtils.sol";
@@ -313,7 +312,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
 
         if (order.isSingleChainSwap()) {
             // Atomic path: execute swap with slippage + fee logic
-            address solver = order.options.solver == address(0) ? msg.sender : order.options.solver;
+            address solver = order.options.srcSolver == address(0) ? msg.sender : order.options.srcSolver;
             AoriAtomicSwapLib.executeSwap(orderId, order, hook, solver);
         } else {
             // Non-atomic path: convert to preferredToken, lock for settlement
@@ -359,7 +358,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
 
             if (order.isSingleChainSwap()) {
                 // Atomic path: execute swap with slippage + fee logic
-                address solver = order.options.solver == address(0) ? msg.sender : order.options.solver;
+                address solver = order.options.srcSolver == address(0) ? msg.sender : order.options.srcSolver;
                 AoriAtomicSwapLib.executeSwap(orderId, order, srcHook, solver);
             } else {
                 // Non-atomic path: convert to preferredToken, lock for settlement
@@ -434,7 +433,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
 
         if (order.isSingleChainSwap()) {
             // Atomic path: execute swap with slippage + fee logic
-            address solver = order.options.solver == address(0) ? msg.sender : order.options.solver;
+            address solver = order.options.srcSolver == address(0) ? msg.sender : order.options.srcSolver;
             AoriAtomicSwapLib.executeSwap(orderId, order, hook, solver);
         } else {
             // Non-atomic path: convert to preferredToken, lock for settlement
@@ -709,13 +708,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
     function _hashOrder712(Order calldata order) internal view returns (bytes32) {
         return _hashTypedDataSansChainId(Permit2Lib.hashOrder(order));
     }
-
-    /**
-     * @notice Computes the hash of an order
-     * @param order The order to hash
-     * @return The computed hash
-     */
-    function hash(Order calldata order) public pure returns (bytes32) { return keccak256(abi.encode(order)); }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                     UUPS UPGRADEABILITY                     */

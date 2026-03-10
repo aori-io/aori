@@ -158,7 +158,7 @@ contract MultiOrderSuccessTest is TestUtils {
         settlementPayload[21] = bytes1(uint8(uint16(fillCount) >> 8));
         settlementPayload[22] = bytes1(uint8(uint16(fillCount)));
         for (uint256 i = 0; i < NUM_ORDERS; i++) {
-            bytes32 orderHash = localAori.hash(orders[i]);
+            bytes32 orderHash = keccak256(abi.encode(orders[i]));
             uint256 offset = 23 + i * 32;
             for (uint256 j = 0; j < 32; j++) {
                 settlementPayload[offset + j] = orderHash[j];
@@ -198,7 +198,7 @@ contract MultiOrderSuccessTest is TestUtils {
         settlementPayload[21] = bytes1(uint8(uint16(fillCount) >> 8));
         settlementPayload[22] = bytes1(uint8(uint16(fillCount)));
         for (uint256 i = 0; i < NUM_ORDERS; i++) {
-            bytes32 orderHash = localAori.hash(orders[i]);
+            bytes32 orderHash = keccak256(abi.encode(orders[i]));
             uint256 offset = 23 + i * 32;
             for (uint256 j = 0; j < 32; j++) {
                 settlementPayload[offset + j] = orderHash[j];

@@ -145,7 +145,7 @@ contract PausedTests is TestUtils {
         localAori.deposit(order, signature);
 
         // Get the order hash
-        bytes32 orderHash = localAori.hash(order);
+        bytes32 orderHash = keccak256(abi.encode(order));
 
         // Advance time past expiry BEFORE cancellation
         vm.warp(order.endTime + 1);

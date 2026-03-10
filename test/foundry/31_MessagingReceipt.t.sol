@@ -96,7 +96,7 @@ contract MessagingReceiptTest is TestUtils {
         // Create and deposit an order
         Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Deposit the order on the source chain
         vm.prank(userA);
@@ -156,7 +156,7 @@ contract MessagingReceiptTest is TestUtils {
         Order memory order = createValidOrder();
         order.dstEid = order.srcEid; // Make it a single-chain order
         bytes memory signature = signOrder(order);
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Deposit the order
         vm.prank(userA);

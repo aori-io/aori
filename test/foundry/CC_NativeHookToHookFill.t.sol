@@ -271,7 +271,7 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
             uint8(0), // message type 0 for settlement
             solverSource, // filler address (should be source chain solver for settlement)
             uint16(1), // fill count
-            localAori.hash(order) // order hash
+            keccak256(abi.encode(order)) // order hash
         );
 
         vm.prank(address(endpoints[localEid]));
@@ -297,7 +297,7 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
         );
 
         // Verify order status
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Active, "Order should be Active");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Active, "Order should be Active");
     }
 
     /**
@@ -325,7 +325,7 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
         );
 
         // Verify order status
-        assertTrue(remoteAori.orderStatus(localAori.hash(order)) == OrderStatus.Filled, "Order should be Filled");
+        assertTrue(remoteAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Filled, "Order should be Filled");
     }
 
     /**
@@ -339,7 +339,7 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
 
         // Verify order status on source chain
         vm.chainId(localEid);
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Settled, "Order should be Settled");
 
         // Verify locked balance is cleared
         assertEq(localLens.getLockedBalances(userSource, address(convertedToken)), 0, "User should have no locked balance after settlement");
@@ -422,7 +422,7 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
         console.log("  srcHook conversion: 1 ETH -> 1500 converted tokens");
         console.log("");
 
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Active, "Order should be Active");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Active, "Order should be Active");
 
         // === PHASE 2: FILL WITH DSTHOOK ===
         console.log("=== PHASE 2: SOLVER FILLS WITH DSTHOOK ===");
@@ -441,7 +441,7 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
         console.log("  User received: 1 ETH, Surplus to solver: 0.1 ETH");
         console.log("");
 
-        assertTrue(remoteAori.orderStatus(localAori.hash(order)) == OrderStatus.Filled, "Order should be Filled");
+        assertTrue(remoteAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Filled, "Order should be Filled");
 
         // === PHASE 3: SETTLEMENT ===
         console.log("=== PHASE 3: SETTLEMENT VIA LAYERZERO ===");
@@ -457,7 +457,7 @@ contract CC_NativeHookToHookFill_Test is TestUtils {
         console.log("  Solver unlocked tokens:", afterSettleUnlockedTokens / 1e18, "tokens");
         console.log("");
 
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Settled, "Order should be Settled");
 
         // === PHASE 4: WITHDRAWAL ===
         console.log("=== PHASE 4: SOLVER WITHDRAWS EARNED TOKENS ===");

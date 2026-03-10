@@ -67,7 +67,7 @@ contract QuoteTest is TestUtils {
         localAori.deposit(order, signature);
 
         // Get order hash
-        orderHash = localAori.hash(order);
+        orderHash = keccak256(abi.encode(order));
     }
 
     /// @dev Test quoting for cancel message (33 bytes)

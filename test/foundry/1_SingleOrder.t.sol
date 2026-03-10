@@ -78,7 +78,7 @@ contract SingleOrderSuccessTest is TestUtils {
             uint8(0), // message type 0 for settlement
             solver, // filler address
             uint16(1), // fill count
-            localAori.hash(order) // order hash
+            keccak256(abi.encode(order)) // order hash
         );
 
         vm.prank(address(endpoints[localEid]));

@@ -194,7 +194,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         );
 
         bytes memory signature = signOrder(order, userSCPrivKey);
-        orderId = localAori.hash(order);
+        orderId = keccak256(abi.encode(order));
 
         // User approves and deposits (no hook)
         vm.prank(userSC);
@@ -378,7 +378,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         );
 
         bytes memory signature = signOrder(testOrder, 0x9999 + scenarioSalt);
-        bytes32 orderId = localAori.hash(testOrder);
+        bytes32 orderId = keccak256(abi.encode(testOrder));
 
         // Phase 1: Deposit
         vm.prank(testUser);
@@ -464,7 +464,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         );
 
         bytes memory signature = signOrder(order, userSCPrivKey);
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Phase 1: User deposits
         vm.prank(userSC);
@@ -523,7 +523,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         );
 
         bytes memory signature = signOrder(order, userSCPrivKey);
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Initial: Unknown
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Unknown, "Order should start as Unknown");
@@ -571,7 +571,7 @@ contract SC_ERC20ToNativeDstHook_Test is TestUtils {
         );
 
         bytes memory signature = signOrder(order, userSCPrivKey);
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Phase 1: Deposit should emit Deposit event
         vm.prank(userSC);

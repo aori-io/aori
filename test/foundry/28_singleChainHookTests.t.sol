@@ -128,7 +128,7 @@ contract SingleChainHookTest is TestUtils {
         });
 
         // Calculate order ID
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // We need to disable validation or bypass it for the test to work
         // In a single-chain deposit with hook scenario, the token doesn't actually enter
@@ -194,7 +194,7 @@ contract SingleChainHookTest is TestUtils {
         outputToken.approve(address(localAori), type(uint256).max);
 
         // Calculate order ID
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         // Create hook structure
         SrcHook memory hook = SrcHook({
@@ -273,7 +273,7 @@ contract SingleChainHookTest is TestUtils {
         });
 
         // Deposit with hook - this will immediately settle for single-chain swaps
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         vm.prank(solver);
         localAori.deposit(order, signature, hook);
 

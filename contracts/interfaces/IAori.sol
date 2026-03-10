@@ -217,8 +217,6 @@ interface IAori {
 
     function getMaxFillsPerSettle() external view returns (uint16);
 
-    function hash(Order calldata order) external pure returns (bytes32);
-
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                        SRC FUNCTIONS                       */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/

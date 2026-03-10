@@ -181,8 +181,8 @@ contract TestUtils is TestHelperOz5 {
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
-            outputToken: address(outputToken),
             inputAmount: uint128(inputAmount),
+            outputToken: address(outputToken),
             outputAmount: uint128(outputAmount),
             startTime: uint32(block.timestamp), // Set to current timestamp
             endTime: uint32(block.timestamp + endTimeOffset),
@@ -218,8 +218,8 @@ contract TestUtils is TestHelperOz5 {
             offerer: _offerer,
             recipient: _recipient,
             inputToken: _inputToken,
-            outputToken: _outputToken,
             inputAmount: uint128(_inputAmount),
+            outputToken: _outputToken,
             outputAmount: uint128(_outputAmount),
             startTime: uint32(_startTime),
             endTime: uint32(_endTime),
@@ -245,11 +245,12 @@ contract TestUtils is TestHelperOz5 {
         // Hash the nested Options struct first
         bytes32 optionsHash = keccak256(
             abi.encode(
-                keccak256("Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"),
+                keccak256("Options(uint16 feeMbps,uint16 slippageMbps,address feeRecipient,address srcSolver,address dstSolver)"),
                 order.options.feeMbps,
+                order.options.slippageMbps,
                 order.options.feeRecipient,
-                order.options.solver,
-                order.options.slippageMbps
+                order.options.srcSolver,
+                order.options.dstSolver
             )
         );
 
@@ -257,17 +258,17 @@ contract TestUtils is TestHelperOz5 {
         bytes32 structHash = keccak256(
             abi.encode(
                 keccak256(
-                    "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,"
-                    "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient," "Options options)"
-                    "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
+                    "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,uint32 startTime,"
+                    "uint32 endTime,uint32 srcEid,address outputToken,uint32 dstEid,address offerer,address recipient," "Options options)"
+                    "Options(uint16 feeMbps,uint16 slippageMbps,address feeRecipient,address srcSolver,address dstSolver)"
                 ),
                 order.inputAmount,
                 order.outputAmount,
                 order.inputToken,
-                order.outputToken,
                 order.startTime,
                 order.endTime,
                 order.srcEid,
+                order.outputToken,
                 order.dstEid,
                 order.offerer,
                 order.recipient,
@@ -296,9 +297,10 @@ contract TestUtils is TestHelperOz5 {
     function defaultOrderOptions() public pure returns (Options memory) {
         return Options({
             feeMbps: 0,
+            slippageMbps: 0, // 0 = limit order
             feeRecipient: address(0),
-            solver: address(0), // Any whitelisted solver allowed
-            slippageMbps: 0 // 0 = limit order
+            srcSolver: address(0), // Any whitelisted solver allowed
+            dstSolver: address(0) // Any whitelisted solver allowed
          });
     }
 
@@ -310,7 +312,7 @@ contract TestUtils is TestHelperOz5 {
     function marketOrderOptions(
         uint16 slippageMbps
     ) public pure returns (Options memory) {
-        return Options({ feeMbps: 0, feeRecipient: address(0), solver: address(0), slippageMbps: slippageMbps });
+        return Options({ feeMbps: 0, slippageMbps: slippageMbps, feeRecipient: address(0), srcSolver: address(0), dstSolver: address(0) });
     }
 
     /**
@@ -320,7 +322,7 @@ contract TestUtils is TestHelperOz5 {
      * @return Options struct with fee configuration
      */
     function feeOrderOptions(uint16 feeMbps, address feeRecipient) public pure returns (Options memory) {
-        return Options({ feeMbps: feeMbps, feeRecipient: feeRecipient, solver: address(0), slippageMbps: 0 });
+        return Options({ feeMbps: feeMbps, slippageMbps: 0, feeRecipient: feeRecipient, srcSolver: address(0), dstSolver: address(0) });
     }
 
     /**

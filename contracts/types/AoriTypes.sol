@@ -9,10 +9,10 @@ struct Order {
     uint128 inputAmount;
     uint128 outputAmount;
     address inputToken;
-    address outputToken;
     uint32 startTime;
     uint32 endTime;
     uint32 srcEid;
+    address outputToken;
     uint32 dstEid;
     address offerer;
     address recipient;
@@ -25,9 +25,10 @@ struct Order {
 
 struct Options {
     uint16 feeMbps;       // Fee in millibasis points (1000 = 1%)
-    address feeRecipient; // Who receives the fee (address(0) = solver)
-    address solver;       // Authorized solver (address(0) = any whitelisted)
     uint16 slippageMbps;  // 0 = limit order, >0 = market order
+    address feeRecipient; // Who receives the fee (address(0) = solver)
+    address srcSolver;    // Authorized solver on source chain (address(0) = any whitelisted)
+    address dstSolver;    // Authorized solver on destination chain (address(0) = any whitelisted)
 }
 
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/

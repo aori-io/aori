@@ -80,35 +80,44 @@ contract AoriLens {
         bytes32 slot4 = aori.readStorage(bytes32(uint256(baseSlot) + 4));
         bytes32 slot5 = aori.readStorage(bytes32(uint256(baseSlot) + 5));
         bytes32 slot6 = aori.readStorage(bytes32(uint256(baseSlot) + 6));
+        bytes32 slot7 = aori.readStorage(bytes32(uint256(baseSlot) + 7));
 
         // Slot 0: inputAmount (lower 128) | outputAmount (upper 128)
         order.inputAmount = uint128(uint256(slot0));
         order.outputAmount = uint128(uint256(slot0) >> 128);
 
-        // Slot 1: inputToken (lower 160)
+        // Slot 1: inputToken (lower 160) | startTime | endTime | srcEid (packed)
         order.inputToken = address(uint160(uint256(slot1)));
+        order.startTime = uint32(uint256(slot1) >> 160);
+        order.endTime = uint32(uint256(slot1) >> 192);
+        order.srcEid = uint32(uint256(slot1) >> 224);
 
-        // Slot 2: outputToken (lower 160) | startTime | endTime | srcEid (packed)
+        // Slot 2: outputToken (lower 160) | dstEid (bits 160-191)
         order.outputToken = address(uint160(uint256(slot2)));
-        order.startTime = uint32(uint256(slot2) >> 160);
-        order.endTime = uint32(uint256(slot2) >> 192);
-        order.srcEid = uint32(uint256(slot2) >> 224);
+        order.dstEid = uint32(uint256(slot2) >> 160);
 
-        // Slot 3: dstEid (lower 32) | offerer (bits 32-191)
-        order.dstEid = uint32(uint256(slot3));
-        order.offerer = address(uint160(uint256(slot3) >> 32));
+        // Slot 3: offerer (lower 160)
+        order.offerer = address(uint160(uint256(slot3)));
 
         // Slot 4: recipient (lower 160)
         order.recipient = address(uint160(uint256(slot4)));
 
-        // Slot 5: Options.feeMbps (lower 16) | Options.feeRecipient (bits 16-175)
+        // Slot 5: Options.feeMbps (lower 16) | Options.slippageMbps (bits 16-31) | Options.feeRecipient (bits 32-191)
         order.options.feeMbps = uint16(uint256(slot5));
-        order.options.feeRecipient = address(uint160(uint256(slot5) >> 16));
+        order.options.slippageMbps = uint16(uint256(slot5) >> 16);
+        order.options.feeRecipient = address(uint160(uint256(slot5) >> 32));
 
-        // Slot 6: Options.solver (lower 160) | Options.slippageMbps (bits 160-175)
-        order.options.solver = address(uint160(uint256(slot6)));
-        order.options.slippageMbps = uint16(uint256(slot6) >> 160);
+        // Slot 6: Options.srcSolver (lower 160)
+        order.options.srcSolver = address(uint160(uint256(slot6)));
+
+        // Slot 7: Options.dstSolver (lower 160)
+        order.options.dstSolver = address(uint160(uint256(slot7)));
     }
+
+    /**
+     * @notice Computes the hash of an order
+     */
+    function hash(Order calldata order) external pure returns (bytes32) { return keccak256(abi.encode(order)); }
 
     /**
      * @notice Get locked balance for a user and token

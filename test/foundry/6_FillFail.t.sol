@@ -160,7 +160,7 @@ contract FillFailTest is TestUtils {
         remoteAori.fill(order);
 
         // Verify order status
-        bytes32 orderHash = remoteAori.hash(order);
+        bytes32 orderHash = keccak256(abi.encode(order));
         assertEq(uint8(remoteAori.orderStatus(orderHash)), uint8(OrderStatus.Filled), "Order should be in filled state");
     }
 

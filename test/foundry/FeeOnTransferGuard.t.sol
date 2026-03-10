@@ -81,7 +81,7 @@ contract FeeOnTransferGuard_Test is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
         assertEq(localLens.getLockedBalances(userA, address(inputToken)), INPUT_AMOUNT, "Locked balance should match input amount");
     }
@@ -154,7 +154,7 @@ contract FeeOnTransferGuard_Test is TestUtils {
         vm.prank(solver);
         localAori.fill(order);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Settled, "Order should be Settled");
         assertEq(outputToken.balanceOf(userA), OUTPUT_AMOUNT, "User should receive full output amount");
     }

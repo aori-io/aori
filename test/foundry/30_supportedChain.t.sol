@@ -126,7 +126,7 @@ contract SupportedChainTest is TestUtils {
         localAori.deposit(order, signature);
 
         // Verify order was created
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Active), "Order should be active");
     }
 
