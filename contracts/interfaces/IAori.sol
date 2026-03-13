@@ -25,17 +25,17 @@ interface IAori {
     );
 
     /**
-     * @notice Emitted when a solver fills an order on the destination chain
+     * @notice Emitted when a solver fills an order
      * @param orderId The unique hash identifying the order
-     * @param dstHookTokenIn The token sent to the destination hook (address(0) if no hook)
-     * @param dstHookAmountIn The amount sent to the destination hook (0 if no hook)
-     * @param dstHookAmountOut The amount of output tokens received from the hook (0 if no hook)
+     * @param fillToken The token the solver spent to fill (address(0) if atomic swap, no solver cost)
+     * @param fillAmount The amount the solver spent to fill (0 if atomic swap)
+     * @param fillAmountOut The amount of outputToken produced by hook conversion (0 if direct transfer, no hook)
      */
     event Fill(
         bytes32 indexed orderId, 
-        address indexed dstHookTokenIn, 
-        uint256 dstHookAmountIn, 
-        uint256 dstHookAmountOut
+        address indexed fillToken, 
+        uint256 fillAmount, 
+        uint256 fillAmountOut
     );
 
     /**

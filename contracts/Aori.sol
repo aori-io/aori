@@ -493,9 +493,9 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
 
         // Update contract state
         if (order.isSingleChainSwap()) {
-            AoriSettleLib.settleSingleChainSwap(orderId, order, msg.sender, address(0), 0, 0);
+            AoriSettleLib.settleSingleChainSwap(orderId, order, msg.sender, order.outputToken, order.outputAmount, 0);
         } else {
-            _postFill(orderId, order, address(0), 0, 0);
+            _postFill(orderId, order, order.outputToken, order.outputAmount, 0);
         }
 
         // Transfer tokens to recipient
@@ -554,21 +554,21 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
      * @notice Processes an order after successful filling
      * @param orderId The unique identifier for the order
      * @param order The order details that were filled
-     * @param dstHookTokenIn The token used in dstHook (address(0) if no hook)
-     * @param dstHookAmountIn The amount sent to dstHook (0 if no hook)
-     * @param dstHookAmountOut The amount received from dstHook (0 if no hook)
+     * @param fillToken The token the solver spent to fill (outputToken if direct, hook.preferredToken if via hook)
+     * @param fillAmount The amount the solver spent to fill
+     * @param fillAmountOut The amount of outputToken produced by hook (0 if direct transfer)
      */
     function _postFill(
         bytes32 orderId,
         Order calldata order,
-        address dstHookTokenIn,
-        uint256 dstHookAmountIn,
-        uint256 dstHookAmountOut
+        address fillToken,
+        uint256 fillAmount,
+        uint256 fillAmountOut
     ) internal {
         AoriStorageData storage $ = _getAoriStorage();
         $.orderStatus[orderId] = OrderStatus.Filled;
         $.srcEidToFillerFills[order.srcEid][msg.sender].push(orderId);
-        emit Fill(orderId, dstHookTokenIn, dstHookAmountIn, dstHookAmountOut);
+        emit Fill(orderId, fillToken, fillAmount, fillAmountOut);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/

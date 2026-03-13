@@ -405,9 +405,9 @@ contract SC_NativeToERC20NoHook_Test is TestUtils {
         vm.prank(solverSC);
         outputToken.approve(address(localAori), OUTPUT_AMOUNT);
 
-        // Expect Fill event (no dstHook)
+        // Expect Fill event (no dstHook — emits solver's direct cost)
         vm.expectEmit(true, true, false, true);
-        emit IAori.Fill(orderId, address(0), 0, 0);
+        emit IAori.Fill(orderId, address(outputToken), OUTPUT_AMOUNT, 0);
 
         vm.expectEmit(true, true, false, false);
         emit IAori.Settle(orderId, solverSC, 0, 0, address(0), 0);
