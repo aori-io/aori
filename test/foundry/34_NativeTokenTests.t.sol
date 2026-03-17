@@ -58,32 +58,26 @@ contract NativeTokenTests is TestUtils {
      */
     function testDepositNative_CrossChain_Success() public {
         Order memory order = createCustomOrder(
-            user, // offerer
-            recipient, // recipient
-            NATIVE_TOKEN, // inputToken (native)
-            address(outputToken), // outputToken (ERC20)
-            INPUT_AMOUNT, // inputAmount
-            OUTPUT_AMOUNT, // outputAmount
-            block.timestamp, // startTime
-            block.timestamp + 1 hours, // endTime
-            localEid, // srcEid
-            remoteEid // dstEid (cross-chain)
+            user, recipient, NATIVE_TOKEN, address(outputToken),
+            INPUT_AMOUNT, OUTPUT_AMOUNT, block.timestamp, block.timestamp + 1 hours,
+            localEid, remoteEid
         );
+
+        SrcHook memory noHook = emptySrcHook();
+        bytes memory quoteSig = signQuote(order, noHook);
 
         uint256 initialBalance = user.balance;
         uint256 initialContractBalance = address(localAori).balance;
         uint256 initialLocked = localLens.getLockedBalances(user, NATIVE_TOKEN);
 
         vm.prank(user);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, noHook, quoteSig);
 
-        // Verify balances
         assertEq(user.balance, initialBalance - INPUT_AMOUNT, "User balance should decrease");
         assertEq(address(localAori).balance, initialContractBalance + INPUT_AMOUNT, "Contract should receive ETH");
         assertEq(localLens.getLockedBalances(user, NATIVE_TOKEN), initialLocked + INPUT_AMOUNT, "Locked balance should increase");
 
-        // Verify order status
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = localLens.hash(order);
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
     }
 
@@ -92,25 +86,18 @@ contract NativeTokenTests is TestUtils {
      */
     function testDepositNative_SingleChain_Success() public {
         Order memory order = createCustomOrder(
-            user, // offerer
-            recipient, // recipient
-            NATIVE_TOKEN, // inputToken (native)
-            address(outputToken), // outputToken (ERC20)
-            INPUT_AMOUNT, // inputAmount
-            OUTPUT_AMOUNT, // outputAmount
-            block.timestamp, // startTime
-            block.timestamp + 1 hours, // endTime
-            localEid, // srcEid
-            localEid // dstEid (same chain)
+            user, recipient, NATIVE_TOKEN, address(outputToken),
+            INPUT_AMOUNT, OUTPUT_AMOUNT, block.timestamp, block.timestamp + 1 hours,
+            localEid, localEid
         );
 
-        bytes memory signature = signOrder(order, userPrivKey);
+        SrcHook memory noHook = emptySrcHook();
+        bytes memory quoteSig = signQuote(order, noHook);
 
         vm.prank(user);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, noHook, quoteSig);
 
-        // Verify order status
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = localLens.hash(order);
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
     }
 
@@ -119,24 +106,18 @@ contract NativeTokenTests is TestUtils {
      */
     function testDepositNative_NativeToNative_Success() public {
         Order memory order = createCustomOrder(
-            user, // offerer
-            recipient, // recipient
-            NATIVE_TOKEN, // inputToken (native)
-            NATIVE_TOKEN, // outputToken (native)
-            INPUT_AMOUNT, // inputAmount
-            OUTPUT_AMOUNT, // outputAmount
-            block.timestamp, // startTime
-            block.timestamp + 1 hours, // endTime
-            localEid, // srcEid
-            remoteEid // dstEid
+            user, recipient, NATIVE_TOKEN, NATIVE_TOKEN,
+            INPUT_AMOUNT, OUTPUT_AMOUNT, block.timestamp, block.timestamp + 1 hours,
+            localEid, remoteEid
         );
 
-        bytes memory signature = signOrder(order, userPrivKey);
+        SrcHook memory noHook = emptySrcHook();
+        bytes memory quoteSig = signQuote(order, noHook);
 
         vm.prank(user);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, noHook, quoteSig);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
     }
 
@@ -149,23 +130,14 @@ contract NativeTokenTests is TestUtils {
      */
     function testDepositNative_Revert_NonNativeInputToken() public {
         Order memory order = createCustomOrder(
-            user, // offerer
-            recipient, // recipient
-            address(inputToken), // inputToken (ERC20, not native)
-            address(outputToken), // outputToken
-            INPUT_AMOUNT, // inputAmount
-            OUTPUT_AMOUNT, // outputAmount
-            block.timestamp, // startTime
-            block.timestamp + 1 hours, // endTime
-            localEid, // srcEid
-            remoteEid // dstEid
+            user, recipient, address(inputToken), address(outputToken),
+            INPUT_AMOUNT, OUTPUT_AMOUNT, block.timestamp, block.timestamp + 1 hours,
+            localEid, remoteEid
         );
-
-        bytes memory signature = signOrder(order, userPrivKey);
 
         vm.expectRevert(OrderMustSpecifyNativeToken.selector);
         vm.prank(user);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, emptySrcHook(), "");
     }
 
     /**
@@ -173,23 +145,14 @@ contract NativeTokenTests is TestUtils {
      */
     function testDepositNative_Revert_IncorrectNativeAmount_TooLow() public {
         Order memory order = createCustomOrder(
-            user, // offerer
-            recipient, // recipient
-            NATIVE_TOKEN, // inputToken (native)
-            address(outputToken), // outputToken
-            INPUT_AMOUNT, // inputAmount
-            OUTPUT_AMOUNT, // outputAmount
-            block.timestamp, // startTime
-            block.timestamp + 1 hours, // endTime
-            localEid, // srcEid
-            remoteEid // dstEid
+            user, recipient, NATIVE_TOKEN, address(outputToken),
+            INPUT_AMOUNT, OUTPUT_AMOUNT, block.timestamp, block.timestamp + 1 hours,
+            localEid, remoteEid
         );
-
-        bytes memory signature = signOrder(order, userPrivKey);
 
         vm.expectRevert(abi.encodeWithSelector(IncorrectNativeAmount.selector, INPUT_AMOUNT, INPUT_AMOUNT - 1));
         vm.prank(user);
-        localAori.depositNative{ value: INPUT_AMOUNT - 1 }(order); // Send less than required
+        localAori.depositNative{ value: INPUT_AMOUNT - 1 }(order, emptySrcHook(), "");
     }
 
     /**
@@ -197,23 +160,14 @@ contract NativeTokenTests is TestUtils {
      */
     function testDepositNative_Revert_IncorrectNativeAmount_TooHigh() public {
         Order memory order = createCustomOrder(
-            user, // offerer
-            recipient, // recipient
-            NATIVE_TOKEN, // inputToken (native)
-            address(outputToken), // outputToken
-            INPUT_AMOUNT, // inputAmount
-            OUTPUT_AMOUNT, // outputAmount
-            block.timestamp, // startTime
-            block.timestamp + 1 hours, // endTime
-            localEid, // srcEid
-            remoteEid // dstEid
+            user, recipient, NATIVE_TOKEN, address(outputToken),
+            INPUT_AMOUNT, OUTPUT_AMOUNT, block.timestamp, block.timestamp + 1 hours,
+            localEid, remoteEid
         );
-
-        bytes memory signature = signOrder(order, userPrivKey);
 
         vm.expectRevert(abi.encodeWithSelector(IncorrectNativeAmount.selector, INPUT_AMOUNT, INPUT_AMOUNT + 1));
         vm.prank(user);
-        localAori.depositNative{ value: INPUT_AMOUNT + 1 }(order); // Send more than required
+        localAori.depositNative{ value: INPUT_AMOUNT + 1 }(order, emptySrcHook(), "");
     }
 
     /**
@@ -221,23 +175,14 @@ contract NativeTokenTests is TestUtils {
      */
     function testDepositNative_Revert_NotOfferer() public {
         Order memory order = createCustomOrder(
-            user, // offerer
-            recipient, // recipient
-            NATIVE_TOKEN, // inputToken (native)
-            address(outputToken), // outputToken
-            INPUT_AMOUNT, // inputAmount
-            OUTPUT_AMOUNT, // outputAmount
-            block.timestamp, // startTime
-            block.timestamp + 1 hours, // endTime
-            localEid, // srcEid
-            remoteEid // dstEid
+            user, recipient, NATIVE_TOKEN, address(outputToken),
+            INPUT_AMOUNT, OUTPUT_AMOUNT, block.timestamp, block.timestamp + 1 hours,
+            localEid, remoteEid
         );
 
-        bytes memory signature = signOrder(order, userPrivKey);
-
         vm.expectRevert(OnlyOffererCanDepositNativeTokens.selector);
-        vm.prank(wrongSigner); // Wrong caller
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        vm.prank(wrongSigner);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, emptySrcHook(), "");
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -249,29 +194,21 @@ contract NativeTokenTests is TestUtils {
      */
     function testDepositNative_Revert_OrderAlreadyExists() public {
         Order memory order = createCustomOrder(
-            user, // offerer
-            recipient, // recipient
-            NATIVE_TOKEN, // inputToken (native)
-            address(outputToken), // outputToken
-            INPUT_AMOUNT, // inputAmount
-            OUTPUT_AMOUNT, // outputAmount
-            block.timestamp, // startTime
-            block.timestamp + 1 hours, // endTime
-            localEid, // srcEid
-            remoteEid // dstEid
+            user, recipient, NATIVE_TOKEN, address(outputToken),
+            INPUT_AMOUNT, OUTPUT_AMOUNT, block.timestamp, block.timestamp + 1 hours,
+            localEid, remoteEid
         );
 
-        bytes memory signature = signOrder(order, userPrivKey);
+        SrcHook memory noHook = emptySrcHook();
+        bytes memory quoteSig = signQuote(order, noHook);
 
-        // First deposit should succeed
         vm.prank(user);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, noHook, quoteSig);
 
-        // Second deposit should fail
-        vm.deal(user, 2 ether); // Give user more ETH
+        vm.deal(user, 2 ether);
         vm.expectRevert(OrderAlreadyExists.selector);
         vm.prank(user);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, noHook, quoteSig);
     }
 
     /**
@@ -281,49 +218,14 @@ contract NativeTokenTests is TestUtils {
         uint32 unsupportedEid = 999;
 
         Order memory order = createCustomOrder(
-            user, // offerer
-            recipient, // recipient
-            NATIVE_TOKEN, // inputToken (native)
-            address(outputToken), // outputToken
-            INPUT_AMOUNT, // inputAmount
-            OUTPUT_AMOUNT, // outputAmount
-            block.timestamp, // startTime
-            block.timestamp + 1 hours, // endTime
-            localEid, // srcEid
-            unsupportedEid // dstEid (unsupported)
+            user, recipient, NATIVE_TOKEN, address(outputToken),
+            INPUT_AMOUNT, OUTPUT_AMOUNT, block.timestamp, block.timestamp + 1 hours,
+            localEid, unsupportedEid
         );
-
-        bytes memory signature = signOrder(order, userPrivKey);
 
         vm.expectRevert(abi.encodeWithSelector(DestinationChainNotSupported.selector, unsupportedEid));
         vm.prank(user);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
-    }
-
-    /**
-     * @notice Test that depositNative no longer requires signature validation
-     * @dev After the security improvement, signature validation was removed since msg.sender validation is sufficient
-     */
-    function testDepositNative_NoSignatureRequired() public {
-        Order memory order = createCustomOrder(
-            user, // offerer
-            recipient, // recipient
-            NATIVE_TOKEN, // inputToken (native)
-            address(outputToken), // outputToken
-            INPUT_AMOUNT, // inputAmount
-            OUTPUT_AMOUNT, // outputAmount
-            block.timestamp, // startTime
-            block.timestamp + 1 hours, // endTime
-            localEid, // srcEid
-            remoteEid // dstEid
-        );
-
-        // Should succeed without any signature validation
-        vm.prank(user);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
-
-        bytes32 orderId = localAori.hash(order);
-        assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, emptySrcHook(), "");
     }
 
     /**
@@ -331,23 +233,14 @@ contract NativeTokenTests is TestUtils {
      */
     function testDepositNative_Revert_ChainMismatch() public {
         Order memory order = createCustomOrder(
-            user, // offerer
-            recipient, // recipient
-            NATIVE_TOKEN, // inputToken (native)
-            address(outputToken), // outputToken
-            INPUT_AMOUNT, // inputAmount
-            OUTPUT_AMOUNT, // outputAmount
-            block.timestamp, // startTime
-            block.timestamp + 1 hours, // endTime
-            remoteEid, // srcEid (wrong chain)
-            remoteEid // dstEid
+            user, recipient, NATIVE_TOKEN, address(outputToken),
+            INPUT_AMOUNT, OUTPUT_AMOUNT, block.timestamp, block.timestamp + 1 hours,
+            remoteEid, remoteEid
         );
-
-        bytes memory signature = signOrder(order, userPrivKey);
 
         vm.expectRevert(abi.encodeWithSelector(ChainMismatch.selector, localEid, remoteEid));
         vm.prank(user);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, emptySrcHook(), "");
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -359,24 +252,14 @@ contract NativeTokenTests is TestUtils {
      */
     function testDepositNative_Revert_InvalidOfferer() public {
         Order memory order = createCustomOrder(
-            address(0), // offerer (invalid)
-            recipient, // recipient
-            NATIVE_TOKEN, // inputToken (native)
-            address(outputToken), // outputToken
-            INPUT_AMOUNT, // inputAmount
-            OUTPUT_AMOUNT, // outputAmount
-            block.timestamp, // startTime
-            block.timestamp + 1 hours, // endTime
-            localEid, // srcEid
-            remoteEid // dstEid
+            address(0), recipient, NATIVE_TOKEN, address(outputToken),
+            INPUT_AMOUNT, OUTPUT_AMOUNT, block.timestamp, block.timestamp + 1 hours,
+            localEid, remoteEid
         );
 
-        bytes memory signature = signOrder(order, userPrivKey);
-
-        // The "Only offerer can deposit native tokens" check happens before validateDeposit
         vm.expectRevert(OnlyOffererCanDepositNativeTokens.selector);
         vm.prank(user);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, emptySrcHook(), "");
     }
 
     /**
@@ -384,23 +267,14 @@ contract NativeTokenTests is TestUtils {
      */
     function testDepositNative_Revert_InvalidRecipient() public {
         Order memory order = createCustomOrder(
-            user, // offerer
-            address(0), // recipient (invalid)
-            NATIVE_TOKEN, // inputToken (native)
-            address(outputToken), // outputToken
-            INPUT_AMOUNT, // inputAmount
-            OUTPUT_AMOUNT, // outputAmount
-            block.timestamp, // startTime
-            block.timestamp + 1 hours, // endTime
-            localEid, // srcEid
-            remoteEid // dstEid
+            user, address(0), NATIVE_TOKEN, address(outputToken),
+            INPUT_AMOUNT, OUTPUT_AMOUNT, block.timestamp, block.timestamp + 1 hours,
+            localEid, remoteEid
         );
-
-        bytes memory signature = signOrder(order, userPrivKey);
 
         vm.expectRevert(InvalidRecipient.selector);
         vm.prank(user);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, emptySrcHook(), "");
     }
 
     /**
@@ -408,26 +282,17 @@ contract NativeTokenTests is TestUtils {
      */
     function testDepositNative_Revert_InvalidEndTime() public {
         uint32 startTime = uint32(block.timestamp + 1 hours);
-        uint32 endTime = uint32(block.timestamp); // End before start
+        uint32 endTime = uint32(block.timestamp);
 
         Order memory order = createCustomOrder(
-            user, // offerer
-            recipient, // recipient
-            NATIVE_TOKEN, // inputToken (native)
-            address(outputToken), // outputToken
-            INPUT_AMOUNT, // inputAmount
-            OUTPUT_AMOUNT, // outputAmount
-            startTime, // startTime
-            endTime, // endTime (invalid)
-            localEid, // srcEid
-            remoteEid // dstEid
+            user, recipient, NATIVE_TOKEN, address(outputToken),
+            INPUT_AMOUNT, OUTPUT_AMOUNT, startTime, endTime,
+            localEid, remoteEid
         );
-
-        bytes memory signature = signOrder(order, userPrivKey);
 
         vm.expectRevert(abi.encodeWithSelector(InvalidEndTime.selector, startTime, endTime));
         vm.prank(user);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, emptySrcHook(), "");
     }
 
     /**
@@ -437,54 +302,35 @@ contract NativeTokenTests is TestUtils {
         uint32 futureTime = uint32(block.timestamp + 1 hours);
 
         Order memory order = createCustomOrder(
-            user, // offerer
-            recipient, // recipient
-            NATIVE_TOKEN, // inputToken (native)
-            address(outputToken), // outputToken
-            INPUT_AMOUNT, // inputAmount
-            OUTPUT_AMOUNT, // outputAmount
-            futureTime, // startTime (future)
-            futureTime + 1 hours, // endTime
-            localEid, // srcEid
-            remoteEid // dstEid
+            user, recipient, NATIVE_TOKEN, address(outputToken),
+            INPUT_AMOUNT, OUTPUT_AMOUNT, futureTime, futureTime + 1 hours,
+            localEid, remoteEid
         );
-
-        bytes memory signature = signOrder(order, userPrivKey);
 
         vm.expectRevert(abi.encodeWithSelector(OrderNotStarted.selector, futureTime, block.timestamp));
         vm.prank(user);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, emptySrcHook(), "");
     }
 
     /**
      * @notice Test failure when order has expired
      */
     function testDepositNative_Revert_OrderExpired() public {
-        // Set a specific timestamp to avoid underflow issues
-        vm.warp(10000); // Set block.timestamp to 10000
+        vm.warp(10000);
 
         uint32 currentTime = uint32(block.timestamp);
-        uint32 pastStartTime = currentTime - 7200; // 2 hours ago
-        uint32 pastEndTime = currentTime - 3600; // 1 hour ago
+        uint32 pastStartTime = currentTime - 7200;
+        uint32 pastEndTime = currentTime - 3600;
 
         Order memory order = createCustomOrder(
-            user, // offerer
-            recipient, // recipient
-            NATIVE_TOKEN, // inputToken (native)
-            address(outputToken), // outputToken
-            INPUT_AMOUNT, // inputAmount
-            OUTPUT_AMOUNT, // outputAmount
-            pastStartTime, // startTime (past)
-            pastEndTime, // endTime (past)
-            localEid, // srcEid
-            remoteEid // dstEid
+            user, recipient, NATIVE_TOKEN, address(outputToken),
+            INPUT_AMOUNT, OUTPUT_AMOUNT, pastStartTime, pastEndTime,
+            localEid, remoteEid
         );
-
-        bytes memory signature = signOrder(order, userPrivKey);
 
         vm.expectRevert(abi.encodeWithSelector(OrderExpired.selector, pastEndTime, currentTime));
         vm.prank(user);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, emptySrcHook(), "");
     }
 
     /**
@@ -492,23 +338,14 @@ contract NativeTokenTests is TestUtils {
      */
     function testDepositNative_Revert_InvalidInputAmount() public {
         Order memory order = createCustomOrder(
-            user, // offerer
-            recipient, // recipient
-            NATIVE_TOKEN, // inputToken (native)
-            address(outputToken), // outputToken
-            0, // inputAmount (invalid)
-            OUTPUT_AMOUNT, // outputAmount
-            block.timestamp, // startTime
-            block.timestamp + 1 hours, // endTime
-            localEid, // srcEid
-            remoteEid // dstEid
+            user, recipient, NATIVE_TOKEN, address(outputToken),
+            0, OUTPUT_AMOUNT, block.timestamp, block.timestamp + 1 hours,
+            localEid, remoteEid
         );
-
-        bytes memory signature = signOrder(order, userPrivKey);
 
         vm.expectRevert(InvalidInputAmount.selector);
         vm.prank(user);
-        localAori.depositNative{ value: 0 }(order);
+        localAori.depositNative{ value: 0 }(order, emptySrcHook(), "");
     }
 
     /**
@@ -516,23 +353,14 @@ contract NativeTokenTests is TestUtils {
      */
     function testDepositNative_Revert_InvalidOutputAmount() public {
         Order memory order = createCustomOrder(
-            user, // offerer
-            recipient, // recipient
-            NATIVE_TOKEN, // inputToken (native)
-            address(outputToken), // outputToken
-            INPUT_AMOUNT, // inputAmount
-            0, // outputAmount (invalid)
-            block.timestamp, // startTime
-            block.timestamp + 1 hours, // endTime
-            localEid, // srcEid
-            remoteEid // dstEid
+            user, recipient, NATIVE_TOKEN, address(outputToken),
+            INPUT_AMOUNT, 0, block.timestamp, block.timestamp + 1 hours,
+            localEid, remoteEid
         );
-
-        bytes memory signature = signOrder(order, userPrivKey);
 
         vm.expectRevert(InvalidOutputAmount.selector);
         vm.prank(user);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, emptySrcHook(), "");
     }
 
     /**
@@ -540,23 +368,14 @@ contract NativeTokenTests is TestUtils {
      */
     function testDepositNative_Revert_InvalidOutputToken() public {
         Order memory order = createCustomOrder(
-            user, // offerer
-            recipient, // recipient
-            NATIVE_TOKEN, // inputToken (native)
-            address(0), // outputToken (invalid)
-            INPUT_AMOUNT, // inputAmount
-            OUTPUT_AMOUNT, // outputAmount
-            block.timestamp, // startTime
-            block.timestamp + 1 hours, // endTime
-            localEid, // srcEid
-            remoteEid // dstEid
+            user, recipient, NATIVE_TOKEN, address(0),
+            INPUT_AMOUNT, OUTPUT_AMOUNT, block.timestamp, block.timestamp + 1 hours,
+            localEid, remoteEid
         );
-
-        bytes memory signature = signOrder(order, userPrivKey);
 
         vm.expectRevert(InvalidToken.selector);
         vm.prank(user);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, emptySrcHook(), "");
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -568,26 +387,16 @@ contract NativeTokenTests is TestUtils {
      */
     function testDepositNative_Revert_WhenPaused() public {
         Order memory order = createCustomOrder(
-            user, // offerer
-            recipient, // recipient
-            NATIVE_TOKEN, // inputToken (native)
-            address(outputToken), // outputToken
-            INPUT_AMOUNT, // inputAmount
-            OUTPUT_AMOUNT, // outputAmount
-            block.timestamp, // startTime
-            block.timestamp + 1 hours, // endTime
-            localEid, // srcEid
-            remoteEid // dstEid
+            user, recipient, NATIVE_TOKEN, address(outputToken),
+            INPUT_AMOUNT, OUTPUT_AMOUNT, block.timestamp, block.timestamp + 1 hours,
+            localEid, remoteEid
         );
 
-        bytes memory signature = signOrder(order, userPrivKey);
-
-        // Pause the contract
         localAori.pause();
 
-        vm.expectRevert(); // OpenZeppelin's Pausable uses custom errors
+        vm.expectRevert();
         vm.prank(user);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, emptySrcHook(), "");
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -599,27 +408,21 @@ contract NativeTokenTests is TestUtils {
      */
     function testDepositNative_MaxAmounts() public {
         uint128 maxAmount = type(uint128).max;
-
-        // Give user enough ETH (this will likely fail due to gas limits in practice)
         vm.deal(user, maxAmount);
 
         Order memory order = createCustomOrder(
-            user, // offerer
-            recipient, // recipient
-            NATIVE_TOKEN, // inputToken (native)
-            address(outputToken), // outputToken
-            maxAmount, // inputAmount (max)
-            maxAmount, // outputAmount (max)
-            block.timestamp, // startTime
-            block.timestamp + 1 hours, // endTime
-            localEid, // srcEid
-            remoteEid // dstEid
+            user, recipient, NATIVE_TOKEN, address(outputToken),
+            maxAmount, maxAmount, block.timestamp, block.timestamp + 1 hours,
+            localEid, remoteEid
         );
 
-        vm.prank(user);
-        localAori.depositNative{ value: maxAmount }(order);
+        SrcHook memory noHook = emptySrcHook();
+        bytes memory quoteSig = signQuote(order, noHook);
 
-        bytes32 orderId = localAori.hash(order);
+        vm.prank(user);
+        localAori.depositNative{ value: maxAmount }(order, noHook, quoteSig);
+
+        bytes32 orderId = keccak256(abi.encode(order));
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
     }
 
@@ -630,22 +433,18 @@ contract NativeTokenTests is TestUtils {
         uint128 minAmount = 1;
 
         Order memory order = createCustomOrder(
-            user, // offerer
-            recipient, // recipient
-            NATIVE_TOKEN, // inputToken (native)
-            address(outputToken), // outputToken
-            minAmount, // inputAmount (1 wei)
-            minAmount, // outputAmount (1 wei)
-            block.timestamp, // startTime
-            block.timestamp + 1 hours, // endTime
-            localEid, // srcEid
-            remoteEid // dstEid
+            user, recipient, NATIVE_TOKEN, address(outputToken),
+            minAmount, minAmount, block.timestamp, block.timestamp + 1 hours,
+            localEid, remoteEid
         );
 
-        vm.prank(user);
-        localAori.depositNative{ value: minAmount }(order);
+        SrcHook memory noHook = emptySrcHook();
+        bytes memory quoteSig = signQuote(order, noHook);
 
-        bytes32 orderId = localAori.hash(order);
+        vm.prank(user);
+        localAori.depositNative{ value: minAmount }(order, noHook, quoteSig);
+
+        bytes32 orderId = keccak256(abi.encode(order));
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
     }
 
@@ -656,24 +455,18 @@ contract NativeTokenTests is TestUtils {
         uint32 currentTime = uint32(block.timestamp);
 
         Order memory order = createCustomOrder(
-            user, // offerer
-            recipient, // recipient
-            NATIVE_TOKEN, // inputToken (native)
-            address(outputToken), // outputToken
-            INPUT_AMOUNT, // inputAmount
-            OUTPUT_AMOUNT, // outputAmount
-            currentTime, // startTime (exact current time)
-            currentTime + 1, // endTime (1 second later)
-            localEid, // srcEid
-            remoteEid // dstEid
+            user, recipient, NATIVE_TOKEN, address(outputToken),
+            INPUT_AMOUNT, OUTPUT_AMOUNT, currentTime, currentTime + 1,
+            localEid, remoteEid
         );
 
-        bytes memory signature = signOrder(order, userPrivKey);
+        SrcHook memory noHook = emptySrcHook();
+        bytes memory quoteSig = signQuote(order, noHook);
 
         vm.prank(user);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, noHook, quoteSig);
 
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
     }
 
@@ -687,28 +480,22 @@ contract NativeTokenTests is TestUtils {
     function testDepositNative_MultipleDeposits() public {
         for (uint256 i = 0; i < 3; i++) {
             Order memory order = createCustomOrder(
-                user, // offerer
-                recipient, // recipient
-                NATIVE_TOKEN, // inputToken (native)
-                address(outputToken), // outputToken
-                INPUT_AMOUNT, // inputAmount
-                OUTPUT_AMOUNT + uint128(i), // outputAmount (different to make unique orders)
-                block.timestamp, // startTime
-                block.timestamp + 1 hours, // endTime
-                localEid, // srcEid
-                remoteEid // dstEid
+                user, recipient, NATIVE_TOKEN, address(outputToken),
+                INPUT_AMOUNT, OUTPUT_AMOUNT + uint128(i),
+                block.timestamp, block.timestamp + 1 hours,
+                localEid, remoteEid
             );
 
-            bytes memory signature = signOrder(order, userPrivKey);
+            SrcHook memory noHook = emptySrcHook();
+            bytes memory quoteSig = signQuote(order, noHook);
 
             vm.prank(user);
-            localAori.depositNative{ value: INPUT_AMOUNT }(order);
+            localAori.depositNative{ value: INPUT_AMOUNT }(order, noHook, quoteSig);
 
-            bytes32 orderId = localAori.hash(order);
+            bytes32 orderId = keccak256(abi.encode(order));
             assertTrue(localAori.orderStatus(orderId) == OrderStatus.Active, "Order should be Active");
         }
 
-        // Verify total locked balance
         assertEq(localLens.getLockedBalances(user, NATIVE_TOKEN), INPUT_AMOUNT * 3, "Total locked should be 3x input amount");
     }
 
@@ -717,25 +504,19 @@ contract NativeTokenTests is TestUtils {
      */
     function testDepositNative_EventEmission() public {
         Order memory order = createCustomOrder(
-            user, // offerer
-            recipient, // recipient
-            NATIVE_TOKEN, // inputToken (native)
-            address(outputToken), // outputToken
-            INPUT_AMOUNT, // inputAmount
-            OUTPUT_AMOUNT, // outputAmount
-            block.timestamp, // startTime
-            block.timestamp + 1 hours, // endTime
-            localEid, // srcEid
-            remoteEid // dstEid
+            user, recipient, NATIVE_TOKEN, address(outputToken),
+            INPUT_AMOUNT, OUTPUT_AMOUNT, block.timestamp, block.timestamp + 1 hours,
+            localEid, remoteEid
         );
 
-        bytes memory signature = signOrder(order, userPrivKey);
-        bytes32 expectedOrderId = localAori.hash(order);
+        SrcHook memory noHook = emptySrcHook();
+        bytes memory quoteSig = signQuote(order, noHook);
+        bytes32 expectedOrderId = localLens.hash(order);
 
         vm.expectEmit(true, false, false, true);
         emit IAori.Deposit(expectedOrderId, order, address(0), 0);
 
         vm.prank(user);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, noHook, quoteSig);
     }
 }

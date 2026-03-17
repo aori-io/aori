@@ -182,17 +182,17 @@ contract EdgeCasesTest is TestUtils {
     function _getOrderDigest(
         Order memory order
     ) internal view returns (bytes32) {
-        bytes32 OPTIONS_TYPEHASH = keccak256("Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)");
+        bytes32 OPTIONS_TYPEHASH = keccak256("Options(uint16 feeMbps,uint16 slippageMbps,address feeRecipient,address srcSolver,address dstSolver)");
         bytes32 ORDER_TYPEHASH = keccak256(
-            "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,"
-            "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient," "Options options)"
-            "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
+            "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,"
+            "uint32 startTime,uint32 endTime,uint32 srcEid,address outputToken,uint32 dstEid,address offerer,address recipient," "Options options)"
+            "Options(uint16 feeMbps,uint16 slippageMbps,address feeRecipient,address srcSolver,address dstSolver)"
         );
 
         // Hash options first
         bytes32 optionsHash = keccak256(
             abi.encode(
-                OPTIONS_TYPEHASH, order.options.feeMbps, order.options.feeRecipient, order.options.solver, order.options.slippageMbps
+                OPTIONS_TYPEHASH, order.options.feeMbps, order.options.slippageMbps, order.options.feeRecipient, order.options.srcSolver, order.options.dstSolver
             )
         );
 
@@ -202,10 +202,10 @@ contract EdgeCasesTest is TestUtils {
                 order.inputAmount,
                 order.outputAmount,
                 order.inputToken,
-                order.outputToken,
                 order.startTime,
                 order.endTime,
                 order.srcEid,
+                order.outputToken,
                 order.dstEid,
                 order.offerer,
                 order.recipient,

@@ -9,7 +9,6 @@ import { ISignatureTransfer } from "@permit2/src/interfaces/ISignatureTransfer.s
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { PayloadType, PayloadUtils } from "./utils/PayloadUtils.sol";
-import { PayloadType, PayloadUtils } from "./utils/PayloadUtils.sol";
 import { AoriStorage, AoriStorageData } from "./AoriStorage.sol";
 import { AoriAtomicSwapLib } from "./lib/AoriAtomicSwapLib.sol";
 import { ValidationUtils } from "./utils/ValidationUtils.sol";
@@ -20,6 +19,7 @@ import { AoriAdminLib } from "./lib/AoriAdminLib.sol";
 import { EIP712 } from "solady/src/utils/EIP712.sol";
 import { TokenUtils } from "./utils/TokenUtils.sol";
 import { Permit2Lib } from "./utils/Permit2Lib.sol";
+import { QuoteSigLib } from "./utils/QuoteSigLib.sol";
 import { ECDSA } from "solady/src/utils/ECDSA.sol";
 import { HookUtils } from "./utils/HookUtils.sol";
 import { IAori } from "./interfaces/IAori.sol";
@@ -119,7 +119,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
         __Ownable_init(_owner);
         __OApp_init(_owner);
         __Pausable_init();
-        __UUPSUpgradeable_init();
 
         AoriStorageData storage $ = _getAoriStorage();
         $.maxFillsPerSettle = _maxFillsPerSettle;
@@ -313,7 +312,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
 
         if (order.isSingleChainSwap()) {
             // Atomic path: execute swap with slippage + fee logic
-            address solver = order.options.solver == address(0) ? msg.sender : order.options.solver;
+            address solver = order.options.srcSolver == address(0) ? msg.sender : order.options.srcSolver;
             AoriAtomicSwapLib.executeSwap(orderId, order, hook, solver);
         } else {
             // Non-atomic path: convert to preferredToken, lock for settlement
@@ -329,43 +328,48 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     /**
-     * @notice Deposits native tokens to the contract without a hook call
+     * @notice Deposits native tokens with optional hook for token conversion
      * @dev User calls this directly and sends their own ETH via msg.value.
+     *      Requires solver quote signature to prevent manipulation and spam.
+     *      For deposits without hook, pass empty SrcHook with all fields zeroed.
      * @param order The order details (must specify NATIVE_TOKEN as inputToken)
+     * @param srcHook The source hook configuration (hookAddress = address(0) if no hook needed)
+     * @param quoteSignature Solver's EIP-712 signature over SolverQuote(orderId, srcHook)
      */
-    function depositNative(Order calldata order) external payable nonReentrant whenNotPaused {
-        order.validateNativeDeposit(msg.value, msg.sender);
-
-        bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
-        _postDeposit(order.inputToken, order.inputAmount, order, orderId, address(0), 0);
-    }
-
-    /**
-     * @notice Deposits native tokens to the contract with a hook call for token conversion
-     * @dev Handles both single-chain atomic swaps and cross-chain deposits with hook.
-     *      User calls this directly and sends their own ETH via msg.value.
-     * @param order The order details (must specify NATIVE_TOKEN as inputToken)
-     * @param hook The pre-hook configuration for token conversion
-     */
-    function depositNative(Order calldata order, SrcHook calldata hook) external payable nonReentrant whenNotPaused {
+    function depositNative(
+        Order calldata order,
+        SrcHook calldata srcHook,
+        bytes calldata quoteSignature
+    ) external payable nonReentrant whenNotPaused {
         order.validateNativeDeposit(msg.value, msg.sender);
         bytes32 orderId = order.validateDepositNoSig(ENDPOINT_ID, _getAoriStorage().maxFeeMbps, this.orderStatus, this.isSupportedChain);
-        ValidationUtils.validateHook(hook.hookAddress, this.isAllowedHook);
 
-        // Send native tokens to hook
-        (bool success,) = payable(hook.hookAddress).call{ value: order.inputAmount }("");
-        if (!success) revert NativeTransferFailed();
+        // Validate solver quote signature (prevents manipulation + spam)
+        address quoteSigner = QuoteSigLib.validateQuoteSignature(orderId, order, srcHook, quoteSignature, _hashTypedDataSansChainId, this.isAllowedSolver);
 
-        if (order.isSingleChainSwap()) {
-            // Atomic path: execute swap with slippage + fee logic
-            address solver = order.options.solver == address(0) ? msg.sender : order.options.solver;
-            AoriAtomicSwapLib.executeSwap(orderId, order, hook, solver);
+        bool hasHook = srcHook.hookAddress != address(0);
+
+        if (hasHook) {
+            ValidationUtils.validateHook(srcHook.hookAddress, this.isAllowedHook);
+
+            // Send native tokens to hook
+            (bool success,) = payable(srcHook.hookAddress).call{ value: order.inputAmount }("");
+            if (!success) revert NativeTransferFailed();
+
+            if (order.isSingleChainSwap()) {
+                // Atomic path: execute swap with slippage + fee logic
+                address solver = order.options.srcSolver == address(0) ? quoteSigner : order.options.srcSolver;
+                AoriAtomicSwapLib.executeSwap(orderId, order, srcHook, solver);
+            } else {
+                // Non-atomic path: convert to preferredToken, lock for settlement
+                uint256 amountReceived =
+                    HookUtils.executeHook(srcHook.hookAddress, srcHook.instructions, srcHook.preferredToken, srcHook.minPreferredTokenAmountOut);
+
+                _postDeposit(srcHook.preferredToken, amountReceived, order, orderId, srcHook.preferredToken, amountReceived);
+            }
         } else {
-            // Non-atomic path: convert to preferredToken, lock for settlement
-            uint256 amountReceived =
-                HookUtils.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut);
-
-            _postDeposit(hook.preferredToken, amountReceived, order, orderId, hook.preferredToken, amountReceived);
+            // No hook - direct native deposit
+            _postDeposit(order.inputToken, order.inputAmount, order, orderId, address(0), 0);
         }
     }
 
@@ -429,7 +433,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
 
         if (order.isSingleChainSwap()) {
             // Atomic path: execute swap with slippage + fee logic
-            address solver = order.options.solver == address(0) ? msg.sender : order.options.solver;
+            address solver = order.options.srcSolver == address(0) ? msg.sender : order.options.srcSolver;
             AoriAtomicSwapLib.executeSwap(orderId, order, hook, solver);
         } else {
             // Non-atomic path: convert to preferredToken, lock for settlement
@@ -489,9 +493,9 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
 
         // Update contract state
         if (order.isSingleChainSwap()) {
-            AoriSettleLib.settleSingleChainSwap(orderId, order, msg.sender, address(0), 0, 0);
+            AoriSettleLib.settleSingleChainSwap(orderId, order, msg.sender, order.outputToken, order.outputAmount, 0);
         } else {
-            _postFill(orderId, order, address(0), 0, 0);
+            _postFill(orderId, order, order.outputToken, order.outputAmount, 0);
         }
 
         // Transfer tokens to recipient
@@ -550,21 +554,21 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
      * @notice Processes an order after successful filling
      * @param orderId The unique identifier for the order
      * @param order The order details that were filled
-     * @param dstHookTokenIn The token used in dstHook (address(0) if no hook)
-     * @param dstHookAmountIn The amount sent to dstHook (0 if no hook)
-     * @param dstHookAmountOut The amount received from dstHook (0 if no hook)
+     * @param fillToken The token the solver spent to fill (outputToken if direct, hook.preferredToken if via hook)
+     * @param fillAmount The amount the solver spent to fill
+     * @param fillAmountOut The amount of outputToken produced by hook (0 if direct transfer)
      */
     function _postFill(
         bytes32 orderId,
         Order calldata order,
-        address dstHookTokenIn,
-        uint256 dstHookAmountIn,
-        uint256 dstHookAmountOut
+        address fillToken,
+        uint256 fillAmount,
+        uint256 fillAmountOut
     ) internal {
         AoriStorageData storage $ = _getAoriStorage();
         $.orderStatus[orderId] = OrderStatus.Filled;
         $.srcEidToFillerFills[order.srcEid][msg.sender].push(orderId);
-        emit Fill(orderId, dstHookTokenIn, dstHookAmountIn, dstHookAmountOut);
+        emit Fill(orderId, fillToken, fillAmount, fillAmountOut);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -704,13 +708,6 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
     function _hashOrder712(Order calldata order) internal view returns (bytes32) {
         return _hashTypedDataSansChainId(Permit2Lib.hashOrder(order));
     }
-
-    /**
-     * @notice Computes the hash of an order
-     * @param order The order to hash
-     * @return The computed hash
-     */
-    function hash(Order calldata order) public pure returns (bytes32) { return keccak256(abi.encode(order)); }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                     UUPS UPGRADEABILITY                     */

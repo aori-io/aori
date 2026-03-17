@@ -268,7 +268,7 @@ contract CC_ERC20ToNativeHook is TestUtils {
             uint8(0), // message type 0 for settlement
             solverSource, // filler address (should be source chain solver for settlement)
             uint16(1), // fill count
-            localAori.hash(order) // order hash
+            keccak256(abi.encode(order)) // order hash
         );
 
         vm.prank(address(endpoints[localEid]));
@@ -305,7 +305,7 @@ contract CC_ERC20ToNativeHook is TestUtils {
         );
 
         // Verify order status
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Active, "Order should be Active");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Active, "Order should be Active");
     }
 
     /**
@@ -342,7 +342,7 @@ contract CC_ERC20ToNativeHook is TestUtils {
         );
 
         // Verify order status
-        assertTrue(remoteAori.orderStatus(localAori.hash(order)) == OrderStatus.Filled, "Order should be Filled");
+        assertTrue(remoteAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Filled, "Order should be Filled");
     }
 
     /**
@@ -372,7 +372,7 @@ contract CC_ERC20ToNativeHook is TestUtils {
         );
 
         // Verify order status
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Settled, "Order should be Settled");
 
         // Verify locked balance is cleared
         assertEq(

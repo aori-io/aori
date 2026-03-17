@@ -67,7 +67,7 @@ library AoriAtomicSwapLib {
         // Execute hook - converts input to output, validates minOutput
         amountReceived = HookUtils.executeHook(hook.hookAddress, hook.instructions, order.outputToken, minOutput);
 
-        _distributeOutputs($, orderId, order, hook.preferredToken, solver, amountReceived);
+        _distributeOutputs($, orderId, order, solver, amountReceived);
     }
 
     /**
@@ -78,7 +78,6 @@ library AoriAtomicSwapLib {
         AoriStorageData storage $,
         bytes32 orderId,
         Order calldata order,
-        address preferredToken,
         address solver,
         uint256 amountReceived
     ) internal {
@@ -108,7 +107,7 @@ library AoriAtomicSwapLib {
             $.balances[solver][order.outputToken].unlocked += SafeCast.toUint128(surplus);
         }
 
-        emit IAori.Deposit(orderId, order, preferredToken, amountReceived);
+        emit IAori.Deposit(orderId, order, order.outputToken, amountReceived);
         emit IAori.Fill(orderId, address(0), 0, 0);
         emit IAori.Settle(orderId, solver, SafeCast.toUint128(surplus), protocolFee, actualFeeRecipient, additionalFee);
     }

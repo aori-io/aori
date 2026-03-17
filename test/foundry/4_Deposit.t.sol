@@ -52,7 +52,7 @@ contract DepositTests is TestUtils {
         assertEq(localLens.getLockedBalances(userA, address(inputToken)), initialLocked + order.inputAmount);
         assertEq(inputToken.balanceOf(userA), initialBalance - order.inputAmount);
 
-        bytes32 orderHash = localAori.hash(order);
+        bytes32 orderHash = keccak256(abi.encode(order));
         assertEq(uint8(localAori.orderStatus(orderHash)), uint8(OrderStatus.Active));
     }
 
@@ -75,7 +75,7 @@ contract DepositTests is TestUtils {
         // Verify locked balance increased
         assertEq(localLens.getLockedBalances(userA, address(inputToken)), initialLocked + order.inputAmount);
 
-        bytes32 orderHash = localAori.hash(order);
+        bytes32 orderHash = keccak256(abi.encode(order));
         assertEq(uint8(localAori.orderStatus(orderHash)), uint8(OrderStatus.Active));
     }
 
@@ -421,7 +421,7 @@ contract DepositTests is TestUtils {
     function testDeposit_EmitsEvents() public {
         Order memory order = createValidTestOrder();
         bytes memory signature = signOrder(order);
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
 
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
@@ -450,7 +450,7 @@ contract DepositTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        bytes32 orderHash = localAori.hash(order);
+        bytes32 orderHash = keccak256(abi.encode(order));
         assertEq(uint8(localAori.orderStatus(orderHash)), uint8(OrderStatus.Active));
     }
 
@@ -468,7 +468,7 @@ contract DepositTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        bytes32 orderHash = localAori.hash(order);
+        bytes32 orderHash = keccak256(abi.encode(order));
         assertEq(uint8(localAori.orderStatus(orderHash)), uint8(OrderStatus.Active));
     }
 
@@ -491,7 +491,7 @@ contract DepositTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        bytes32 orderHash = localAori.hash(order);
+        bytes32 orderHash = keccak256(abi.encode(order));
         assertEq(uint8(localAori.orderStatus(orderHash)), uint8(OrderStatus.Active));
     }
 

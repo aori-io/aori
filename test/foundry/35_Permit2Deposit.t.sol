@@ -18,9 +18,9 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
     // Full typehash for PermitWitnessTransferFrom with Order witness (includes nested Options)
     bytes32 constant FULL_PERMIT_WITNESS_TYPEHASH = keccak256(
         "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,Order witness)"
-        "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
-        "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,"
-        "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient," "Options options)"
+        "Options(uint16 feeMbps,uint16 slippageMbps,address feeRecipient,address srcSolver,address dstSolver)"
+        "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,"
+        "uint32 startTime,uint32 endTime,uint32 srcEid,address outputToken,uint32 dstEid,address offerer,address recipient," "Options options)"
         "TokenPermissions(address token,uint256 amount)"
     );
 
@@ -56,9 +56,10 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
             abi.encode(
                 Permit2Lib.OPTIONS_TYPEHASH,
                 order.options.feeMbps,
+                order.options.slippageMbps,
                 order.options.feeRecipient,
-                order.options.solver,
-                order.options.slippageMbps
+                order.options.srcSolver,
+                order.options.dstSolver
             )
         );
 
@@ -69,10 +70,10 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
                 order.inputAmount,
                 order.outputAmount,
                 order.inputToken,
-                order.outputToken,
                 order.startTime,
                 order.endTime,
                 order.srcEid,
+                order.outputToken,
                 order.dstEid,
                 order.offerer,
                 order.recipient,
@@ -126,7 +127,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
         assertEq(inputToken.balanceOf(address(localAori)), aoriBalanceBefore + order.inputAmount);
 
         // Check order is stored
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Active));
 
         // Check locked balance
@@ -149,8 +150,8 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
         localAori.depositWithPermit2(order2, 1, deadline, sig2);
 
         // Both orders should be active
-        assertEq(uint8(localAori.orderStatus(localAori.hash(order1))), uint8(OrderStatus.Active));
-        assertEq(uint8(localAori.orderStatus(localAori.hash(order2))), uint8(OrderStatus.Active));
+        assertEq(uint8(localAori.orderStatus(keccak256(abi.encode(order1)))), uint8(OrderStatus.Active));
+        assertEq(uint8(localAori.orderStatus(keccak256(abi.encode(order2)))), uint8(OrderStatus.Active));
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -303,7 +304,7 @@ contract Permit2DepositTest is TestUtils, DeployPermit2 {
         assertEq(inputToken.balanceOf(userA), userBalanceBefore - order.inputAmount);
 
         // Check order is stored
-        bytes32 orderId = localAori.hash(order);
+        bytes32 orderId = keccak256(abi.encode(order));
         assertEq(uint8(localAori.orderStatus(orderId)), uint8(OrderStatus.Active));
 
         // Check converted token is locked (hook converts input to convertedToken)

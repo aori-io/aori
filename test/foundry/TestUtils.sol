@@ -92,7 +92,8 @@ contract TestUtils is TestHelperOz5 {
     // Common addresses
     uint256 public userAPrivKey = 0xBEEF;
     address public userA;
-    address public solver = address(0x200);
+    uint256 public solverPrivKey = 0x50170E;
+    address public solver;
 
     // Common constants
     uint32 public constant localEid = 1;
@@ -103,8 +104,9 @@ contract TestUtils is TestHelperOz5 {
      * @notice Common setup function for all tests
      */
     function setUp() public virtual override {
-        // Derive userA
+        // Derive userA and solver
         userA = vm.addr(userAPrivKey);
+        solver = vm.addr(solverPrivKey);
 
         // Setup LayerZero endpoints
         setUpEndpoints(2, LibraryType.UltraLightNode);
@@ -181,8 +183,8 @@ contract TestUtils is TestHelperOz5 {
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
-            outputToken: address(outputToken),
             inputAmount: uint128(inputAmount),
+            outputToken: address(outputToken),
             outputAmount: uint128(outputAmount),
             startTime: uint32(block.timestamp), // Set to current timestamp
             endTime: uint32(block.timestamp + endTimeOffset),
@@ -218,8 +220,8 @@ contract TestUtils is TestHelperOz5 {
             offerer: _offerer,
             recipient: _recipient,
             inputToken: _inputToken,
-            outputToken: _outputToken,
             inputAmount: uint128(_inputAmount),
+            outputToken: _outputToken,
             outputAmount: uint128(_outputAmount),
             startTime: uint32(_startTime),
             endTime: uint32(_endTime),
@@ -245,11 +247,12 @@ contract TestUtils is TestHelperOz5 {
         // Hash the nested Options struct first
         bytes32 optionsHash = keccak256(
             abi.encode(
-                keccak256("Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"),
+                keccak256("Options(uint16 feeMbps,uint16 slippageMbps,address feeRecipient,address srcSolver,address dstSolver)"),
                 order.options.feeMbps,
+                order.options.slippageMbps,
                 order.options.feeRecipient,
-                order.options.solver,
-                order.options.slippageMbps
+                order.options.srcSolver,
+                order.options.dstSolver
             )
         );
 
@@ -257,17 +260,17 @@ contract TestUtils is TestHelperOz5 {
         bytes32 structHash = keccak256(
             abi.encode(
                 keccak256(
-                    "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,"
-                    "uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient," "Options options)"
-                    "Options(uint16 feeMbps,address feeRecipient,address solver,uint16 slippageMbps)"
+                    "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,uint32 startTime,"
+                    "uint32 endTime,uint32 srcEid,address outputToken,uint32 dstEid,address offerer,address recipient," "Options options)"
+                    "Options(uint16 feeMbps,uint16 slippageMbps,address feeRecipient,address srcSolver,address dstSolver)"
                 ),
                 order.inputAmount,
                 order.outputAmount,
                 order.inputToken,
-                order.outputToken,
                 order.startTime,
                 order.endTime,
                 order.srcEid,
+                order.outputToken,
                 order.dstEid,
                 order.offerer,
                 order.recipient,
@@ -296,9 +299,10 @@ contract TestUtils is TestHelperOz5 {
     function defaultOrderOptions() public pure returns (Options memory) {
         return Options({
             feeMbps: 0,
+            slippageMbps: 0, // 0 = limit order
             feeRecipient: address(0),
-            solver: address(0), // Any whitelisted solver allowed
-            slippageMbps: 0 // 0 = limit order
+            srcSolver: address(0), // Any whitelisted solver allowed
+            dstSolver: address(0) // Any whitelisted solver allowed
          });
     }
 
@@ -310,7 +314,7 @@ contract TestUtils is TestHelperOz5 {
     function marketOrderOptions(
         uint16 slippageMbps
     ) public pure returns (Options memory) {
-        return Options({ feeMbps: 0, feeRecipient: address(0), solver: address(0), slippageMbps: slippageMbps });
+        return Options({ feeMbps: 0, slippageMbps: slippageMbps, feeRecipient: address(0), srcSolver: address(0), dstSolver: address(0) });
     }
 
     /**
@@ -320,7 +324,7 @@ contract TestUtils is TestHelperOz5 {
      * @return Options struct with fee configuration
      */
     function feeOrderOptions(uint16 feeMbps, address feeRecipient) public pure returns (Options memory) {
-        return Options({ feeMbps: feeMbps, feeRecipient: feeRecipient, solver: address(0), slippageMbps: 0 });
+        return Options({ feeMbps: feeMbps, slippageMbps: 0, feeRecipient: feeRecipient, srcSolver: address(0), dstSolver: address(0) });
     }
 
     /**
@@ -372,6 +376,82 @@ contract TestUtils is TestHelperOz5 {
      */
     function defaultOptions() public pure returns (bytes memory) {
         return OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
+    }
+
+    /**
+     * @notice Creates an empty SrcHook for no-hook native deposits
+     */
+    function emptySrcHook() public pure returns (SrcHook memory) {
+        return SrcHook({
+            hookAddress: address(0),
+            preferredToken: address(0),
+            minPreferredTokenAmountOut: 0,
+            instructions: ""
+        });
+    }
+
+    /**
+     * @notice Signs a solver quote using EIP-712 (for depositNative quoteSignature param)
+     * @param order The order to quote
+     * @param srcHook The source hook configuration
+     * @param privKey The solver's private key
+     * @param aoriContract The Aori contract address (for domain separator)
+     */
+    function signQuote(
+        Order memory order,
+        SrcHook memory srcHook,
+        uint256 privKey,
+        address aoriContract
+    ) public view returns (bytes memory) {
+        bytes32 orderId = keccak256(abi.encode(order));
+
+        bytes32 srcHookHash = keccak256(
+            abi.encode(
+                keccak256("SrcHook(address hookAddress,address preferredToken,uint256 minPreferredTokenAmountOut,bytes instructions)"),
+                srcHook.hookAddress,
+                srcHook.preferredToken,
+                srcHook.minPreferredTokenAmountOut,
+                keccak256(srcHook.instructions)
+            )
+        );
+
+        bytes32 quoteHash = keccak256(
+            abi.encode(
+                keccak256(
+                    "SolverQuote(bytes32 orderId,SrcHook srcHook)"
+                    "SrcHook(address hookAddress,address preferredToken,uint256 minPreferredTokenAmountOut,bytes instructions)"
+                ),
+                orderId,
+                srcHookHash
+            )
+        );
+
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,address verifyingContract)"),
+                keccak256("Aori"),
+                keccak256("0.4.0"),
+                aoriContract
+            )
+        );
+
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, quoteHash));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privKey, digest);
+        return abi.encodePacked(r, s, v);
+    }
+
+    /**
+     * @notice Signs a solver quote using default solver key and local Aori
+     */
+    function signQuote(Order memory order, SrcHook memory srcHook) public view returns (bytes memory) {
+        return signQuote(order, srcHook, solverPrivKey, address(localAori));
+    }
+
+    /**
+     * @notice Signs a solver quote using a specific private key and local Aori
+     */
+    function signQuote(Order memory order, SrcHook memory srcHook, uint256 privKey) public view returns (bytes memory) {
+        return signQuote(order, srcHook, privKey, address(localAori));
     }
 
     /**

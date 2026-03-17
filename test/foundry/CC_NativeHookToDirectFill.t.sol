@@ -180,7 +180,7 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
         SrcHook memory srcHook = _createSrcHook();
 
         vm.prank(userSource);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order, srcHook);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, srcHook, signQuote(order, srcHook));
     }
 
     /**
@@ -220,7 +220,7 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
             uint8(0), // message type 0 for settlement
             solverSource, // filler address (should be source chain solver for settlement)
             uint16(1), // fill count
-            localAori.hash(order) // order hash
+            keccak256(abi.encode(order)) // order hash
         );
 
         vm.prank(address(endpoints[localEid]));
@@ -248,7 +248,7 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
         );
 
         // Verify order status
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Active, "Order should be Active");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Active, "Order should be Active");
     }
 
     /**
@@ -269,7 +269,7 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
         assertEq(outputToken.balanceOf(solverDest), initialSolverOutput - OUTPUT_AMOUNT, "Solver should spend output tokens");
 
         // Verify order status
-        assertTrue(remoteAori.orderStatus(localAori.hash(order)) == OrderStatus.Filled, "Order should be Filled");
+        assertTrue(remoteAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Filled, "Order should be Filled");
     }
 
     /**
@@ -283,7 +283,7 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
 
         // Verify order status on source chain
         vm.chainId(localEid);
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Settled, "Order should be Settled");
 
         // Verify locked balance is cleared
         assertEq(localLens.getLockedBalances(userSource, address(convertedToken)), 0, "User should have no locked balance after settlement");
@@ -372,7 +372,7 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
         console.log("");
 
         // Verify deposit state
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Active, "Order should be Active");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Active, "Order should be Active");
 
         // === PHASE 2: FILL DIRECTLY (NO HOOK) ===
         console.log("=== PHASE 2: SOLVER FILLS DIRECTLY ON DESTINATION (NO HOOK) ===");
@@ -390,7 +390,7 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
         console.log("");
 
         // Verify fill state
-        assertTrue(remoteAori.orderStatus(localAori.hash(order)) == OrderStatus.Filled, "Order should be Filled");
+        assertTrue(remoteAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Filled, "Order should be Filled");
 
         // === PHASE 3: SETTLEMENT ===
         console.log("=== PHASE 3: SETTLEMENT VIA LAYERZERO ===");
@@ -407,7 +407,7 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
         console.log("");
 
         // Verify settlement state
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Settled, "Order should be Settled");
 
         // === PHASE 4: WITHDRAWAL ===
         console.log("=== PHASE 4: SOLVER WITHDRAWS EARNED TOKENS ===");
@@ -469,6 +469,6 @@ contract CC_NativeHookToDirectFill_Test is TestUtils {
 
         vm.prank(userSource);
         vm.expectRevert(abi.encodeWithSelector(SlippageExceeded.selector, MIN_PREFERRED_OUT, MIN_PREFERRED_OUT - 1));
-        localAori.depositNative{ value: INPUT_AMOUNT }(order, badHook);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, badHook, signQuote(order, badHook));
     }
 }

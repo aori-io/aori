@@ -49,17 +49,17 @@ library AoriSettleLib {
      * @param orderId The unique identifier for the order
      * @param order The order details
      * @param solver The address of the solver who filled the order
-     * @param dstHookTokenIn The token used in dstHook (address(0) if no hook)
-     * @param dstHookAmountIn The amount sent to dstHook (0 if no hook)
-     * @param dstHookAmountOut The amount received from dstHook (0 if no hook)
+     * @param fillToken The token the solver spent to fill (outputToken if direct, hook.preferredToken if via hook)
+     * @param fillAmount The amount the solver spent to fill
+     * @param fillAmountOut The amount of outputToken produced by hook (0 if direct transfer)
      */
     function settleSingleChainSwap(
         bytes32 orderId,
         Order memory order,
         address solver,
-        address dstHookTokenIn,
-        uint256 dstHookAmountIn,
-        uint256 dstHookAmountOut
+        address fillToken,
+        uint256 fillAmount,
+        uint256 fillAmountOut
     ) external {
         AoriStorageData storage $ = _getAoriStorage();
 
@@ -84,7 +84,7 @@ library AoriSettleLib {
         }
 
         $.orderStatus[orderId] = OrderStatus.Settled;
-        emit IAori.Fill(orderId, dstHookTokenIn, dstHookAmountIn, dstHookAmountOut);
+        emit IAori.Fill(orderId, fillToken, fillAmount, fillAmountOut);
         emit IAori.Settle(orderId, solver, solverAmount, protocolFee, feeRecipient, additionalFee);
     }
 

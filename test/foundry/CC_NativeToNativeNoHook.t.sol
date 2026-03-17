@@ -111,12 +111,9 @@ contract CC_NativeToNativeNoHook is TestUtils {
             remoteEid // dstEid
         );
 
-        // Generate signature
-        bytes memory signature = signOrder(order, userSourcePrivKey);
-
         // User deposits their own native tokens directly
         vm.prank(userSource);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, emptySrcHook(), signQuote(order, emptySrcHook()));
     }
 
     /**
@@ -152,7 +149,7 @@ contract CC_NativeToNativeNoHook is TestUtils {
             uint8(0), // message type 0 for settlement
             solverSource, // filler address (should be source chain solver for settlement)
             uint16(1), // fill count
-            localAori.hash(order) // order hash
+            keccak256(abi.encode(order)) // order hash
         );
 
         vm.prank(address(endpoints[localEid]));
@@ -179,7 +176,7 @@ contract CC_NativeToNativeNoHook is TestUtils {
         assertEq(address(localAori).balance, initialContractBalance + INPUT_AMOUNT, "Contract should receive native tokens");
 
         // Verify order status
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Active, "Order should be Active");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Active, "Order should be Active");
     }
 
     /**
@@ -201,7 +198,7 @@ contract CC_NativeToNativeNoHook is TestUtils {
         assertEq(address(remoteAori).balance, preFillContractNative, "Contract balance should remain unchanged (direct transfer)");
 
         // Verify order status
-        assertTrue(remoteAori.orderStatus(localAori.hash(order)) == OrderStatus.Filled, "Order should be Filled");
+        assertTrue(remoteAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Filled, "Order should be Filled");
     }
 
     /**
@@ -231,7 +228,7 @@ contract CC_NativeToNativeNoHook is TestUtils {
         );
 
         // Verify order status
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Settled, "Order should be Settled");
 
         // Verify locked balance is cleared
         assertEq(localLens.getLockedBalances(userSource, NATIVE_TOKEN), 0, "Offerer should have no locked balance after settlement");
@@ -449,6 +446,6 @@ contract CC_NativeToNativeNoHook is TestUtils {
         assertEq(userDest.balance, initialUserBalance + OUTPUT_AMOUNT, "User should receive output amount");
 
         // Verify order status
-        assertTrue(remoteAori.orderStatus(localAori.hash(order)) == OrderStatus.Filled, "Order should be Filled");
+        assertTrue(remoteAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Filled, "Order should be Filled");
     }
 }

@@ -135,6 +135,9 @@ error InvalidSolver();
 /// @notice Thrown when caller is not the authorized solver for the order
 error UnauthorizedSolver();
 
+/// @notice Thrown when solver quote signature is invalid or from wrong signer
+error InvalidSolverQuoteSignature();
+
 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
 /*                      TOKEN ERRORS                          */
 /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/

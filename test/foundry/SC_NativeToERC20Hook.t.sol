@@ -170,12 +170,9 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
             localEid // dstEid (same chain)
         );
 
-        // Generate signature
-        bytes memory signature = signOrder(order, userSCPrivKey);
-
         // User deposits their own native tokens directly
         vm.prank(userSC);
-        localAori.depositNative{ value: INPUT_AMOUNT }(order);
+        localAori.depositNative{ value: INPUT_AMOUNT }(order, emptySrcHook(), signQuote(order, emptySrcHook()));
     }
 
     /**
@@ -223,7 +220,7 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
         assertEq(address(localAori).balance, initialContractBalance + INPUT_AMOUNT, "Contract should receive native tokens");
 
         // Verify order status is Active (waiting for fill)
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Active, "Order should be Active");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Active, "Order should be Active");
     }
 
     /**
@@ -252,7 +249,7 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
         );
 
         // Verify order status is Settled (atomic settlement for single-chain)
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Settled, "Order should be Settled");
     }
 
     /**
@@ -381,7 +378,7 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
         // Verify final state
         assertEq(localLens.getLockedBalances(userSC, NATIVE_TOKEN), 0, "User should have no locked balance after atomic settlement");
         assertEq(localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN), INPUT_AMOUNT, "Solver should have unlocked native balance");
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Settled, "Order should be Settled");
     }
 
     /**
@@ -462,7 +459,7 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
         _fillOrderWithHook();
 
         // Verify order was settled atomically (not just filled)
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Single-chain swap should be immediately settled");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Settled, "Single-chain swap should be immediately settled");
 
         // Verify no locked balances remain (atomic settlement)
         assertEq(localLens.getLockedBalances(userSC, NATIVE_TOKEN), 0, "User should have no locked balance after atomic settlement");
@@ -479,7 +476,7 @@ contract SC_NativeToERC20Hook_Test is TestUtils {
         _createAndDepositNativeOrder();
         _fillOrderWithHook();
         assertTrue(
-            localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "First single-chain swap should be immediately settled"
+            localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Settled, "First single-chain swap should be immediately settled"
         );
 
         // Verify no locked balances remain for first order

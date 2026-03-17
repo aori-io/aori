@@ -187,7 +187,7 @@ contract SC_ERC20ToNativeSrcHook_Test is TestUtils {
         );
 
         // Verify order status is Settled (atomic settlement for single-chain with srcHook)
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Settled, "Order should be Settled");
     }
 
     /**
@@ -278,7 +278,7 @@ contract SC_ERC20ToNativeSrcHook_Test is TestUtils {
         console.log("");
 
         // Verify final state
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Settled, "Order should be Settled");
 
         // Verify no locked balances remain (atomic settlement with direct distribution)
         assertEq(localLens.getLockedBalances(userSC, address(inputToken)), 0, "User should have no locked balance after atomic settlement");
@@ -308,7 +308,7 @@ contract SC_ERC20ToNativeSrcHook_Test is TestUtils {
         assertEq(localLens.getUnlockedBalances(solverSC, NATIVE_TOKEN), EXPECTED_SURPLUS);
 
         // Order should be immediately settled
-        assertTrue(localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled, "Order should be Settled");
+        assertTrue(localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Settled, "Order should be Settled");
     }
 
     /**
@@ -349,7 +349,7 @@ contract SC_ERC20ToNativeSrcHook_Test is TestUtils {
         );
 
         bytes memory signature = signOrder(order, userSCPrivKey);
-        bytes32 expectedOrderId = localAori.hash(order);
+        bytes32 expectedOrderId = keccak256(abi.encode(order));
 
         SrcHook memory srcHook = SrcHook({
             hookAddress: address(mockHook2),
@@ -429,7 +429,7 @@ contract SC_ERC20ToNativeSrcHook_Test is TestUtils {
 
         // Verify order was settled atomically (not just filled)
         assertTrue(
-            localAori.orderStatus(localAori.hash(order)) == OrderStatus.Settled,
+            localAori.orderStatus(keccak256(abi.encode(order))) == OrderStatus.Settled,
             "Single-chain swap with srcHook should be immediately settled"
         );
 
