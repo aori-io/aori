@@ -113,7 +113,8 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
         uint16 _maxFillsPerSettle,
         address[] calldata _initialSolvers,
         address[] calldata _initialHooks,
-        uint32[] calldata _supportedChains
+        uint32[] calldata _supportedChains,
+        address[] calldata _initialOperators
     ) external initializer {
         if (_owner == address(0)) revert InvalidOwner();
         __Ownable_init(_owner);
@@ -132,6 +133,9 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
         }
         for (uint256 i = 0; i < _supportedChains.length; i++) {
             $.isSupportedChain[_supportedChains[i]] = true;
+        }
+        for (uint256 i = 0; i < _initialOperators.length; i++) {
+            $.isOperator[_initialOperators[i]] = true;
         }
 
         $.maxFeeMbps = 1000; // Default 1% max additional fee
@@ -161,6 +165,9 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
     
     /// @notice Returns whether a solver address is whitelisted
     function isAllowedSolver(address solver) public view returns (bool) { return _getAoriStorage().isAllowedSolver[solver]; }
+
+    /// @notice Check if an address is an operator
+    function isOperator(address addr) external view returns (bool) { return _getAoriStorage().isOperator[addr]; }
     
     /// @notice Reads a raw storage slot value (for off-chain introspection)
     function readStorage(bytes32 slot) external view returns (bytes32 value) { assembly { value := sload(slot) } }
@@ -194,22 +201,34 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
     function unpause() external onlyOwner { _unpause(); }
 
     /// @notice Add a hook to the whitelist
-    function addAllowedHook(address hook) external onlyOwner { _getAoriStorage().isAllowedHook[hook] = true; emit HookAdded(hook); }
+    function addAllowedHook(address hook) external onlyOwnerOrOperator { _getAoriStorage().isAllowedHook[hook] = true; emit HookAdded(hook); }
     
     /// @notice Remove a hook from the whitelist
-    function removeAllowedHook(address hook) external onlyOwner { _getAoriStorage().isAllowedHook[hook] = false; emit HookRemoved(hook); }
+    function removeAllowedHook(address hook) external onlyOwnerOrOperator { _getAoriStorage().isAllowedHook[hook] = false; emit HookRemoved(hook); }
     
     /// @notice Add a solver to the whitelist
-    function addAllowedSolver(address solver) external onlyOwner { _getAoriStorage().isAllowedSolver[solver] = true; emit SolverAdded(solver); }
+    function addAllowedSolver(address solver) external onlyOwnerOrOperator { _getAoriStorage().isAllowedSolver[solver] = true; emit SolverAdded(solver); }
     
     /// @notice Remove a solver from the whitelist
-    function removeAllowedSolver(address solver) external onlyOwner { _getAoriStorage().isAllowedSolver[solver] = false; emit SolverRemoved(solver); }
+    function removeAllowedSolver(address solver) external onlyOwnerOrOperator { _getAoriStorage().isAllowedSolver[solver] = false; emit SolverRemoved(solver); }
     
     /// @notice Add a chain to the supported chains list
-    function addSupportedChain(uint32 eid) external onlyOwner { _getAoriStorage().isSupportedChain[eid] = true; emit ChainSupported(eid); }
+    function addSupportedChain(uint32 eid) external onlyOwnerOrOperator { _getAoriStorage().isSupportedChain[eid] = true; emit ChainSupported(eid); }
     
     /// @notice Remove a chain from the supported chains list
-    function removeSupportedChain(uint32 eid) external onlyOwner { _getAoriStorage().isSupportedChain[eid] = false; emit ChainRemoved(eid); }
+    function removeSupportedChain(uint32 eid) external onlyOwnerOrOperator { _getAoriStorage().isSupportedChain[eid] = false; emit ChainRemoved(eid); }
+
+    /// @notice Add an operator
+    function addOperator(address operator) external onlyOwner { _getAoriStorage().isOperator[operator] = true; emit OperatorAdded(operator); }
+
+    /// @notice Remove an operator
+    function removeOperator(address operator) external onlyOwner { _getAoriStorage().isOperator[operator] = false; emit OperatorRemoved(operator); }
+
+    /// @notice Override OApp's setPeer to allow operator access
+    function setPeer(uint32 _eid, bytes32 _peer) public override onlyOwnerOrOperator {
+        _getOAppCoreStorage().peers[_eid] = _peer;
+        emit PeerSet(_eid, _peer);
+    }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                   ADMIN LIB FUNCTIONS                      */
@@ -229,10 +248,10 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
     function claimProtocolFees(address token) external nonReentrant { AoriAdminLib.claimProtocolFees(token); }
 
     /// @notice Sets the protocol fee in millibasis points (cross-validated with maxFeeMbps)
-    function setProtocolFee(uint16 feeMbps) external onlyOwner { AoriAdminLib.setProtocolFee(feeMbps); }
+    function setProtocolFee(uint16 feeMbps) external onlyOwnerOrOperator { AoriAdminLib.setProtocolFee(feeMbps); }
 
     /// @notice Sets the protocol treasury address that receives protocol fees
-    function setProtocolTreasury(address treasury) external onlyOwner { AoriAdminLib.setProtocolTreasury(treasury); }
+    function setProtocolTreasury(address treasury) external onlyOwnerOrOperator { AoriAdminLib.setProtocolTreasury(treasury); }
 
     /// @notice Returns the current protocol fee and treasury address
     function getProtocolConfig() external view returns (uint16 feeMbps, address treasury) { return AoriAdminLib.getProtocolConfig(); }
@@ -241,13 +260,13 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
     function getPendingProtocolFees(address token) external view returns (uint256) { return AoriAdminLib.getPendingProtocolFees(token); }
 
     /// @notice Sets the maximum allowed additional fee in millibasis points (cross-validated with protocolFeeMbps)
-    function setMaxFee(uint16 maxFeeMbps) external onlyOwner { AoriAdminLib.setMaxFee(maxFeeMbps); }
+    function setMaxFee(uint16 maxFeeMbps) external onlyOwnerOrOperator { AoriAdminLib.setMaxFee(maxFeeMbps); }
 
     /// @notice Returns the current maximum allowed additional fee
     function getMaxFee() external view returns (uint16) { return AoriAdminLib.getMaxFee(); }
 
     /// @notice Sets the maximum number of fills processed per settlement batch
-    function setMaxFillsPerSettle(uint16 maxFills) external onlyOwner { AoriAdminLib.setMaxFillsPerSettle(maxFills); }
+    function setMaxFillsPerSettle(uint16 maxFills) external onlyOwnerOrOperator { AoriAdminLib.setMaxFillsPerSettle(maxFills); }
 
     /// @notice Returns the current maximum fills per settlement batch
     function getMaxFillsPerSettle() external view returns (uint16) { return AoriAdminLib.getMaxFillsPerSettle(); }
@@ -263,6 +282,21 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
     modifier onlySolver() {
         if (!_getAoriStorage().isAllowedSolver[msg.sender]) revert InvalidSolver();
         _;
+    }
+
+    /**
+     * @notice Modifier to ensure the caller is the owner or an operator
+     * @dev Uses internal function to minimize bytecode duplication across 11 callsites
+     */
+    modifier onlyOwnerOrOperator() {
+        _checkOwnerOrOperator();
+        _;
+    }
+
+    function _checkOwnerOrOperator() internal view {
+        if (msg.sender != owner() && !_getAoriStorage().isOperator[msg.sender]) {
+            revert Unauthorized();
+        }
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
