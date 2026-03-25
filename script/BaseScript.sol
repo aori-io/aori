@@ -334,7 +334,7 @@ abstract contract BaseScript is Script {
         console.log("Implementation deployed via CREATE3 at:", implementation);
 
         // Deploy proxy via CREATE3
-        bytes memory initData = abi.encodeCall(Aori.initialize, (owner, maxFillsPerSettle, initialSolvers, initialHooks, supportedChains));
+        bytes memory initData = abi.encodeCall(Aori.initialize, (owner, maxFillsPerSettle, initialSolvers, initialHooks, supportedChains, new address[](0)));
         bytes memory proxyBytecode = abi.encodePacked(type(ERC1967Proxy).creationCode, abi.encode(implementation, initData));
         address proxy = _deployCreate3(proxySalt, proxyBytecode);
         console.log("Proxy deployed via CREATE3 at:", proxy);

@@ -139,7 +139,7 @@ contract HashVerificationTest is TestUtils {
         ERC1967Proxy proxy = new ERC1967Proxy(
             address(implementation),
             abi.encodeCall(
-                implementation.initialize, (address(this), MAX_FILLS_PER_SETTLE, new address[](0), new address[](0), new uint32[](0))
+                implementation.initialize, (address(this), MAX_FILLS_PER_SETTLE, new address[](0), new address[](0), new uint32[](0), new address[](0))
             )
         );
 
@@ -153,7 +153,7 @@ contract HashVerificationTest is TestUtils {
         vm.store(ARBITRUM_CONTRACT_ADDRESS, implSlot, bytes32(uint256(uint160(address(implementation)))));
 
         // Initialize the etched contract
-        Aori(ARBITRUM_CONTRACT_ADDRESS).initialize(address(this), MAX_FILLS_PER_SETTLE, new address[](0), new address[](0), new uint32[](0));
+        Aori(ARBITRUM_CONTRACT_ADDRESS).initialize(address(this), MAX_FILLS_PER_SETTLE, new address[](0), new address[](0), new uint32[](0), new address[](0));
 
         // ADD THIS CODE HERE - before any deposit operations
         vm.startPrank(address(this));

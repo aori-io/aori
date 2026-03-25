@@ -65,7 +65,7 @@ contract TestUtils is TestHelperOz5 {
      */
     function deployWithProxy(address implementation, address owner, uint16 maxFillsPerSettle) public returns (address) {
         ERC1967Proxy proxy = new ERC1967Proxy(
-            implementation, abi.encodeCall(Aori.initialize, (owner, maxFillsPerSettle, new address[](0), new address[](0), new uint32[](0)))
+            implementation, abi.encodeCall(Aori.initialize, (owner, maxFillsPerSettle, new address[](0), new address[](0), new uint32[](0), new address[](0)))
         );
         return address(proxy);
     }
