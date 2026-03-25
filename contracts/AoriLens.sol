@@ -116,14 +116,13 @@ contract AoriLens {
     }
 
     /**
-     * @notice Check if an address is an operator
+     * @notice Returns whether an address is an operator
      */
     function isOperator(
         address addr
     ) external view returns (bool) {
         bytes32 slot = keccak256(abi.encode(addr, uint256(AORI_STORAGE_SLOT) + IS_OPERATOR_OFFSET));
-        bytes32 value = aori.readStorage(slot);
-        return uint256(value) != 0;
+        return uint256(aori.readStorage(slot)) != 0;
     }
 
     /**

@@ -166,7 +166,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
     /// @notice Returns whether a solver address is whitelisted
     function isAllowedSolver(address solver) public view returns (bool) { return _getAoriStorage().isAllowedSolver[solver]; }
 
-    /// @notice Check if an address is an operator
+    /// @notice Returns whether an address is an operator
     function isOperator(address addr) external view returns (bool) { return _getAoriStorage().isOperator[addr]; }
     
     /// @notice Reads a raw storage slot value (for off-chain introspection)
@@ -286,7 +286,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
 
     /**
      * @notice Modifier to ensure the caller is the owner or an operator
-     * @dev Uses internal function to minimize bytecode duplication across 11 callsites
+     * @dev Uses internal function to minimize bytecode duplication across callsites
      */
     modifier onlyOwnerOrOperator() {
         _checkOwnerOrOperator();
@@ -294,9 +294,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
     }
 
     function _checkOwnerOrOperator() internal view {
-        if (msg.sender != owner() && !_getAoriStorage().isOperator[msg.sender]) {
-            revert Unauthorized();
-        }
+        if (msg.sender != owner() && !_getAoriStorage().isOperator[msg.sender]) revert Unauthorized();
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/

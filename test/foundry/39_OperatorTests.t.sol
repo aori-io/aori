@@ -23,7 +23,6 @@ contract OperatorTests is TestUtils {
 
     function testAddOperator_Success() public {
         assertFalse(localAori.isOperator(OPERATOR));
-        vm.prank(address(this));
         vm.expectEmit(true, false, false, false);
         emit OperatorAdded(OPERATOR);
         localAori.addOperator(OPERATOR);
@@ -38,7 +37,6 @@ contract OperatorTests is TestUtils {
     }
 
     function testAddOperator_OperatorCannotAddOperator() public {
-        vm.prank(address(this));
         localAori.addOperator(OPERATOR);
 
         vm.prank(OPERATOR);
@@ -47,11 +45,9 @@ contract OperatorTests is TestUtils {
     }
 
     function testRemoveOperator_Success() public {
-        vm.prank(address(this));
         localAori.addOperator(OPERATOR);
         assertTrue(localAori.isOperator(OPERATOR));
 
-        vm.prank(address(this));
         vm.expectEmit(true, false, false, false);
         emit OperatorRemoved(OPERATOR);
         localAori.removeOperator(OPERATOR);
@@ -59,7 +55,6 @@ contract OperatorTests is TestUtils {
     }
 
     function testRemoveOperator_OnlyOwner() public {
-        vm.prank(address(this));
         localAori.addOperator(OPERATOR);
 
         vm.prank(NON_OWNER);
@@ -69,7 +64,6 @@ contract OperatorTests is TestUtils {
     }
 
     function testRemoveOperator_OperatorCannotRemoveSelf() public {
-        vm.prank(address(this));
         localAori.addOperator(OPERATOR);
 
         vm.prank(OPERATOR);
@@ -79,15 +73,12 @@ contract OperatorTests is TestUtils {
     }
 
     function testMultipleOperators() public {
-        vm.startPrank(address(this));
         localAori.addOperator(OPERATOR);
         localAori.addOperator(OPERATOR2);
-        vm.stopPrank();
 
         assertTrue(localAori.isOperator(OPERATOR));
         assertTrue(localAori.isOperator(OPERATOR2));
 
-        vm.prank(address(this));
         localAori.removeOperator(OPERATOR);
 
         assertFalse(localAori.isOperator(OPERATOR));
@@ -99,7 +90,6 @@ contract OperatorTests is TestUtils {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     function testOperator_AddAllowedSolver() public {
-        vm.prank(address(this));
         localAori.addOperator(OPERATOR);
 
         vm.prank(OPERATOR);
@@ -108,10 +98,8 @@ contract OperatorTests is TestUtils {
     }
 
     function testOperator_RemoveAllowedSolver() public {
-        vm.startPrank(address(this));
         localAori.addOperator(OPERATOR);
         localAori.addAllowedSolver(TEST_SOLVER);
-        vm.stopPrank();
 
         vm.prank(OPERATOR);
         localAori.removeAllowedSolver(TEST_SOLVER);
@@ -119,7 +107,6 @@ contract OperatorTests is TestUtils {
     }
 
     function testOperator_AddAllowedHook() public {
-        vm.prank(address(this));
         localAori.addOperator(OPERATOR);
 
         vm.prank(OPERATOR);
@@ -128,10 +115,8 @@ contract OperatorTests is TestUtils {
     }
 
     function testOperator_RemoveAllowedHook() public {
-        vm.startPrank(address(this));
         localAori.addOperator(OPERATOR);
         localAori.addAllowedHook(TEST_HOOK);
-        vm.stopPrank();
 
         vm.prank(OPERATOR);
         localAori.removeAllowedHook(TEST_HOOK);
@@ -139,7 +124,6 @@ contract OperatorTests is TestUtils {
     }
 
     function testOperator_AddSupportedChain() public {
-        vm.prank(address(this));
         localAori.addOperator(OPERATOR);
 
         vm.prank(OPERATOR);
@@ -148,10 +132,8 @@ contract OperatorTests is TestUtils {
     }
 
     function testOperator_RemoveSupportedChain() public {
-        vm.startPrank(address(this));
         localAori.addOperator(OPERATOR);
         localAori.addSupportedChain(TEST_EID);
-        vm.stopPrank();
 
         vm.prank(OPERATOR);
         localAori.removeSupportedChain(TEST_EID);
@@ -159,7 +141,6 @@ contract OperatorTests is TestUtils {
     }
 
     function testOperator_SetPeer() public {
-        vm.prank(address(this));
         localAori.addOperator(OPERATOR);
 
         bytes32 peer = bytes32(uint256(uint160(address(0xBEEF))));
@@ -168,7 +149,6 @@ contract OperatorTests is TestUtils {
     }
 
     function testOperator_SetMaxFillsPerSettle() public {
-        vm.prank(address(this));
         localAori.addOperator(OPERATOR);
 
         vm.prank(OPERATOR);
@@ -176,7 +156,6 @@ contract OperatorTests is TestUtils {
     }
 
     function testOperator_SetProtocolFee() public {
-        vm.prank(address(this));
         localAori.addOperator(OPERATOR);
 
         vm.prank(OPERATOR);
@@ -184,7 +163,6 @@ contract OperatorTests is TestUtils {
     }
 
     function testOperator_SetProtocolTreasury() public {
-        vm.prank(address(this));
         localAori.addOperator(OPERATOR);
 
         vm.prank(OPERATOR);
@@ -192,7 +170,6 @@ contract OperatorTests is TestUtils {
     }
 
     function testOperator_SetMaxFee() public {
-        vm.prank(address(this));
         localAori.addOperator(OPERATOR);
 
         vm.prank(OPERATOR);
@@ -204,7 +181,6 @@ contract OperatorTests is TestUtils {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     function testOperator_CannotPause() public {
-        vm.prank(address(this));
         localAori.addOperator(OPERATOR);
 
         vm.prank(OPERATOR);
@@ -213,10 +189,7 @@ contract OperatorTests is TestUtils {
     }
 
     function testOperator_CannotUnpause() public {
-        vm.prank(address(this));
         localAori.pause();
-
-        vm.prank(address(this));
         localAori.addOperator(OPERATOR);
 
         vm.prank(OPERATOR);
@@ -225,7 +198,6 @@ contract OperatorTests is TestUtils {
     }
 
     function testOperator_CannotEmergencyCancel() public {
-        vm.prank(address(this));
         localAori.addOperator(OPERATOR);
 
         vm.prank(OPERATOR);
@@ -234,7 +206,6 @@ contract OperatorTests is TestUtils {
     }
 
     function testOperator_CannotEmergencyWithdraw() public {
-        vm.prank(address(this));
         localAori.addOperator(OPERATOR);
 
         vm.prank(OPERATOR);
@@ -243,7 +214,6 @@ contract OperatorTests is TestUtils {
     }
 
     function testOperator_CannotEmergencyWithdrawFromBalance() public {
-        vm.prank(address(this));
         localAori.addOperator(OPERATOR);
 
         vm.prank(OPERATOR);
@@ -252,7 +222,6 @@ contract OperatorTests is TestUtils {
     }
 
     function testOperator_CannotTransferOwnership() public {
-        vm.prank(address(this));
         localAori.addOperator(OPERATOR);
 
         vm.prank(OPERATOR);
@@ -308,7 +277,6 @@ contract OperatorTests is TestUtils {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     function testOwner_CanStillCallOperationalFunctions() public {
-        vm.startPrank(address(this));
         localAori.addAllowedSolver(TEST_SOLVER);
         assertTrue(localAori.isAllowedSolver(TEST_SOLVER));
 
@@ -322,8 +290,6 @@ contract OperatorTests is TestUtils {
         localAori.setProtocolFee(50);
         localAori.setProtocolTreasury(address(0xBEEF));
         localAori.setMaxFee(500);
-
-        vm.stopPrank();
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -331,9 +297,7 @@ contract OperatorTests is TestUtils {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     function testRevokedOperator_LosesAccess() public {
-        vm.startPrank(address(this));
         localAori.addOperator(OPERATOR);
-        vm.stopPrank();
 
         // Operator can call
         vm.prank(OPERATOR);
@@ -341,7 +305,6 @@ contract OperatorTests is TestUtils {
         assertTrue(localAori.isAllowedSolver(TEST_SOLVER));
 
         // Revoke operator
-        vm.prank(address(this));
         localAori.removeOperator(OPERATOR);
 
         // Operator can no longer call
