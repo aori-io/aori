@@ -32,3 +32,4 @@ pnpm-error.log
 .idea
 .vscode
 _docs
+docs/plans/
