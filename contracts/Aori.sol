@@ -20,7 +20,6 @@ import { EIP712 } from "solady/src/utils/EIP712.sol";
 import { TokenUtils } from "./utils/TokenUtils.sol";
 import { Permit2Lib } from "./utils/Permit2Lib.sol";
 import { QuoteSigLib } from "./utils/QuoteSigLib.sol";
-import { ECDSA } from "solady/src/utils/ECDSA.sol";
 import { HookUtils } from "./utils/HookUtils.sol";
 import { IAori } from "./interfaces/IAori.sol";
 import "./types/AoriErrors.sol";

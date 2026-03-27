@@ -97,12 +97,14 @@ library QuoteSigLib {
         // Get EIP-712 digest
         bytes32 digest = hashTypedData(quoteHash);
 
-        // Recover signer from signature
-        signer = ECDSA.recoverCalldata(digest, signature);
-
-        // If order specifies a solver, signer must match that solver
         if (order.options.srcSolver != address(0)) {
-            if (signer != order.options.srcSolver) revert InvalidSolverQuoteSignature();
+            if (!SignatureCheckerLib.isValidSignatureNowCalldata(order.options.srcSolver, digest, signature)) {
+                revert InvalidSolverQuoteSignature();
+            }
+            signer = order.options.srcSolver;
+        } else {
+            // Unknown solver: recover signer via ECDSA (EOA-only)
+            signer = ECDSA.recoverCalldata(digest, signature);
         }
 
         // Signer must be a whitelisted solver
