@@ -56,6 +56,7 @@ contract AoriLens {
     uint256 constant IS_ALLOWED_HOOK_OFFSET = 5;
     uint256 constant IS_ALLOWED_SOLVER_OFFSET = 6;
     uint256 constant SRC_EID_TO_FILLER_FILLS_OFFSET = 7;
+    uint256 constant IS_OPERATOR_OFFSET = 12;
 
     IAoriLensTarget public immutable aori;
 
@@ -112,6 +113,16 @@ contract AoriLens {
 
         // Slot 7: Options.dstSolver (lower 160)
         order.options.dstSolver = address(uint160(uint256(slot7)));
+    }
+
+    /**
+     * @notice Returns whether an address is an operator
+     */
+    function isOperator(
+        address addr
+    ) external view returns (bool) {
+        bytes32 slot = keccak256(abi.encode(addr, uint256(AORI_STORAGE_SLOT) + IS_OPERATOR_OFFSET));
+        return uint256(aori.readStorage(slot)) != 0;
     }
 
     /**

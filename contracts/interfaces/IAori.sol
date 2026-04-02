@@ -150,6 +150,18 @@ interface IAori {
      */
     event ProtocolFeesClaimed(address indexed token, uint256 amount, address indexed treasury);
 
+    /**
+     * @notice Emitted when an operator is added
+     * @param operator The address of the operator added
+     */
+    event OperatorAdded(address indexed operator);
+
+    /**
+     * @notice Emitted when an operator is removed
+     * @param operator The address of the operator removed
+     */
+    event OperatorRemoved(address indexed operator);
+
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                          LZ EVENTS                        */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
@@ -216,6 +228,8 @@ interface IAori {
     function getMaxFee() external view returns (uint16 maxFeeMbps);
 
     function getMaxFillsPerSettle() external view returns (uint16);
+
+    function isOperator(address addr) external view returns (bool);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                        SRC FUNCTIONS                       */
@@ -297,4 +311,8 @@ interface IAori {
     function setMaxFee(uint16 maxFeeMbps) external;
 
     function setMaxFillsPerSettle(uint16 maxFills) external;
+
+    function addOperator(address operator) external;
+
+    function removeOperator(address operator) external;
 }

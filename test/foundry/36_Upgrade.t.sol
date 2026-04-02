@@ -93,7 +93,7 @@ contract UpgradeTests is TestHelperOz5 {
 
         // Deploy proxy with initialization
         bytes memory initData =
-            abi.encodeCall(Aori.initialize, (owner, MAX_FILLS_PER_SETTLE, initialSolvers, initialHooks, supportedChains));
+            abi.encodeCall(Aori.initialize, (owner, MAX_FILLS_PER_SETTLE, initialSolvers, initialHooks, supportedChains, new address[](0)));
 
         proxy = new ERC1967Proxy(address(implementation), initData);
         aori = Aori(payable(address(proxy)));
@@ -189,7 +189,7 @@ contract UpgradeTests is TestHelperOz5 {
         uint32[] memory emptyChains = new uint32[](0);
 
         vm.expectRevert();
-        aori.initialize(nonOwner, 5, emptySolvers, emptyHooks, emptyChains);
+        aori.initialize(nonOwner, 5, emptySolvers, emptyHooks, emptyChains, new address[](0));
     }
 
     /**
@@ -201,7 +201,7 @@ contract UpgradeTests is TestHelperOz5 {
         uint32[] memory emptyChains = new uint32[](0);
 
         vm.expectRevert();
-        implementation.initialize(owner, MAX_FILLS_PER_SETTLE, emptySolvers, emptyHooks, emptyChains);
+        implementation.initialize(owner, MAX_FILLS_PER_SETTLE, emptySolvers, emptyHooks, emptyChains, new address[](0));
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/

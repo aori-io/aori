@@ -230,3 +230,10 @@ error NoPendingFees();
 
 /// @notice Thrown when combined protocol fee and max additional fee would exceed 100%
 error CombinedFeesTooHigh();
+
+/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+/*                    ACCESS CONTROL ERRORS                     */
+/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+/// @notice Thrown when caller is not the owner or an operator
+error Unauthorized();

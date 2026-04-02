@@ -48,6 +48,9 @@ struct AoriStorageData {
     address protocolTreasury; // receives protocol fees
     mapping(address => uint256) pendingProtocolFees; // Accumulated protocol fees per token
     uint16 maxFeeMbps; // Maximum allowed additional fee in millibasis points
+
+    // OPERATOR STATE
+    mapping(address => bool) isOperator;
 }
 
 /**
