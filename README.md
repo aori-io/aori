@@ -302,4 +302,4 @@ forge coverage --report --ir-minimum
 
 ## License
 
-MIT
+[Business Source License 1.1](https://mariadb.com/bsl11/) (BUSL-1.1). See [LICENSE](./LICENSE) for parameters and full terms.
