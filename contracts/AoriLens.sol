@@ -56,7 +56,7 @@ contract AoriLens {
     uint256 constant IS_ALLOWED_HOOK_OFFSET = 5;
     uint256 constant IS_ALLOWED_SOLVER_OFFSET = 6;
     uint256 constant SRC_EID_TO_FILLER_FILLS_OFFSET = 7;
-    uint256 constant IS_OPERATOR_OFFSET = 12;
+    uint256 constant IS_OPERATOR_OFFSET = 11;
 
     IAoriLensTarget public immutable aori;
 

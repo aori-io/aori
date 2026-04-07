@@ -3,6 +3,7 @@ pragma solidity 0.8.34;
 
 import "forge-std/Test.sol";
 import "../../contracts/Aori.sol";
+import "../../contracts/AoriLens.sol";
 import "../../contracts/interfaces/IAori.sol";
 import "./TestUtils.sol";
 
@@ -337,5 +338,35 @@ contract OperatorTests is TestUtils {
         assertTrue(aori.isOperator(OPERATOR));
         assertTrue(aori.isOperator(OPERATOR2));
         assertFalse(aori.isOperator(NON_OWNER));
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*              AORILENS OPERATOR VIEW INTEGRATION              */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    function testLens_IsOperator_ReturnsTrue() public {
+        localAori.addOperator(OPERATOR);
+        assertTrue(localLens.isOperator(OPERATOR));
+    }
+
+    function testLens_IsOperator_ReturnsFalse() public {
+        assertFalse(localLens.isOperator(OPERATOR));
+    }
+
+    function testLens_IsOperator_AfterRemoval() public {
+        localAori.addOperator(OPERATOR);
+        assertTrue(localLens.isOperator(OPERATOR));
+
+        localAori.removeOperator(OPERATOR);
+        assertFalse(localLens.isOperator(OPERATOR));
+    }
+
+    function testLens_IsOperator_MatchesAoriDirect() public {
+        localAori.addOperator(OPERATOR);
+        localAori.addOperator(OPERATOR2);
+
+        assertEq(localLens.isOperator(OPERATOR), localAori.isOperator(OPERATOR));
+        assertEq(localLens.isOperator(OPERATOR2), localAori.isOperator(OPERATOR2));
+        assertEq(localLens.isOperator(NON_OWNER), localAori.isOperator(NON_OWNER));
     }
 }
