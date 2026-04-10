@@ -50,7 +50,7 @@ contract MockHook2 {
      * @param tokenToReturn The token to return (should be NATIVE for our test)
      * @param expectedAmount The amount of native tokens to return
      */
-    function handleHook(address tokenToReturn, uint256 expectedAmount) external {
+    function handleHook(address tokenToReturn, uint256 expectedAmount) external payable {
         require(msg.sender != address(0), "MockHook2: Zero recipient");
         
         // For our test, we expect the Aori contract to have already sent us ERC20 tokens
