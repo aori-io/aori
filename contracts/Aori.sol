@@ -344,11 +344,11 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
         if (order.isSingleChainSwap()) {
             // Atomic path: execute swap with slippage + fee logic
             address solver = order.options.srcSolver == address(0) ? msg.sender : order.options.srcSolver;
-            AoriAtomicSwapLib.executeSwap(orderId, order, hook, solver);
+            AoriAtomicSwapLib.executeSwap(orderId, order, hook, solver, 0);
         } else {
             // Non-atomic path: convert to preferredToken, lock for settlement
             uint256 amountReceived =
-                HookUtils.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut);
+                HookUtils.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut, 0);
 
             _postDeposit(hook.preferredToken, amountReceived, order, orderId, hook.preferredToken, amountReceived);
         }
@@ -383,18 +383,14 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
         if (hasHook) {
             ValidationUtils.validateHook(srcHook.hookAddress, this.isAllowedHook);
 
-            // Send native tokens to hook
-            (bool success,) = payable(srcHook.hookAddress).call{ value: order.inputAmount }("");
-            if (!success) revert NativeTransferFailed();
-
             if (order.isSingleChainSwap()) {
                 // Atomic path: execute swap with slippage + fee logic
                 address solver = order.options.srcSolver == address(0) ? quoteSigner : order.options.srcSolver;
-                AoriAtomicSwapLib.executeSwap(orderId, order, srcHook, solver);
+                AoriAtomicSwapLib.executeSwap(orderId, order, srcHook, solver, order.inputAmount);
             } else {
                 // Non-atomic path: convert to preferredToken, lock for settlement
                 uint256 amountReceived =
-                    HookUtils.executeHook(srcHook.hookAddress, srcHook.instructions, srcHook.preferredToken, srcHook.minPreferredTokenAmountOut);
+                    HookUtils.executeHook(srcHook.hookAddress, srcHook.instructions, srcHook.preferredToken, srcHook.minPreferredTokenAmountOut, order.inputAmount);
 
                 _postDeposit(srcHook.preferredToken, amountReceived, order, orderId, srcHook.preferredToken, amountReceived);
             }
@@ -465,11 +461,11 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
         if (order.isSingleChainSwap()) {
             // Atomic path: execute swap with slippage + fee logic
             address solver = order.options.srcSolver == address(0) ? msg.sender : order.options.srcSolver;
-            AoriAtomicSwapLib.executeSwap(orderId, order, hook, solver);
+            AoriAtomicSwapLib.executeSwap(orderId, order, hook, solver, 0);
         } else {
             // Non-atomic path: convert to preferredToken, lock for settlement
             uint256 amountReceived =
-                HookUtils.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut);
+                HookUtils.executeHook(hook.hookAddress, hook.instructions, hook.preferredToken, hook.minPreferredTokenAmountOut, 0);
 
             _postDeposit(hook.preferredToken, amountReceived, order, orderId, hook.preferredToken, amountReceived);
         }
@@ -555,7 +551,7 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
         uint256 minOutput = order.calculateMinOutput();
 
         // Execute hook to convert preferred tokens to output tokens, validates minOutput
-        uint256 amountReceived = HookUtils.executeHook(hook.hookAddress, hook.instructions, order.outputToken, minOutput);
+        uint256 amountReceived = HookUtils.executeHook(hook.hookAddress, hook.instructions, order.outputToken, minOutput, 0);
 
         // Update contract state
         if (order.isSingleChainSwap()) {

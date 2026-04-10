@@ -37,7 +37,7 @@ contract ExecutionTestWrapper {
      */
     function observeBalanceChange(address target, bytes calldata data, address observedToken) external returns (uint256) {
         // Pass minAmount = 0 to skip validation for tests
-        return HookUtils.executeHook(target, data, observedToken, 0);
+        return HookUtils.executeHook(target, data, observedToken, 0, 0);
     }
 }
 

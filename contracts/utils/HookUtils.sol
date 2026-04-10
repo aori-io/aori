@@ -23,10 +23,15 @@ library HookUtils {
         address target,
         bytes calldata data,
         address outputToken,
-        uint256 minAmount
+        uint256 minAmount,
+        uint256 value
     ) internal returns (uint256 amountReceived) {
         uint256 balBefore = TokenUtils.balanceOf(outputToken, address(this));
-        (bool success, bytes memory reason) = target.call(data);
+        // Normalize: exclude ETH being forwarded as input so delta measures only hook output
+        if (value > 0 && TokenUtils.isNativeToken(outputToken)) {
+            balBefore -= value;
+        }
+        (bool success, bytes memory reason) = target.call{ value: value }(data);
         if (!success) revert HookCallFailed(reason);
         uint256 balAfter = TokenUtils.balanceOf(outputToken, address(this));
 

@@ -54,7 +54,8 @@ library AoriAtomicSwapLib {
         bytes32 orderId,
         Order calldata order,
         SrcHook calldata hook,
-        address solver
+        address solver,
+        uint256 nativeValue
     ) external returns (uint256 amountReceived) {
         AoriStorageData storage $ = _getAoriStorage();
 
@@ -65,7 +66,7 @@ library AoriAtomicSwapLib {
         uint256 minOutput = order.calculateMinOutput();
 
         // Execute hook - converts input to output, validates minOutput
-        amountReceived = HookUtils.executeHook(hook.hookAddress, hook.instructions, order.outputToken, minOutput);
+        amountReceived = HookUtils.executeHook(hook.hookAddress, hook.instructions, order.outputToken, minOutput, nativeValue);
 
         _distributeOutputs($, orderId, order, solver, amountReceived);
     }

@@ -23,7 +23,7 @@ contract MockHook {
         targetToken = address(0);
     }
 
-    function handleHook(address tokenToReturn, uint256 expectedAmount) external {
+    function handleHook(address tokenToReturn, uint256 expectedAmount) external payable {
         if (tokenToReturn == NATIVE_TOKEN) {
             // Handle native token
             uint256 available = address(this).balance;
