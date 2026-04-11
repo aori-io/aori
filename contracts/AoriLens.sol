@@ -56,6 +56,9 @@ contract AoriLens {
     uint256 constant IS_ALLOWED_HOOK_OFFSET = 5;
     uint256 constant IS_ALLOWED_SOLVER_OFFSET = 6;
     uint256 constant SRC_EID_TO_FILLER_FILLS_OFFSET = 7;
+    uint256 constant PROTOCOL_FEE_OFFSET = 8; // protocolFeeMbps (uint16) + protocolTreasury (address) packed
+    uint256 constant PENDING_PROTOCOL_FEES_OFFSET = 9;
+    uint256 constant MAX_FEE_MBPS_OFFSET = 10;
     uint256 constant IS_OPERATOR_OFFSET = 11;
 
     IAoriLensTarget public immutable aori;
@@ -203,6 +206,40 @@ contract AoriLens {
                 orderHashesPerEid[j][i] = aori.readStorage(elementSlot);
             }
         }
+    }
+
+    /**
+     * @notice Returns the current protocol fee and treasury address
+     */
+    function getProtocolConfig() external view returns (uint16 feeMbps, address treasury) {
+        bytes32 slot = bytes32(uint256(AORI_STORAGE_SLOT) + PROTOCOL_FEE_OFFSET);
+        bytes32 value = aori.readStorage(slot);
+        feeMbps = uint16(uint256(value));
+        treasury = address(uint160(uint256(value) >> 16));
+    }
+
+    /**
+     * @notice Returns the accumulated unclaimed protocol fees for a given token
+     */
+    function getPendingProtocolFees(address token) external view returns (uint256) {
+        bytes32 slot = keccak256(abi.encode(token, uint256(AORI_STORAGE_SLOT) + PENDING_PROTOCOL_FEES_OFFSET));
+        return uint256(aori.readStorage(slot));
+    }
+
+    /**
+     * @notice Returns the current maximum allowed additional fee
+     */
+    function getMaxFee() external view returns (uint16) {
+        bytes32 slot = bytes32(uint256(AORI_STORAGE_SLOT) + MAX_FEE_MBPS_OFFSET);
+        return uint16(uint256(aori.readStorage(slot)));
+    }
+
+    /**
+     * @notice Returns the current maximum fills per settlement batch
+     */
+    function getMaxFillsPerSettle() external view returns (uint16) {
+        bytes32 slot = bytes32(uint256(AORI_STORAGE_SLOT) + MAX_FILLS_PER_SETTLE_OFFSET);
+        return uint16(uint256(aori.readStorage(slot)));
     }
 
     /**

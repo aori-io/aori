@@ -221,14 +221,6 @@ interface IAori {
 
     function readStorageArray(bytes32 slot) external view returns (uint256 length);
 
-    function getProtocolConfig() external view returns (uint16 feeMbps, address treasury);
-
-    function getPendingProtocolFees(address token) external view returns (uint256 amount);
-
-    function getMaxFee() external view returns (uint16 maxFeeMbps);
-
-    function getMaxFillsPerSettle() external view returns (uint16);
-
     function isOperator(address addr) external view returns (bool);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/

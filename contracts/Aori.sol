@@ -252,23 +252,11 @@ contract Aori is IAori, AoriStorage, OAppUpgradeable, PausableUpgradeable, UUPSU
     /// @notice Sets the protocol treasury address that receives protocol fees
     function setProtocolTreasury(address treasury) external onlyOwnerOrOperator { AoriAdminLib.setProtocolTreasury(treasury); }
 
-    /// @notice Returns the current protocol fee and treasury address
-    function getProtocolConfig() external view returns (uint16 feeMbps, address treasury) { return AoriAdminLib.getProtocolConfig(); }
-
-    /// @notice Returns the accumulated unclaimed protocol fees for a given token
-    function getPendingProtocolFees(address token) external view returns (uint256) { return AoriAdminLib.getPendingProtocolFees(token); }
-
     /// @notice Sets the maximum allowed additional fee in millibasis points (cross-validated with protocolFeeMbps)
     function setMaxFee(uint16 maxFeeMbps) external onlyOwnerOrOperator { AoriAdminLib.setMaxFee(maxFeeMbps); }
 
-    /// @notice Returns the current maximum allowed additional fee
-    function getMaxFee() external view returns (uint16) { return AoriAdminLib.getMaxFee(); }
-
     /// @notice Sets the maximum number of fills processed per settlement batch
     function setMaxFillsPerSettle(uint16 maxFills) external onlyOwnerOrOperator { AoriAdminLib.setMaxFillsPerSettle(maxFills); }
-
-    /// @notice Returns the current maximum fills per settlement batch
-    function getMaxFillsPerSettle() external view returns (uint16) { return AoriAdminLib.getMaxFillsPerSettle(); }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                         MODIFIERS                          */
