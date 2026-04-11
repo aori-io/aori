@@ -369,4 +369,45 @@ contract OperatorTests is TestUtils {
         assertEq(localLens.isOperator(OPERATOR2), localAori.isOperator(OPERATOR2));
         assertEq(localLens.isOperator(NON_OWNER), localAori.isOperator(NON_OWNER));
     }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*          AORILENS PROTOCOL CONFIG VIEW INTEGRATION              */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    function testLens_GetProtocolConfig_Default() public view {
+        (uint16 feeMbps, address treasury) = localLens.getProtocolConfig();
+        assertEq(feeMbps, 0, "Default protocol fee should be 0");
+        assertEq(treasury, address(this), "Default treasury should be owner");
+    }
+
+    function testLens_GetProtocolConfig_AfterUpdate() public {
+        localAori.setProtocolFee(500); // 0.5%
+        localAori.setProtocolTreasury(OPERATOR);
+
+        (uint16 feeMbps, address treasury) = localLens.getProtocolConfig();
+        assertEq(feeMbps, 500, "Protocol fee should be 500");
+        assertEq(treasury, OPERATOR, "Treasury should be updated");
+    }
+
+    function testLens_GetMaxFee_Default() public view {
+        assertEq(localLens.getMaxFee(), 1000, "Default max fee should be 1000");
+    }
+
+    function testLens_GetMaxFee_AfterUpdate() public {
+        localAori.setMaxFee(2000);
+        assertEq(localLens.getMaxFee(), 2000, "Max fee should be updated");
+    }
+
+    function testLens_GetMaxFillsPerSettle_Default() public view {
+        assertEq(localLens.getMaxFillsPerSettle(), MAX_FILLS_PER_SETTLE, "Should match init value");
+    }
+
+    function testLens_GetMaxFillsPerSettle_AfterUpdate() public {
+        localAori.setMaxFillsPerSettle(20);
+        assertEq(localLens.getMaxFillsPerSettle(), 20, "Max fills should be updated");
+    }
+
+    function testLens_GetPendingProtocolFees_Default() public view {
+        assertEq(localLens.getPendingProtocolFees(address(0x1)), 0, "Default pending fees should be 0");
+    }
 }
