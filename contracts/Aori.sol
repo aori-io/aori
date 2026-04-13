@@ -237,16 +237,21 @@ contract Aori is IAori, OApp, ReentrancyGuard, Pausable, EIP712 {
     /**
      * @notice Emergency function to extract tokens or ether from the contract
      * @dev Only callable by the contract owner. Does not update user balances - use for direct contract withdrawals.
-     * @param token The token address to withdraw
-     * @param amount The amount of tokens to withdraw
+     * Use `NATIVE_TOKEN` as `token` to withdraw native currency; use an ERC20 address to withdraw that token only.
+     * Previously this always sent the entire contract ETH balance before any ERC20 transfer, so rescuing ERC20 could unintentionally drain all ETH.
+     * @param token The token address to withdraw (`NATIVE_TOKEN` for native)
+     * @param amount For ERC20, amount to transfer (must be > 0). For native, amount to send; 0 means the full contract balance (same idea as `withdraw`).
      */
     function emergencyWithdraw(address token, uint256 amount) external onlyOwner {
-        uint256 etherBalance = address(this).balance;
-        if (etherBalance > 0) {
-            (bool success, ) = payable(owner()).call{ value: etherBalance }("");
+        if (token.isNativeToken()) {
+            uint256 etherBalance = address(this).balance;
+            uint256 withdrawAmount = amount == 0 ? etherBalance : amount;
+            require(withdrawAmount > 0, "Amount must be greater than zero");
+            require(etherBalance >= withdrawAmount, "Insufficient contract native balance");
+            (bool success, ) = payable(owner()).call{ value: withdrawAmount }("");
             require(success, "Ether withdrawal failed");
-        }
-        if (amount > 0) {
+        } else {
+            require(amount > 0, "Amount must be greater than zero");
             token.safeTransfer(owner(), amount);
         }
     }

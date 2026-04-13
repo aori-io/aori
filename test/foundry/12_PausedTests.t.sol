@@ -20,6 +20,7 @@ pragma solidity 0.8.28;
  */
 import {IAori} from "../../contracts/IAori.sol";
 import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
+import {NATIVE_TOKEN} from "../../contracts/AoriUtils.sol";
 import "./TestUtils.sol";
 
 /**
@@ -203,8 +204,8 @@ contract PausedTests is TestUtils {
         // Get balance before emergency withdrawal
         uint256 adminBalanceBefore = address(admin).balance;
 
-        // Execute emergency withdrawal (amount is ignored for ETH)
-        localAori.emergencyWithdraw(address(0), 0);
+        // Native: amount 0 withdraws full contract balance
+        localAori.emergencyWithdraw(NATIVE_TOKEN, 0);
 
         // Check balance after emergency withdrawal
         uint256 adminBalanceAfter = address(admin).balance;

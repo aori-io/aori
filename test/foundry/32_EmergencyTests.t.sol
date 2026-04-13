@@ -53,6 +53,7 @@ pragma solidity 0.8.28;
  */
 import {IAori} from "../../contracts/IAori.sol";
 import {Aori} from "../../contracts/Aori.sol";
+import {NATIVE_TOKEN} from "../../contracts/AoriUtils.sol";
 import "./TestUtils.sol";
 
 contract EmergencyTests is TestUtils {
@@ -287,7 +288,7 @@ contract EmergencyTests is TestUtils {
 
         uint256 ownerBalanceBefore = address(this).balance;
         
-        localAori.emergencyWithdraw(address(0), 0);
+        localAori.emergencyWithdraw(NATIVE_TOKEN, 0);
 
         assertEq(
             address(this).balance, 
@@ -307,10 +308,19 @@ contract EmergencyTests is TestUtils {
         uint256 ownerEthBefore = address(this).balance;
         uint256 ownerTokenBefore = inputToken.balanceOf(address(this));
 
-        localAori.emergencyWithdraw(address(inputToken), 0);
+        localAori.emergencyWithdraw(NATIVE_TOKEN, 0);
 
         assertEq(address(this).balance, ownerEthBefore + ethAmount, "Should receive ETH");
         assertEq(inputToken.balanceOf(address(this)), ownerTokenBefore, "Token balance unchanged");
+    }
+
+    /**
+     * @notice ERC20 path with zero amount reverts; use NATIVE_TOKEN to move ETH
+     */
+    function testEmergencyWithdrawErc20ZeroAmountReverts() public {
+        vm.deal(address(localAori), 0.5 ether);
+        vm.expectRevert("Amount must be greater than zero");
+        localAori.emergencyWithdraw(address(inputToken), 0);
     }
 
     /**
@@ -353,6 +363,7 @@ contract EmergencyTests is TestUtils {
         uint256 ownerEthBefore = address(this).balance;
         uint256 ownerTokenBefore = inputToken.balanceOf(address(this));
 
+        localAori.emergencyWithdraw(NATIVE_TOKEN, ethAmount);
         localAori.emergencyWithdraw(address(inputToken), tokenAmount);
 
         assertEq(address(this).balance, ownerEthBefore + ethAmount, "Should receive ETH");
@@ -363,15 +374,8 @@ contract EmergencyTests is TestUtils {
      * @notice Tests emergency withdraw with no ETH and no tokens
      */
     function testEmergencyWithdrawNoETHNoTokens() public {
-        uint256 ownerEthBefore = address(this).balance;
-        uint256 ownerTokenBefore = inputToken.balanceOf(address(this));
-
-        // Call with zero amount and no ETH in contract
+        vm.expectRevert("Amount must be greater than zero");
         localAori.emergencyWithdraw(address(inputToken), 0);
-
-        // Balances should remain unchanged
-        assertEq(address(this).balance, ownerEthBefore, "ETH balance should be unchanged");
-        assertEq(inputToken.balanceOf(address(this)), ownerTokenBefore, "Token balance should be unchanged");
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
