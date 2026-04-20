@@ -494,42 +494,34 @@ contract SettlementTests is TestUtils {
     }
 
     /**
-     * @notice Test that settlement rejects a filler that doesn't match order.options.srcSolver
+     * @notice Test that settlement rejects a non-whitelisted filler address
      * @dev Simulates a compromised peer sending a forged settlement with an attacker address as filler.
-     *      When srcSolver is set, only that address should receive settled funds.
      */
-    function testSettleRejectsMismatchedSrcSolver() public {
-        // Create an order with a specific srcSolver set to the legitimate solver
+    function testSettleRejectsNonWhitelistedFiller() public {
         Order memory order = createValidOrder();
-        order.options.srcSolver = solver;
-
         bytes memory signature = signOrderWithContract(order, userAPrivKey, address(testLocalAori));
         bytes32 orderId = keccak256(abi.encode(order));
 
-        // Deposit the order
         vm.prank(userA);
         inputToken.approve(address(testLocalAori), order.inputAmount);
 
         vm.prank(solver);
         testLocalAori.deposit(order, signature);
 
-        // Verify order is active
         assertEq(uint8(testLocalAori.orderStatus(orderId)), uint8(OrderStatus.Active));
 
-        // Simulate a compromised peer sending a forged settlement with an attacker as filler
+        // Simulate a compromised peer sending a forged settlement with a non-whitelisted attacker
         address attacker = address(0xDEAD);
         bytes memory forgedPayload = abi.encodePacked(
             uint8(0),       // settlement message type
-            attacker,       // attacker's address as filler
+            attacker,       // attacker's address as filler (not whitelisted)
             uint16(1),      // fill count
             orderId         // legitimate order
         );
 
-        // Record balances before
         uint256 attackerBalanceBefore = testLocalLens.getUnlockedBalances(attacker, address(inputToken));
         uint256 offererLockedBefore = testLocalLens.getLockedBalances(userA, address(inputToken));
 
-        // Deliver the forged settlement via lzReceive
         vm.chainId(localEid);
         vm.prank(address(endpoints[localEid]));
         testLocalAori.lzReceive(
@@ -541,30 +533,19 @@ contract SettlementTests is TestUtils {
         );
 
         // Attacker should NOT have received any funds
-        uint256 attackerBalanceAfter = testLocalLens.getUnlockedBalances(attacker, address(inputToken));
-        assertEq(attackerBalanceBefore, attackerBalanceAfter, "Attacker should not receive funds when srcSolver is set");
-
-        // Offerer's locked balance should be unchanged (order not settled)
-        uint256 offererLockedAfter = testLocalLens.getLockedBalances(userA, address(inputToken));
-        assertEq(offererLockedBefore, offererLockedAfter, "Offerer locked balance should be unchanged");
-
-        // Order should still be Active, not Settled
+        assertEq(testLocalLens.getUnlockedBalances(attacker, address(inputToken)), attackerBalanceBefore, "Non-whitelisted filler should not receive funds");
+        assertEq(testLocalLens.getLockedBalances(userA, address(inputToken)), offererLockedBefore, "Offerer locked balance should be unchanged");
         assertEq(uint8(testLocalAori.orderStatus(orderId)), uint8(OrderStatus.Active), "Order should remain Active");
     }
 
     /**
-     * @notice Test that settlement succeeds when filler matches srcSolver
-     * @dev Ensures the srcSolver validation doesn't break legitimate settlements
+     * @notice Test that settlement succeeds when filler is a whitelisted solver
      */
-    function testSettleSucceedsWithMatchingSrcSolver() public {
-        // Create an order with srcSolver set to the legitimate solver
+    function testSettleSucceedsWithWhitelistedFiller() public {
         Order memory order = createValidOrder();
-        order.options.srcSolver = solver;
-
         bytes memory signature = signOrderWithContract(order, userAPrivKey, address(testLocalAori));
         bytes32 orderId = keccak256(abi.encode(order));
 
-        // Deposit the order
         vm.prank(userA);
         inputToken.approve(address(testLocalAori), order.inputAmount);
 
@@ -573,12 +554,12 @@ contract SettlementTests is TestUtils {
 
         assertEq(uint8(testLocalAori.orderStatus(orderId)), uint8(OrderStatus.Active));
 
-        // Send legitimate settlement with solver as filler (matches srcSolver)
-        bytes memory legitimatePayload = abi.encodePacked(
+        // Settle with the whitelisted solver as filler
+        bytes memory payload = abi.encodePacked(
             uint8(0),       // settlement message type
-            solver,         // legitimate solver as filler
+            solver,         // whitelisted solver as filler
             uint16(1),      // fill count
-            orderId         // order
+            orderId
         );
 
         vm.chainId(localEid);
@@ -586,31 +567,23 @@ contract SettlementTests is TestUtils {
         testLocalAori.lzReceive(
             Origin(remoteEid, bytes32(uint256(uint160(address(testRemoteAori)))), 1),
             keccak256("legit-guid"),
-            legitimatePayload,
+            payload,
             address(0),
             bytes("")
         );
 
-        // Order should be settled
         assertEq(uint8(testLocalAori.orderStatus(orderId)), uint8(OrderStatus.Settled), "Order should be settled");
-
-        // Solver should have received unlocked balance
-        uint256 solverBalance = testLocalLens.getUnlockedBalances(solver, address(inputToken));
-        assertGt(solverBalance, 0, "Solver should have received funds");
+        assertGt(testLocalLens.getUnlockedBalances(solver, address(inputToken)), 0, "Whitelisted solver should have received funds");
     }
 
     /**
-     * @notice Test that settlement with srcSolver=address(0) allows any filler (backwards compatible)
+     * @notice Test that a removed solver can no longer receive settlement funds
      */
-    function testSettleAllowsAnyFillerWhenSrcSolverUnset() public {
-        // Create order with default options (srcSolver = address(0))
+    function testSettleRejectsRemovedSolver() public {
         Order memory order = createValidOrder();
-        // srcSolver is already address(0) from defaultOrderOptions()
-
         bytes memory signature = signOrderWithContract(order, userAPrivKey, address(testLocalAori));
         bytes32 orderId = keccak256(abi.encode(order));
 
-        // Deposit
         vm.prank(userA);
         inputToken.approve(address(testLocalAori), order.inputAmount);
 
@@ -619,11 +592,13 @@ contract SettlementTests is TestUtils {
 
         assertEq(uint8(testLocalAori.orderStatus(orderId)), uint8(OrderStatus.Active));
 
-        // Settle with a different address as filler — should succeed when srcSolver is unset
-        address anotherSolver = address(0xBEEF);
+        // Remove the solver from whitelist after deposit
+        testLocalAori.removeAllowedSolver(solver);
+
+        // Try to settle with the now-removed solver
         bytes memory payload = abi.encodePacked(
             uint8(0),
-            anotherSolver,
+            solver,         // was whitelisted, now removed
             uint16(1),
             orderId
         );
@@ -632,17 +607,14 @@ contract SettlementTests is TestUtils {
         vm.prank(address(endpoints[localEid]));
         testLocalAori.lzReceive(
             Origin(remoteEid, bytes32(uint256(uint160(address(testRemoteAori)))), 1),
-            keccak256("any-filler-guid"),
+            keccak256("removed-solver-guid"),
             payload,
             address(0),
             bytes("")
         );
 
-        // Order should be settled (srcSolver=0 means any filler allowed)
-        assertEq(uint8(testLocalAori.orderStatus(orderId)), uint8(OrderStatus.Settled), "Order should be settled with any filler");
-
-        // The other solver should have received funds
-        uint256 otherSolverBalance = testLocalLens.getUnlockedBalances(anotherSolver, address(inputToken));
-        assertGt(otherSolverBalance, 0, "Any filler should receive funds when srcSolver is unset");
+        // Settlement should fail — solver is no longer whitelisted
+        assertEq(uint8(testLocalAori.orderStatus(orderId)), uint8(OrderStatus.Active), "Order should remain Active for removed solver");
+        assertEq(testLocalLens.getUnlockedBalances(solver, address(inputToken)), 0, "Removed solver should not receive funds");
     }
 }

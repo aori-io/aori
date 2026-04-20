@@ -127,8 +127,8 @@ library AoriSettleLib {
             return; // Skip non-active orders
         }
 
-        // Validate filler matches order's srcSolver constraint (compromised-peer mitigation)
-        if (order.options.srcSolver != address(0) && filler != order.options.srcSolver) {
+        // Validate filler is a whitelisted solver (compromised-peer mitigation)
+        if (!$.isAllowedSolver[filler]) {
             emit IAori.SettleFailed(orderId);
             return;
         }
