@@ -492,4 +492,135 @@ contract SettlementTests is TestUtils {
         // The key thing we're testing is that the status didn't change to Settled (which would be 3)
         assertNotEq(actualStatus, uint8(OrderStatus.Settled), "Order status should not be Settled");
     }
+
+    /**
+     * @notice Test that settlement rejects a non-whitelisted filler address
+     * @dev Simulates a compromised peer sending a forged settlement with an attacker address as filler.
+     */
+    function testSettleRejectsNonWhitelistedFiller() public {
+        Order memory order = createValidOrder();
+        bytes memory signature = signOrderWithContract(order, userAPrivKey, address(testLocalAori));
+        bytes32 orderId = keccak256(abi.encode(order));
+
+        vm.prank(userA);
+        inputToken.approve(address(testLocalAori), order.inputAmount);
+
+        vm.prank(solver);
+        testLocalAori.deposit(order, signature);
+
+        assertEq(uint8(testLocalAori.orderStatus(orderId)), uint8(OrderStatus.Active));
+
+        // Simulate a compromised peer sending a forged settlement with a non-whitelisted attacker
+        address attacker = address(0xDEAD);
+        bytes memory forgedPayload = abi.encodePacked(
+            uint8(0),       // settlement message type
+            attacker,       // attacker's address as filler (not whitelisted)
+            uint16(1),      // fill count
+            orderId         // legitimate order
+        );
+
+        uint256 attackerBalanceBefore = testLocalLens.getUnlockedBalances(attacker, address(inputToken));
+        uint256 offererLockedBefore = testLocalLens.getLockedBalances(userA, address(inputToken));
+
+        vm.expectEmit(true, false, false, false, address(testLocalAori));
+        emit IAori.SettleFailed(orderId);
+
+        vm.chainId(localEid);
+        vm.prank(address(endpoints[localEid]));
+        testLocalAori.lzReceive(
+            Origin(remoteEid, bytes32(uint256(uint160(address(testRemoteAori)))), 1),
+            keccak256("forged-guid"),
+            forgedPayload,
+            address(0),
+            bytes("")
+        );
+
+        // Attacker should NOT have received any funds
+        assertEq(testLocalLens.getUnlockedBalances(attacker, address(inputToken)), attackerBalanceBefore, "Non-whitelisted filler should not receive funds");
+        assertEq(testLocalLens.getLockedBalances(userA, address(inputToken)), offererLockedBefore, "Offerer locked balance should be unchanged");
+        assertEq(uint8(testLocalAori.orderStatus(orderId)), uint8(OrderStatus.Active), "Order should remain Active");
+    }
+
+    /**
+     * @notice Test that settlement succeeds when filler is a whitelisted solver
+     */
+    function testSettleSucceedsWithWhitelistedFiller() public {
+        Order memory order = createValidOrder();
+        bytes memory signature = signOrderWithContract(order, userAPrivKey, address(testLocalAori));
+        bytes32 orderId = keccak256(abi.encode(order));
+
+        vm.prank(userA);
+        inputToken.approve(address(testLocalAori), order.inputAmount);
+
+        vm.prank(solver);
+        testLocalAori.deposit(order, signature);
+
+        assertEq(uint8(testLocalAori.orderStatus(orderId)), uint8(OrderStatus.Active));
+
+        // Settle with the whitelisted solver as filler
+        bytes memory payload = abi.encodePacked(
+            uint8(0),       // settlement message type
+            solver,         // whitelisted solver as filler
+            uint16(1),      // fill count
+            orderId
+        );
+
+        vm.chainId(localEid);
+        vm.prank(address(endpoints[localEid]));
+        testLocalAori.lzReceive(
+            Origin(remoteEid, bytes32(uint256(uint160(address(testRemoteAori)))), 1),
+            keccak256("legit-guid"),
+            payload,
+            address(0),
+            bytes("")
+        );
+
+        assertEq(uint8(testLocalAori.orderStatus(orderId)), uint8(OrderStatus.Settled), "Order should be settled");
+        assertGt(testLocalLens.getUnlockedBalances(solver, address(inputToken)), 0, "Whitelisted solver should have received funds");
+    }
+
+    /**
+     * @notice Test that a removed solver can no longer receive settlement funds
+     */
+    function testSettleRejectsRemovedSolver() public {
+        Order memory order = createValidOrder();
+        bytes memory signature = signOrderWithContract(order, userAPrivKey, address(testLocalAori));
+        bytes32 orderId = keccak256(abi.encode(order));
+
+        vm.prank(userA);
+        inputToken.approve(address(testLocalAori), order.inputAmount);
+
+        vm.prank(solver);
+        testLocalAori.deposit(order, signature);
+
+        assertEq(uint8(testLocalAori.orderStatus(orderId)), uint8(OrderStatus.Active));
+
+        // Remove the solver from whitelist after deposit
+        testLocalAori.removeAllowedSolver(solver);
+
+        // Try to settle with the now-removed solver
+        bytes memory payload = abi.encodePacked(
+            uint8(0),
+            solver,         // was whitelisted, now removed
+            uint16(1),
+            orderId
+        );
+
+        vm.expectEmit(true, false, false, false, address(testLocalAori));
+        emit IAori.SettleFailed(orderId);
+
+        vm.chainId(localEid);
+        vm.prank(address(endpoints[localEid]));
+        testLocalAori.lzReceive(
+            Origin(remoteEid, bytes32(uint256(uint160(address(testRemoteAori)))), 1),
+            keccak256("removed-solver-guid"),
+            payload,
+            address(0),
+            bytes("")
+        );
+
+        // Settlement should fail — solver is no longer whitelisted
+        assertEq(uint8(testLocalAori.orderStatus(orderId)), uint8(OrderStatus.Active), "Order should remain Active for removed solver");
+        assertEq(testLocalLens.getUnlockedBalances(solver, address(inputToken)), 0, "Removed solver should not receive funds");
+    }
 }

@@ -127,6 +127,12 @@ library AoriSettleLib {
             return; // Skip non-active orders
         }
 
+        // Validate filler is a whitelisted solver (compromised-peer mitigation)
+        if (!$.isAllowedSolver[filler]) {
+            emit IAori.SettleFailed(orderId);
+            return;
+        }
+
         (uint128 protocolFee, uint128 additionalFee, uint128 fillerAmount) =
             ValidationUtils.calculateFees(order.inputAmount, $.protocolFeeMbps, order.options.feeMbps);
 
