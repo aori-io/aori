@@ -127,6 +127,12 @@ library AoriSettleLib {
             return; // Skip non-active orders
         }
 
+        // Validate filler matches order's srcSolver constraint (compromised-peer mitigation)
+        if (order.options.srcSolver != address(0) && filler != order.options.srcSolver) {
+            emit IAori.SettleFailed(orderId);
+            return;
+        }
+
         (uint128 protocolFee, uint128 additionalFee, uint128 fillerAmount) =
             ValidationUtils.calculateFees(order.inputAmount, $.protocolFeeMbps, order.options.feeMbps);
 

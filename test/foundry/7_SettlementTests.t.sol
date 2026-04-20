@@ -492,4 +492,157 @@ contract SettlementTests is TestUtils {
         // The key thing we're testing is that the status didn't change to Settled (which would be 3)
         assertNotEq(actualStatus, uint8(OrderStatus.Settled), "Order status should not be Settled");
     }
+
+    /**
+     * @notice Test that settlement rejects a filler that doesn't match order.options.srcSolver
+     * @dev Simulates a compromised peer sending a forged settlement with an attacker address as filler.
+     *      When srcSolver is set, only that address should receive settled funds.
+     */
+    function testSettleRejectsMismatchedSrcSolver() public {
+        // Create an order with a specific srcSolver set to the legitimate solver
+        Order memory order = createValidOrder();
+        order.options.srcSolver = solver;
+
+        bytes memory signature = signOrderWithContract(order, userAPrivKey, address(testLocalAori));
+        bytes32 orderId = keccak256(abi.encode(order));
+
+        // Deposit the order
+        vm.prank(userA);
+        inputToken.approve(address(testLocalAori), order.inputAmount);
+
+        vm.prank(solver);
+        testLocalAori.deposit(order, signature);
+
+        // Verify order is active
+        assertEq(uint8(testLocalAori.orderStatus(orderId)), uint8(OrderStatus.Active));
+
+        // Simulate a compromised peer sending a forged settlement with an attacker as filler
+        address attacker = address(0xDEAD);
+        bytes memory forgedPayload = abi.encodePacked(
+            uint8(0),       // settlement message type
+            attacker,       // attacker's address as filler
+            uint16(1),      // fill count
+            orderId         // legitimate order
+        );
+
+        // Record balances before
+        uint256 attackerBalanceBefore = testLocalLens.getUnlockedBalances(attacker, address(inputToken));
+        uint256 offererLockedBefore = testLocalLens.getLockedBalances(userA, address(inputToken));
+
+        // Deliver the forged settlement via lzReceive
+        vm.chainId(localEid);
+        vm.prank(address(endpoints[localEid]));
+        testLocalAori.lzReceive(
+            Origin(remoteEid, bytes32(uint256(uint160(address(testRemoteAori)))), 1),
+            keccak256("forged-guid"),
+            forgedPayload,
+            address(0),
+            bytes("")
+        );
+
+        // Attacker should NOT have received any funds
+        uint256 attackerBalanceAfter = testLocalLens.getUnlockedBalances(attacker, address(inputToken));
+        assertEq(attackerBalanceBefore, attackerBalanceAfter, "Attacker should not receive funds when srcSolver is set");
+
+        // Offerer's locked balance should be unchanged (order not settled)
+        uint256 offererLockedAfter = testLocalLens.getLockedBalances(userA, address(inputToken));
+        assertEq(offererLockedBefore, offererLockedAfter, "Offerer locked balance should be unchanged");
+
+        // Order should still be Active, not Settled
+        assertEq(uint8(testLocalAori.orderStatus(orderId)), uint8(OrderStatus.Active), "Order should remain Active");
+    }
+
+    /**
+     * @notice Test that settlement succeeds when filler matches srcSolver
+     * @dev Ensures the srcSolver validation doesn't break legitimate settlements
+     */
+    function testSettleSucceedsWithMatchingSrcSolver() public {
+        // Create an order with srcSolver set to the legitimate solver
+        Order memory order = createValidOrder();
+        order.options.srcSolver = solver;
+
+        bytes memory signature = signOrderWithContract(order, userAPrivKey, address(testLocalAori));
+        bytes32 orderId = keccak256(abi.encode(order));
+
+        // Deposit the order
+        vm.prank(userA);
+        inputToken.approve(address(testLocalAori), order.inputAmount);
+
+        vm.prank(solver);
+        testLocalAori.deposit(order, signature);
+
+        assertEq(uint8(testLocalAori.orderStatus(orderId)), uint8(OrderStatus.Active));
+
+        // Send legitimate settlement with solver as filler (matches srcSolver)
+        bytes memory legitimatePayload = abi.encodePacked(
+            uint8(0),       // settlement message type
+            solver,         // legitimate solver as filler
+            uint16(1),      // fill count
+            orderId         // order
+        );
+
+        vm.chainId(localEid);
+        vm.prank(address(endpoints[localEid]));
+        testLocalAori.lzReceive(
+            Origin(remoteEid, bytes32(uint256(uint160(address(testRemoteAori)))), 1),
+            keccak256("legit-guid"),
+            legitimatePayload,
+            address(0),
+            bytes("")
+        );
+
+        // Order should be settled
+        assertEq(uint8(testLocalAori.orderStatus(orderId)), uint8(OrderStatus.Settled), "Order should be settled");
+
+        // Solver should have received unlocked balance
+        uint256 solverBalance = testLocalLens.getUnlockedBalances(solver, address(inputToken));
+        assertGt(solverBalance, 0, "Solver should have received funds");
+    }
+
+    /**
+     * @notice Test that settlement with srcSolver=address(0) allows any filler (backwards compatible)
+     */
+    function testSettleAllowsAnyFillerWhenSrcSolverUnset() public {
+        // Create order with default options (srcSolver = address(0))
+        Order memory order = createValidOrder();
+        // srcSolver is already address(0) from defaultOrderOptions()
+
+        bytes memory signature = signOrderWithContract(order, userAPrivKey, address(testLocalAori));
+        bytes32 orderId = keccak256(abi.encode(order));
+
+        // Deposit
+        vm.prank(userA);
+        inputToken.approve(address(testLocalAori), order.inputAmount);
+
+        vm.prank(solver);
+        testLocalAori.deposit(order, signature);
+
+        assertEq(uint8(testLocalAori.orderStatus(orderId)), uint8(OrderStatus.Active));
+
+        // Settle with a different address as filler — should succeed when srcSolver is unset
+        address anotherSolver = address(0xBEEF);
+        bytes memory payload = abi.encodePacked(
+            uint8(0),
+            anotherSolver,
+            uint16(1),
+            orderId
+        );
+
+        vm.chainId(localEid);
+        vm.prank(address(endpoints[localEid]));
+        testLocalAori.lzReceive(
+            Origin(remoteEid, bytes32(uint256(uint160(address(testRemoteAori)))), 1),
+            keccak256("any-filler-guid"),
+            payload,
+            address(0),
+            bytes("")
+        );
+
+        // Order should be settled (srcSolver=0 means any filler allowed)
+        assertEq(uint8(testLocalAori.orderStatus(orderId)), uint8(OrderStatus.Settled), "Order should be settled with any filler");
+
+        // The other solver should have received funds
+        uint256 otherSolverBalance = testLocalLens.getUnlockedBalances(anotherSolver, address(inputToken));
+        assertGt(otherSolverBalance, 0, "Any filler should receive funds when srcSolver is unset");
+    }
 }
