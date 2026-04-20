@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity 0.8.34;
 
 /**
  * SecurityAndAdvancedEdgeCasesTest - Tests for security features and advanced edge cases in the Aori protocol
@@ -16,30 +16,27 @@ pragma solidity 0.8.28;
  * limiting features. Some tests use extreme token values to ensure the contract
  * can handle large amounts correctly.
  */
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
 import "./TestUtils.sol";
-import "../../contracts/AoriUtils.sol";
+import { TokenUtils, NATIVE_TOKEN } from "../../contracts/utils/TokenUtils.sol";
 import { Aori, IAori } from "../../contracts/Aori.sol";
+import "../../contracts/types/AoriErrors.sol";
 
 /**
  * @title TestAori
  * @notice Extension of Aori contract for testing purposes
  */
 contract TestAori is Aori {
-    constructor(
-        address _endpoint,
-        address _owner,
-        uint32 _eid,
-        uint16 _maxFillsPerSettle
-    ) Aori(_endpoint, _owner, _eid, _maxFillsPerSettle) {}
+    constructor(address _endpoint, uint32 _eid) Aori(_endpoint, _eid) { }
 
     // Helper function to get the fills array length for a specific srcEid and filler
     function getFillsLength(uint32 srcEid, address filler) external view returns (uint256) {
-        return srcEidToFillerFills[srcEid][filler].length;
+        return _getAoriStorage().srcEidToFillerFills[srcEid][filler].length;
     }
 
     // Helper function to manually add orders to the fills array (for testing batch limits)
     function addToFills(uint32 srcEid, address filler, bytes32 orderId) external {
-        srcEidToFillerFills[srcEid][filler].push(orderId);
+        _getAoriStorage().srcEidToFillerFills[srcEid][filler].push(orderId);
     }
 }
 
@@ -52,23 +49,18 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
     address public nonWhitelistedSolver = address(0x300);
     TestAori public testLocalAori;
     TestAori public testRemoteAori;
+    AoriLens public testLocalLens;
+    AoriLens public testRemoteLens;
 
     function setUp() public override(TestUtils) {
         super.setUp();
 
-        // Deploy test-specific Aori contracts that extend functionality
-        testLocalAori = new TestAori(
-            address(endpoints[localEid]),
-            address(this),
-            localEid,
-            MAX_FILLS_PER_SETTLE
-        );
-        testRemoteAori = new TestAori(
-            address(endpoints[remoteEid]),
-            address(this),
-            remoteEid,
-            MAX_FILLS_PER_SETTLE
-        );
+        // Deploy test-specific Aori implementations and proxies using helper
+        TestAori testLocalImpl = new TestAori(address(endpoints[localEid]), localEid);
+        testLocalAori = TestAori(payable(deployWithProxy(address(testLocalImpl), address(this), MAX_FILLS_PER_SETTLE)));
+
+        TestAori testRemoteImpl = new TestAori(address(endpoints[remoteEid]), remoteEid);
+        testRemoteAori = TestAori(payable(deployWithProxy(address(testRemoteImpl), address(this), MAX_FILLS_PER_SETTLE)));
 
         // Wire the OApps together
         address[] memory aoriInstances = new address[](2);
@@ -89,34 +81,9 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         outputToken.mint(solver, type(uint128).max);
         outputToken.mint(nonWhitelistedSolver, type(uint128).max);
 
-        // Setup chains as supported
-        // Mock the quote calls
-        vm.mockCall(
-            address(testLocalAori),
-            abi.encodeWithSelector(
-                testLocalAori.quote.selector,
-                remoteEid,
-                0,
-                bytes(""),
-                false,
-                0,
-                address(0)
-            ),
-            abi.encode(1 ether)
-        );
-        vm.mockCall(
-            address(testRemoteAori),
-            abi.encodeWithSelector(
-                testRemoteAori.quote.selector,
-                localEid,
-                0,
-                bytes(""),
-                false,
-                0,
-                address(0)
-            ),
-            abi.encode(1 ether)
-        );
+        // Deploy lens contracts for test Aori instances
+        testLocalLens = new AoriLens(address(testLocalAori));
+        testRemoteLens = new AoriLens(address(testRemoteAori));
 
         // Add support for chains
         testLocalAori.addSupportedChain(remoteEid);
@@ -126,7 +93,9 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
     /**
      * @dev Helper to hash an order
      */
-    function hash(IAori.Order memory order) internal pure returns (bytes32) {
+    function hash(
+        Order memory order
+    ) internal pure returns (bytes32) {
         return keccak256(abi.encode(order));
     }
 
@@ -135,7 +104,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
      * Only whitelisted solvers can perform operations
      */
     function testWhitelistEnforcement() public {
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -145,7 +114,8 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         bytes memory signature = signOrder(order);
@@ -158,7 +128,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
 
         // Non-whitelisted solver should fail to deposit
         vm.prank(solver);
-        vm.expectRevert("Invalid solver");
+        vm.expectRevert(InvalidSolver.selector);
         localAori.deposit(order, signature);
 
         // Add solver back to whitelist
@@ -179,7 +149,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         outputToken.approve(address(remoteAori), order.outputAmount);
 
         vm.prank(solver);
-        vm.expectRevert("Invalid solver");
+        vm.expectRevert(InvalidSolver.selector);
         remoteAori.fill(order);
 
         // Add solver back to whitelist
@@ -189,11 +159,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         vm.prank(solver);
         remoteAori.fill(order);
 
-        assertEq(
-            outputToken.balanceOf(userA),
-            order.outputAmount,
-            "User did not receive correct output amount"
-        );
+        assertEq(outputToken.balanceOf(userA), order.outputAmount, "User did not receive correct output amount");
     }
 
     /**
@@ -205,7 +171,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         vm.chainId(localEid);
 
         // Create a single order for test simplicity
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -215,7 +181,8 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         bytes32 orderId = hash(order);
@@ -228,24 +195,13 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
 
         // Check that we have the expected number of fills
         uint256 beforeFillsCount = testRemoteAori.getFillsLength(localEid, solver);
-        assertEq(
-            beforeFillsCount,
-            MAX_FILLS_PER_SETTLE + 5,
-            "Should have MAX_FILLS_PER_SETTLE + 5 fills before settlement"
-        );
+        assertEq(beforeFillsCount, MAX_FILLS_PER_SETTLE + 5, "Should have MAX_FILLS_PER_SETTLE + 5 fills before settlement");
 
         // Create options for the LayerZero message
         bytes memory options = defaultOptions();
 
         // Get quote for settlement and add buffer
-        uint256 msgFee = testRemoteAori.quote(
-            localEid,
-            uint8(PayloadType.Settlement),
-            options,
-            false,
-            localEid,
-            solver
-        );
+        uint256 msgFee = testRemoteAori.quote(localEid, uint8(PayloadType.Settlement), options, false, localEid, solver).nativeFee;
 
         uint256 feeWithBuffer = (msgFee * 15) / 10; // 50% buffer for safety
 
@@ -259,11 +215,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         // Verify the number of orders that remain
         uint256 afterFillsCount = testRemoteAori.getFillsLength(localEid, solver);
         assertEq(afterFillsCount, 5, "Should have 5 fills remaining after settlement");
-        assertEq(
-            beforeFillsCount - afterFillsCount,
-            MAX_FILLS_PER_SETTLE,
-            "Should have processed exactly MAX_FILLS_PER_SETTLE fills"
-        );
+        assertEq(beforeFillsCount - afterFillsCount, MAX_FILLS_PER_SETTLE, "Should have processed exactly MAX_FILLS_PER_SETTLE fills");
     }
 
     /**
@@ -274,7 +226,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         vm.chainId(localEid);
 
         // Test zero input amount
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -284,7 +236,8 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         bytes memory signature = signOrder(order);
@@ -294,7 +247,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
 
         // Whitelisted solver should fail to deposit with invalid parameters
         vm.prank(solver);
-        vm.expectRevert("Invalid input amount");
+        vm.expectRevert(InvalidInputAmount.selector);
         localAori.deposit(order, signature);
 
         // Test zero output amount
@@ -304,18 +257,20 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         signature = signOrder(order); // Re-sign with updated parameters
 
         vm.prank(solver);
-        vm.expectRevert("Invalid output amount");
+        vm.expectRevert(InvalidOutputAmount.selector);
         localAori.deposit(order, signature);
 
         // Test end time before start time
         order.outputAmount = 2e18;
-        order.startTime = uint32(block.timestamp);
-        order.endTime = uint32(block.timestamp - 1); // Invalid: end time before start time
+        uint32 startTime = uint32(block.timestamp);
+        uint32 endTime = uint32(block.timestamp - 1); // Invalid: end time before start time
+        order.startTime = startTime;
+        order.endTime = endTime;
 
         signature = signOrder(order); // Re-sign with updated parameters
 
         vm.prank(solver);
-        vm.expectRevert("Invalid end time");
+        vm.expectRevert(abi.encodeWithSelector(InvalidEndTime.selector, startTime, endTime));
         localAori.deposit(order, signature);
 
         // Test invalid tokens (zero address)
@@ -326,7 +281,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         signature = signOrder(order); // Re-sign with updated parameters
 
         vm.prank(solver);
-        vm.expectRevert("Invalid token");
+        vm.expectRevert(InvalidToken.selector);
         localAori.deposit(order, signature);
 
         // Test chain mismatch
@@ -336,7 +291,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         signature = signOrder(order); // Re-sign with updated parameters
 
         vm.prank(solver);
-        vm.expectRevert("Chain mismatch");
+        vm.expectRevert(abi.encodeWithSelector(ChainMismatch.selector, localEid, remoteEid));
         localAori.deposit(order, signature);
     }
 
@@ -347,7 +302,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
     function testInvalidSolverData() public {
         vm.chainId(localEid);
 
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -357,7 +312,8 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         bytes memory signature = signOrder(order);
@@ -367,15 +323,15 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
 
         // Test non-whitelisted hook
         address nonWhitelistedHook = address(0x400);
-        IAori.SrcHook memory srcData = IAori.SrcHook({
+        SrcHook memory srcData = SrcHook({
             hookAddress: nonWhitelistedHook,
             preferredToken: address(inputToken),
-            minPreferedTokenAmountOut: 1000,
+            minPreferredTokenAmountOut: 1000,
             instructions: ""
         });
 
         vm.prank(solver);
-        vm.expectRevert("Invalid hook address");
+        vm.expectRevert(InvalidHookAddress.selector);
         localAori.deposit(order, signature, srcData);
 
         // Test zero preferred token
@@ -388,15 +344,11 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
 
         // Test insufficient output from hook
         srcData.preferredToken = address(convertedToken);
-        srcData.minPreferedTokenAmountOut = 2000e18; // Set to an impossibly high amount
-        srcData.instructions = abi.encodeWithSelector(
-            MockHook.handleHook.selector,
-            address(convertedToken),
-            100
-        ); // Will return much less than required
+        srcData.minPreferredTokenAmountOut = 2000e18; // Set to an impossibly high amount
+        srcData.instructions = abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), 100); // Will return much less than required
 
         vm.prank(solver);
-        vm.expectRevert("Insufficient output from hook");
+        vm.expectRevert(abi.encodeWithSelector(SlippageExceeded.selector, 2000e18, 100));
         localAori.deposit(order, signature, srcData);
 
         // Test destination hook validation
@@ -405,37 +357,33 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
 
         // First deposit and approve for fill
         vm.chainId(localEid);
-        srcData.minPreferedTokenAmountOut = 1; // Set to a very low amount to make deposit succeed
+        srcData.minPreferredTokenAmountOut = 1; // Set to a very low amount to make deposit succeed
 
         vm.prank(solver);
         localAori.deposit(order, signature, srcData);
 
         vm.chainId(remoteEid);
 
-        IAori.DstHook memory dstData = IAori.DstHook({
+        DstHook memory dstData = DstHook({
             hookAddress: address(0x400), // Non-whitelisted hook
             preferredToken: address(outputToken),
             instructions: "",
-            preferedDstInputAmount: order.outputAmount
+            preferredDstInputAmount: order.outputAmount
         });
 
         vm.prank(solver);
         outputToken.approve(address(remoteAori), order.outputAmount);
 
         vm.prank(solver);
-        vm.expectRevert("Invalid hook address");
+        vm.expectRevert(InvalidHookAddress.selector);
         remoteAori.fill(order, dstData);
 
         // Test insufficient output from destination hook
         dstData.hookAddress = address(mockHook);
-        dstData.instructions = abi.encodeWithSelector(
-            MockHook.handleHook.selector,
-            address(outputToken),
-            1
-        ); // Will return much less than required
+        dstData.instructions = abi.encodeWithSelector(MockHook.handleHook.selector, address(outputToken), 1); // Will return much less than required
 
         vm.prank(solver);
-        vm.expectRevert("Hook must provide at least the expected output amount");
+        vm.expectRevert(abi.encodeWithSelector(SlippageExceeded.selector, order.outputAmount, 1));
         remoteAori.fill(order, dstData);
     }
 
@@ -447,7 +395,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         vm.chainId(localEid);
 
         // Create a valid order
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -457,7 +405,8 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         // Sign the order with the testLocalAori contract address
@@ -483,7 +432,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         testLocalAori.deposit(order, signature);
 
         // Create a new order for the remote chain test
-        IAori.Order memory remoteOrder = IAori.Order({
+        Order memory remoteOrder = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -493,15 +442,12 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         // Sign with the remote contract as the verifying address
-        bytes memory remoteSignature = signOrderWithContract(
-            remoteOrder,
-            userAPrivKey,
-            address(testRemoteAori)
-        );
+        bytes memory remoteSignature = signOrderWithContract(remoteOrder, userAPrivKey, address(testRemoteAori));
 
         // Test pause affecting fills on destination chain
         vm.chainId(remoteEid);
@@ -526,11 +472,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         testRemoteAori.fill(remoteOrder);
 
         // Verify fill was successful
-        assertEq(
-            outputToken.balanceOf(userA),
-            remoteOrder.outputAmount,
-            "User did not receive correct output amount"
-        );
+        assertEq(outputToken.balanceOf(userA), remoteOrder.outputAmount, "User did not receive correct output amount");
 
         // Test pause affecting settlement
         vm.chainId(remoteEid);
@@ -539,14 +481,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
         bytes memory options = defaultOptions();
 
         // Get quote for settlement and add buffer
-        uint256 msgFee = testRemoteAori.quote(
-            localEid,
-            uint8(PayloadType.Settlement),
-            options,
-            false,
-            localEid,
-            solver
-        );
+        uint256 msgFee = testRemoteAori.quote(localEid, uint8(PayloadType.Settlement), options, false, localEid, solver).nativeFee;
         uint256 feeWithBuffer = (msgFee * 15) / 10; // 50% buffer for safety
 
         // Give solver ETH
@@ -572,26 +507,37 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
      * @notice Signs an order using EIP712 with a specific contract address
      * This function is needed when testing with custom contract instances
      */
-    function signOrderWithContract(
-        IAori.Order memory order,
-        uint256 privKey,
-        address contractAddress
-    ) internal pure returns (bytes memory) {
+    function signOrderWithContract(Order memory order, uint256 privKey, address contractAddress) internal pure returns (bytes memory) {
+        // Hash the nested Options struct first
+        bytes32 optionsHash = keccak256(
+            abi.encode(
+                keccak256("Options(uint16 feeMbps,uint16 slippageMbps,address feeRecipient,address srcSolver,address dstSolver)"),
+                order.options.feeMbps,
+                order.options.slippageMbps,
+                order.options.feeRecipient,
+                order.options.srcSolver,
+                order.options.dstSolver
+            )
+        );
+
         bytes32 structHash = keccak256(
             abi.encode(
                 keccak256(
-                    "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient)"
+                    "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,"
+                    "uint32 startTime,uint32 endTime,uint32 srcEid,address outputToken,uint32 dstEid,address offerer,address recipient," "Options options)"
+                    "Options(uint16 feeMbps,uint16 slippageMbps,address feeRecipient,address srcSolver,address dstSolver)"
                 ),
                 order.inputAmount,
                 order.outputAmount,
                 order.inputToken,
-                order.outputToken,
                 order.startTime,
                 order.endTime,
                 order.srcEid,
+                order.outputToken,
                 order.dstEid,
                 order.offerer,
-                order.recipient
+                order.recipient,
+                optionsHash
             )
         );
 
@@ -599,7 +545,7 @@ contract SecurityAndAdvancedEdgeCasesTest is TestUtils {
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,address verifyingContract)"),
                 keccak256(bytes("Aori")),
-                keccak256(bytes("0.3.1")),
+                keccak256(bytes("0.4.0")),
                 contractAddress
             )
         );

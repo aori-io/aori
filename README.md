@@ -26,12 +26,35 @@ struct Order {
     uint32 dstEid;            // Destination chain endpoint ID
     address offerer;          // User who created the order
     address recipient;        // Address to receive output tokens
+    Options options;          // User-signed order configuration
 }
 ```
 
+### Options
+
+The `Options` struct is nested inside `Order` and signed by the user, giving them explicit control over fee configuration, solver binding, and order type:
+
+```solidity
+struct Options {
+    uint16 feeMbps;        // Fee in millibasis points (1000 = 1%)
+    address feeRecipient;  // Who receives the fee (address(0) = solver)
+    address solver;        // Authorized solver (address(0) = any whitelisted)
+    uint16 slippageMbps;   // 0 = limit order, >0 = market order
+}
+```
+
+- **`solver`** — If set, only this solver can deposit/fill the order. If `address(0)`, any whitelisted solver can.
+- **`feeMbps`** — An additional fee the user agrees to pay, capped by the protocol's `maxFeeMbps`.
+- **`feeRecipient`** — Where the additional fee goes. `address(0)` routes it to the solver.
+- **`slippageMbps`** — Determines the order type and surplus routing (see [Order Types](#order-types--slippage) below).
+
 ### Native Token Support
 
-The protocol supports both ERC-20 tokens and native tokens (ETH/native chain currency). Native tokens are represented by the address `0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE` and can be deposited using the `depositNative()` function. The `NativeTokenUtils` library abstracts the handling of transfers and balance observations for both token types.
+The protocol supports both ERC-20 tokens and native tokens (ETH/native chain currency). Native tokens are represented by the address `0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE` and can be deposited using `depositNative()`. The `TokenUtils` library abstracts the handling of transfers and balance observations for both token types.
+
+### Permit2 Support
+
+Users can deposit via [Permit2](https://github.com/Uniswap/permit2) witness-based signatures using `depositWithPermit2()`. The `Order` struct serves as the Permit2 witness, binding the token transfer authorization to the specific order in a single signature — eliminating the need for a separate ERC-20 `approve` transaction.
 
 ### Order Lifecycle
 
@@ -76,14 +99,14 @@ sequenceDiagram
 
 #### Deposit & Fill Process
 
-1. User signs an order with EIP-712 signature
-2. Solver submits the order and signature to source chain using `deposit()` for ERC-20 tokens
-3. For native tokens, users call `depositNative()` directly with ETH sent via `msg.value`
+1. User signs an order with EIP-712 signature (includes `Options` for fee/solver/slippage configuration)
+2. Solver submits the order and signature to source chain using `deposit()` for ERC-20 tokens, `depositNative()` for native tokens, or `depositWithPermit2()` for gasless approval
+3. If `order.options.solver` is set, only that solver can submit the deposit/fill
 4. Tokens are locked in the source chain contract
 5. Solver fulfills the order on the destination chain
 6. Tokens are transferred to the recipient on destination chain
 7. Settlement message is sent back to source chain (with MessagingReceipt data captured in events)
-8. Source chain transfers locked tokens to solver
+8. Source chain deducts fees (protocol + additional) and transfers remaining locked tokens to solver
 
 #### Cancellation Process
 
@@ -119,46 +142,24 @@ sequenceDiagram
 #### Settlement Process
 
 1. Fill Recording: When orders are filled on destination chain, they're stored in the solver's fill array.
-2. Batch Settlement: Solvers can batch up to MAX_FILLS_PER_SETTLE orders for efficient processing.
+2. Batch Settlement: Solvers can batch up to `maxFillsPerSettle` orders for efficient processing.
 3. Cross-Chain Message: A settlement payload containing filler address and order hashes is sent via LayerZero.
 4. Receipt Tracking: MessagingReceipt information (guid, nonce, fee) is captured and included in the SettleSent event.
 5. Source Chain Processing: The source chain:
    - Validates orders are in Active state
-   - Transfers tokens from locked to unlocked state for the solver
+   - Calculates protocol fee and additional fee from the locked amount
+   - Credits solver with `inputAmount - protocolFee - additionalFee`
+   - Accrues protocol fee to `pendingProtocolFees` (lazy accrual)
+   - Credits additional fee to `feeRecipient` balance
    - Marks orders as Settled
-   - Skips problematic orders without reverting the entire batch
-6. Events: Emits Settle events for successful settlements.
+   - Skips problematic orders via soft-fail rollback without reverting the entire batch
+6. Events: Emits `Settle` events with fee breakdown for successful settlements, `SettleFailed` for skipped orders.
 
 This design ensures efficient, secure settlement while gracefully handling partial failures.
 
 ## Single-Chain Swap Architecture
 
 Single-chain swap orders are also supported by Aori.sol. These orders bypass the complex cross-chain messaging and offer efficient peer to peer settlement. The contract supports three main fulfillment paths for single-chain swaps:
-
-#### Immediate Fulfillment via `swap`
-
-```mermaid
-sequenceDiagram
-    actor User
-    actor Solver
-    participant Aori as Aori Contract
-
-    User->>Solver: Signed Order
-    Solver->>Aori: swap(order, signature)
-    User-->>Aori: Input tokens locked
-    Solver-->>Aori: Output tokens provided
-    Aori-->>User: Output tokens transferred to recipient
-    Aori-->>Solver: Input tokens credited (unlocked)
-```
-
-In this atomic flow:
-1. Solver calls `swap()` with the user's signed order
-2. Input tokens are transferred from the user to the contract
-3. Output tokens are transferred from the solver to the recipient
-4. Input tokens are immediately credited to the solver (unlocked balance)
-5. Order is marked as Settled in a single transaction
-
-This is the most gas-efficient path but requires the solver to already have the output tokens.
 
 #### Delayed Fulfillment via deposit then fill
 
@@ -190,9 +191,9 @@ In this two-step flow:
 
 This pattern gives solvers flexibility to lock in the user's intent first, then source the output tokens before completing the trade. The settlement happens immediately after the fill call without needing cross-chain messaging.
 
-#### Deposit with Hook Path
+#### Atomic Swap via Deposit with Hook
 
-The contract also supports a hook-based deposit mechanism for single-chain swaps:
+The contract supports a hook-based deposit mechanism for single-chain swaps that settles atomically with fee distribution:
 
 ```mermaid
 sequenceDiagram
@@ -203,22 +204,69 @@ sequenceDiagram
 
     User->>Solver: Signed Order
     Solver->>Aori: deposit(order, signature, hook)
-    User-->>Aori: Input tokens transferred
-    Aori->>Hook: Input tokens + execute hook
+    User-->>Aori: Input tokens transferred to hook
+    Aori->>Hook: Execute hook (token conversion)
     Hook-->>Aori: Output tokens returned
-    Aori-->>User: Output tokens to recipient
-    Aori-->>Solver: Input tokens credited
+    Aori-->>User: Output tokens to recipient (minus fees)
+    Note over Aori: Protocol fee → pendingProtocolFees
+    Note over Aori: Additional fee → feeRecipient balance
+    Aori-->>Solver: Surplus credited (limit orders only)
 ```
 
 In this path:
 1. Solver calls `deposit()` with the user's order, signature, and hook configuration
 2. Input tokens are transferred directly to the hook contract
-3. The hook executes a route
+3. The hook executes a route (e.g. DEX swap)
 4. Output tokens are returned to the Aori contract
-5. Output tokens are transferred to the recipient
-6. Settlement happens immediately, crediting the input amount to the solver
+5. Output is validated against `minOutput` (slippage protection)
+6. Fees are deducted and distributed (protocol fee + additional fee)
+7. Recipient receives output minus fees
+8. For limit orders (`slippageMbps = 0`), surplus goes to solver
+9. Order is marked as Settled in a single transaction
 
 This pattern enables advanced liquidity sourcing directly within the transaction.
+
+## Order Types & Slippage
+
+The `slippageMbps` field in `Options` determines order type and who captures price improvement (surplus):
+
+| `slippageMbps` | Order Type | Surplus Goes To | Minimum Output |
+|---|---|---|---|
+| `0` | Limit | Solver | `outputAmount` (exact) |
+| `> 0` | Market | Recipient | `outputAmount × (1 - slippage%)` |
+
+**Limit orders** (`slippageMbps = 0`) — The solver must deliver at least `outputAmount`. Any surplus from execution efficiency is captured by the solver as profit.
+
+**Market orders** (`slippageMbps > 0`) — The recipient captures all price improvement. The solver is compensated via fees instead. The minimum acceptable output is:
+
+```
+minOutput = outputAmount × (100000 - slippageMbps) / 100000
+```
+
+Solvers cannot tamper with `slippageMbps` because the `orderId` is derived from `keccak256(abi.encode(order))` — modifying any field changes the hash, and settlement will fail since the source chain won't find the original order.
+
+## Fee System
+
+Aori uses a dual-fee system with **protocol fees** (governance-controlled) and **additional fees** (user-signed):
+
+| Fee | Set By | Recipient | Limit |
+|---|---|---|---|
+| **Protocol Fee** | Governance (`setProtocolFee`) | `protocolTreasury` | Cross-validated with `maxFeeMbps` |
+| **Additional Fee** | User (signed `order.options.feeMbps`) | `feeRecipient` (or solver if `address(0)`) | Capped by `maxFeeMbps` |
+
+Both fees are deducted from the basis amount. The fee token depends on the execution path:
+
+| Path | Fee Token | Collection Point |
+|---|---|---|
+| Atomic swap (deposit with hook, single-chain) | `outputToken` | At swap execution |
+| Deposit → fill → settle | `inputToken` | At settlement |
+
+**Key design decisions:**
+- Fees and surplus accrue to internal `unlocked` balances rather than immediate transfers (~21,000 gas saved per avoided transfer)
+- Protocol fees use lazy accrual (`pendingProtocolFees[token]`) — `claimProtocolFees()` is permissionless (funds always go to treasury)
+- `setProtocolFee` and `setMaxFee` cross-validate: combined fees can never exceed 100%
+- Settlement uses soft-fail with rollback to prevent one bad order from blocking a batch
+
 
 ---
 
@@ -254,4 +302,4 @@ forge coverage --report --ir-minimum
 
 ## License
 
-MIT
+[Business Source License 1.1](https://mariadb.com/bsl11/) (BUSL-1.1). See [LICENSE](./LICENSE) for parameters and full terms.

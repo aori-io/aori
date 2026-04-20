@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity 0.8.34;
 
 /**
  * TestUtils - Common test utilities for Aori contract tests
@@ -30,14 +30,17 @@ pragma solidity 0.8.28;
  * between two separate environments (localEid = 1, remoteEid = 2)
  */
 import "forge-std/Test.sol";
-import {Aori, IAori} from "../../contracts/Aori.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {OApp, Origin, MessagingFee} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
-import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
-import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
-import {PayloadType} from "../../contracts/AoriUtils.sol";
-import {MockERC20} from "../Mock/MockERC20.sol";
-import {MockHook} from "../Mock/MockHook.sol";
+import { Aori, IAori } from "../../contracts/Aori.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance, Options } from "../../contracts/types/AoriTypes.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { OAppUpgradeable, Origin, MessagingFee } from "@layerzerolabs/oapp-evm-upgradeable/contracts/oapp/OAppUpgradeable.sol";
+import { TestHelperOz5 } from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
+import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { PayloadType } from "../../contracts/utils/PayloadUtils.sol";
+import { MockERC20 } from "../Mock/MockERC20.sol";
+import { MockHook } from "../Mock/MockHook.sol";
+import { AoriLens } from "../../contracts/AoriLens.sol";
 
 /**
  * @title TestUtils
@@ -49,6 +52,37 @@ contract TestUtils is TestHelperOz5 {
     // Common state
     Aori public localAori;
     Aori public remoteAori;
+    AoriLens public localLens;
+    AoriLens public remoteLens;
+
+    /**
+     * @notice Deploys an ERC1967 proxy for any Aori-derived implementation
+     * @dev Core helper used by deployAori and tests with custom Aori extensions
+     * @param implementation The implementation contract address
+     * @param owner The owner address for the contract
+     * @param maxFillsPerSettle Maximum fills per settlement
+     * @return The proxy address
+     */
+    function deployWithProxy(address implementation, address owner, uint16 maxFillsPerSettle) public returns (address) {
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            implementation, abi.encodeCall(Aori.initialize, (owner, maxFillsPerSettle, new address[](0), new address[](0), new uint32[](0), new address[](0)))
+        );
+        return address(proxy);
+    }
+
+    /**
+     * @notice Deploys an Aori instance with proxy pattern
+     * @param endpoint The LayerZero endpoint address
+     * @param eid The endpoint ID for this chain
+     * @param owner The owner address for the contract
+     * @param maxFillsPerSettle Maximum fills per settlement
+     * @return The deployed Aori proxy instance
+     */
+    function deployAori(address endpoint, uint32 eid, address owner, uint16 maxFillsPerSettle) public returns (Aori) {
+        Aori impl = new Aori(endpoint, eid);
+        return Aori(payable(deployWithProxy(address(impl), owner, maxFillsPerSettle)));
+    }
+
     MockERC20 public inputToken;
     MockERC20 public outputToken;
     MockERC20 public convertedToken; // token returned from deposit hook conversion
@@ -58,7 +92,8 @@ contract TestUtils is TestHelperOz5 {
     // Common addresses
     uint256 public userAPrivKey = 0xBEEF;
     address public userA;
-    address public solver = address(0x200);
+    uint256 public solverPrivKey = 0x50170E;
+    address public solver;
 
     // Common constants
     uint32 public constant localEid = 1;
@@ -69,15 +104,20 @@ contract TestUtils is TestHelperOz5 {
      * @notice Common setup function for all tests
      */
     function setUp() public virtual override {
-        // Derive userA
+        // Derive userA and solver
         userA = vm.addr(userAPrivKey);
+        solver = vm.addr(solverPrivKey);
 
         // Setup LayerZero endpoints
         setUpEndpoints(2, LibraryType.UltraLightNode);
 
-        // Deploy local and remote Aori contracts
-        localAori = new Aori(address(endpoints[localEid]), address(this), localEid, MAX_FILLS_PER_SETTLE);
-        remoteAori = new Aori(address(endpoints[remoteEid]), address(this), remoteEid, MAX_FILLS_PER_SETTLE);
+        // Deploy local and remote Aori instances
+        localAori = deployAori(address(endpoints[localEid]), localEid, address(this), MAX_FILLS_PER_SETTLE);
+        remoteAori = deployAori(address(endpoints[remoteEid]), remoteEid, address(this), MAX_FILLS_PER_SETTLE);
+
+        // Deploy lens contracts for view functions
+        localLens = new AoriLens(address(localAori));
+        remoteLens = new AoriLens(address(remoteAori));
 
         // Wire the OApps together
         address[] memory aoriInstances = new address[](2);
@@ -90,39 +130,9 @@ contract TestUtils is TestHelperOz5 {
         remoteAori.setPeer(localEid, bytes32(uint256(uint160(address(localAori)))));
 
         // Setup chains as supported (local already done in constructor)
-        // Mock the quote call for remote chain
-        vm.mockCall(
-            address(localAori),
-            abi.encodeWithSelector(
-                localAori.quote.selector,
-                remoteEid,
-                uint8(PayloadType.Settlement),
-                bytes(""),
-                false,
-                0,
-                address(0)
-            ),
-            abi.encode(1 ether) // Return a mock fee
-        );
-        
         // Add remote chain as supported on local contract
         localAori.addSupportedChain(remoteEid);
-        
-        // Mock the quote call for local chain
-        vm.mockCall(
-            address(remoteAori),
-            abi.encodeWithSelector(
-                remoteAori.quote.selector,
-                localEid,
-                uint8(PayloadType.Settlement),
-                bytes(""),
-                false,
-                0,
-                address(0)
-            ),
-            abi.encode(1 ether) // Return a mock fee
-        );
-        
+
         // Add local chain as supported on remote contract
         remoteAori.addSupportedChain(localEid);
 
@@ -155,37 +165,39 @@ contract TestUtils is TestHelperOz5 {
      * @notice Creates a valid order for testing with unique parameters
      * @param salt Optional salt value to make orders unique when called multiple times in same block
      */
-    function createValidOrder(uint256 salt) public view returns (IAori.Order memory order) {
+    function createValidOrder(
+        uint256 salt
+    ) public view returns (Order memory order) {
         // Use current timestamp for startTime to comply with contract requirements
         // Only endTime has an offset for testing
         uint256 endTimeOffset = 1 days;
 
         // Generate unique random seed based on block properties
-        uint256 randomSeed =
-            uint256(keccak256(abi.encodePacked(uint32(block.timestamp), block.prevrandao, address(this), salt)));
+        uint256 randomSeed = uint256(keccak256(abi.encodePacked(uint32(block.timestamp), block.prevrandao, address(this), salt)));
 
         // Use randomness to create unique but reasonable input/output amounts
         uint256 inputAmount = 1e18 + (randomSeed % 1e17); // Between 1-1.1 ETH
         uint256 outputAmount = 2e18 + (randomSeed % 2e17); // Between 2-2.2 ETH
 
-        order = IAori.Order({
+        order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
-            outputToken: address(outputToken),
             inputAmount: uint128(inputAmount),
+            outputToken: address(outputToken),
             outputAmount: uint128(outputAmount),
             startTime: uint32(block.timestamp), // Set to current timestamp
             endTime: uint32(block.timestamp + endTimeOffset),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
     }
 
     /**
      * @notice Creates a valid order for testing with default salt value
      */
-    function createValidOrder() public view returns (IAori.Order memory) {
+    function createValidOrder() public view returns (Order memory) {
         return createValidOrder(0);
     }
 
@@ -203,47 +215,66 @@ contract TestUtils is TestHelperOz5 {
         uint256 _endTime,
         uint32 _srcEid,
         uint32 _dstEid
-    ) public pure returns (IAori.Order memory order) {
-        order = IAori.Order({
+    ) public pure returns (Order memory order) {
+        order = Order({
             offerer: _offerer,
             recipient: _recipient,
             inputToken: _inputToken,
-            outputToken: _outputToken,
             inputAmount: uint128(_inputAmount),
+            outputToken: _outputToken,
             outputAmount: uint128(_outputAmount),
             startTime: uint32(_startTime),
             endTime: uint32(_endTime),
             srcEid: _srcEid,
-            dstEid: _dstEid
+            dstEid: _dstEid,
+            options: defaultOrderOptions()
         });
     }
 
     /**
      * @notice Signs an order using EIP712
      */
-    function signOrder(IAori.Order memory order) public view returns (bytes memory) {
+    function signOrder(
+        Order memory order
+    ) public view returns (bytes memory) {
         return signOrder(order, userAPrivKey);
     }
 
     /**
      * @notice Signs an order using EIP712 with a custom private key
      */
-    function signOrder(IAori.Order memory order, uint256 privKey) public view returns (bytes memory) {
+    function signOrder(Order memory order, uint256 privKey) public view returns (bytes memory) {
+        // Hash the nested Options struct first
+        bytes32 optionsHash = keccak256(
+            abi.encode(
+                keccak256("Options(uint16 feeMbps,uint16 slippageMbps,address feeRecipient,address srcSolver,address dstSolver)"),
+                order.options.feeMbps,
+                order.options.slippageMbps,
+                order.options.feeRecipient,
+                order.options.srcSolver,
+                order.options.dstSolver
+            )
+        );
+
+        // Hash the Order struct with nested Options hash
         bytes32 structHash = keccak256(
             abi.encode(
                 keccak256(
-                    "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient)"
+                    "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,uint32 startTime,"
+                    "uint32 endTime,uint32 srcEid,address outputToken,uint32 dstEid,address offerer,address recipient," "Options options)"
+                    "Options(uint16 feeMbps,uint16 slippageMbps,address feeRecipient,address srcSolver,address dstSolver)"
                 ),
                 order.inputAmount,
                 order.outputAmount,
                 order.inputToken,
-                order.outputToken,
                 order.startTime,
                 order.endTime,
                 order.srcEid,
+                order.outputToken,
                 order.dstEid,
                 order.offerer,
-                order.recipient
+                order.recipient,
+                optionsHash
             )
         );
 
@@ -251,7 +282,7 @@ contract TestUtils is TestHelperOz5 {
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,address verifyingContract)"),
                 keccak256(bytes("Aori")),
-                keccak256(bytes("0.3.1")),
+                keccak256(bytes("0.4.0")),
                 address(localAori)
             )
         );
@@ -262,14 +293,51 @@ contract TestUtils is TestHelperOz5 {
     }
 
     /**
+     * @notice Creates default order options (limit order, no fees)
+     * @return Default Options struct
+     */
+    function defaultOrderOptions() public pure returns (Options memory) {
+        return Options({
+            feeMbps: 0,
+            slippageMbps: 0, // 0 = limit order
+            feeRecipient: address(0),
+            srcSolver: address(0), // Any whitelisted solver allowed
+            dstSolver: address(0) // Any whitelisted solver allowed
+         });
+    }
+
+    /**
+     * @notice Creates market order options with slippage
+     * @param slippageMbps Slippage tolerance in millibasis points (1000 = 1%)
+     * @return Options struct for market order
+     */
+    function marketOrderOptions(
+        uint16 slippageMbps
+    ) public pure returns (Options memory) {
+        return Options({ feeMbps: 0, slippageMbps: slippageMbps, feeRecipient: address(0), srcSolver: address(0), dstSolver: address(0) });
+    }
+
+    /**
+     * @notice Creates order options with fees
+     * @param feeMbps Fee in millibasis points (1000 = 1%)
+     * @param feeRecipient Who receives the fee
+     * @return Options struct with fee configuration
+     */
+    function feeOrderOptions(uint16 feeMbps, address feeRecipient) public pure returns (Options memory) {
+        return Options({ feeMbps: feeMbps, slippageMbps: 0, feeRecipient: feeRecipient, srcSolver: address(0), dstSolver: address(0) });
+    }
+
+    /**
      * @notice Creates default source solver data with hook conversion
      * @param inputAmount The amount of input tokens to use in the hook instructions (defaults to 1e18)
      */
-    function defaultSrcSolverData(uint256 inputAmount) public view returns (IAori.SrcHook memory) {
-        return IAori.SrcHook({
+    function defaultSrcSolverData(
+        uint256 inputAmount
+    ) public view returns (SrcHook memory) {
+        return SrcHook({
             hookAddress: address(mockHook),
             preferredToken: address(convertedToken),
-            minPreferedTokenAmountOut: 1500,
+            minPreferredTokenAmountOut: 1500,
             instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(convertedToken), inputAmount)
         });
     }
@@ -277,7 +345,7 @@ contract TestUtils is TestHelperOz5 {
     /**
      * @notice Creates default source solver data with hook conversion using default input amount
      */
-    function defaultSrcSolverData() public view returns (IAori.SrcHook memory) {
+    function defaultSrcSolverData() public view returns (SrcHook memory) {
         return defaultSrcSolverData(1e18);
     }
 
@@ -285,19 +353,21 @@ contract TestUtils is TestHelperOz5 {
      * @notice Creates default destination solver data with hook conversion
      * @param outputAmount The amount of output tokens for the hook instructions
      */
-    function defaultDstSolverData(uint256 outputAmount) public view returns (IAori.DstHook memory) {
-        return IAori.DstHook({
+    function defaultDstSolverData(
+        uint256 outputAmount
+    ) public view returns (DstHook memory) {
+        return DstHook({
             hookAddress: address(mockHook),
             preferredToken: address(dstPreferredToken),
             instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(outputToken), outputAmount),
-            preferedDstInputAmount: outputAmount
+            preferredDstInputAmount: outputAmount
         });
     }
 
     /**
      * @notice Creates default destination solver data with hook conversion using default output amount
      */
-    function defaultDstSolverData() public view returns (IAori.DstHook memory) {
+    function defaultDstSolverData() public view returns (DstHook memory) {
         return defaultDstSolverData(2e18);
     }
 
@@ -306,6 +376,82 @@ contract TestUtils is TestHelperOz5 {
      */
     function defaultOptions() public pure returns (bytes memory) {
         return OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
+    }
+
+    /**
+     * @notice Creates an empty SrcHook for no-hook native deposits
+     */
+    function emptySrcHook() public pure returns (SrcHook memory) {
+        return SrcHook({
+            hookAddress: address(0),
+            preferredToken: address(0),
+            minPreferredTokenAmountOut: 0,
+            instructions: ""
+        });
+    }
+
+    /**
+     * @notice Signs a solver quote using EIP-712 (for depositNative quoteSignature param)
+     * @param order The order to quote
+     * @param srcHook The source hook configuration
+     * @param privKey The solver's private key
+     * @param aoriContract The Aori contract address (for domain separator)
+     */
+    function signQuote(
+        Order memory order,
+        SrcHook memory srcHook,
+        uint256 privKey,
+        address aoriContract
+    ) public view returns (bytes memory) {
+        bytes32 orderId = keccak256(abi.encode(order));
+
+        bytes32 srcHookHash = keccak256(
+            abi.encode(
+                keccak256("SrcHook(address hookAddress,address preferredToken,uint256 minPreferredTokenAmountOut,bytes instructions)"),
+                srcHook.hookAddress,
+                srcHook.preferredToken,
+                srcHook.minPreferredTokenAmountOut,
+                keccak256(srcHook.instructions)
+            )
+        );
+
+        bytes32 quoteHash = keccak256(
+            abi.encode(
+                keccak256(
+                    "SolverQuote(bytes32 orderId,SrcHook srcHook)"
+                    "SrcHook(address hookAddress,address preferredToken,uint256 minPreferredTokenAmountOut,bytes instructions)"
+                ),
+                orderId,
+                srcHookHash
+            )
+        );
+
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,address verifyingContract)"),
+                keccak256("Aori"),
+                keccak256("0.4.0"),
+                aoriContract
+            )
+        );
+
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, quoteHash));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privKey, digest);
+        return abi.encodePacked(r, s, v);
+    }
+
+    /**
+     * @notice Signs a solver quote using default solver key and local Aori
+     */
+    function signQuote(Order memory order, SrcHook memory srcHook) public view returns (bytes memory) {
+        return signQuote(order, srcHook, solverPrivKey, address(localAori));
+    }
+
+    /**
+     * @notice Signs a solver quote using a specific private key and local Aori
+     */
+    function signQuote(Order memory order, SrcHook memory srcHook, uint256 privKey) public view returns (bytes memory) {
+        return signQuote(order, srcHook, privKey, address(localAori));
     }
 
     /**

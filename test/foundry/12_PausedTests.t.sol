@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity 0.8.34;
 
 /**
  * PausedTests - Tests administrative functions for pausing and emergency operations
@@ -18,8 +18,9 @@ pragma solidity 0.8.28;
  * particularly the pause/unpause mechanisms and emergency fund recovery features.
  * The admin is set to the test contract itself to simplify testing of admin-only functions.
  */
-import {IAori} from "../../contracts/IAori.sol";
-import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
+import { IAori } from "../../contracts/interfaces/IAori.sol";
+import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import "./TestUtils.sol";
 
 /**
@@ -39,10 +40,6 @@ contract PausedTests is TestUtils {
 
         super.setUp();
 
-        // Override the default peer relationships since we're using a different admin
-        localAori.setPeer(remoteEid, bytes32(uint256(uint160(address(remoteAori)))));
-        remoteAori.setPeer(localEid, bytes32(uint256(uint160(address(localAori)))));
-
         // Mint additional tokens for userA and solver needed for these tests
         outputToken.mint(userA, 1000e18);
         inputToken.mint(solver, 1000e18);
@@ -52,12 +49,12 @@ contract PausedTests is TestUtils {
      * @notice Test that only admin can pause the contract
      */
     function testPauseOnlyAdmin() public {
-        // Non-admin cannot pause
+        // Non-admin cannot pause (would need to go through AoriAdmin)
         vm.prank(nonAdmin);
         vm.expectRevert();
         localAori.pause();
 
-        // Admin can pause
+        // Admin can pause through AoriAdmin
         localAori.pause();
         assertTrue(localAori.paused(), "Contract should be paused");
     }
@@ -87,13 +84,13 @@ contract PausedTests is TestUtils {
         localAori.pause();
 
         // Setup for deposit
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
-        IAori.SrcHook memory srcData = IAori.SrcHook({
+        SrcHook memory srcData = SrcHook({
             hookAddress: address(0),
             preferredToken: address(inputToken),
-            minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount since no conversion
+            minPreferredTokenAmountOut: 1000, // Arbitrary minimum amount since no conversion
             instructions: ""
         });
 
@@ -116,7 +113,7 @@ contract PausedTests is TestUtils {
         remoteAori.pause();
 
         // Setup for fill
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         order.dstEid = remoteEid;
         order.srcEid = localEid;
 
@@ -132,10 +129,10 @@ contract PausedTests is TestUtils {
     function testWithdrawWorksWhenPaused() public {
         // Store user's initial token balance
         uint256 initialUserBalance = inputToken.balanceOf(userA);
-        
+
         // First set up some balance for userA
         // Create a valid SINGLE-CHAIN order (not cross-chain)
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         order.dstEid = localEid; // Make it single-chain to allow source chain cancellation
         bytes memory signature = signOrder(order);
 
@@ -148,7 +145,7 @@ contract PausedTests is TestUtils {
         localAori.deposit(order, signature);
 
         // Get the order hash
-        bytes32 orderHash = localAori.hash(order);
+        bytes32 orderHash = keccak256(abi.encode(order));
 
         // Advance time past expiry BEFORE cancellation
         vm.warp(order.endTime + 1);
@@ -161,9 +158,9 @@ contract PausedTests is TestUtils {
         // Verify that tokens were transferred directly back to userA
         uint256 finalUserBalance = inputToken.balanceOf(userA);
         assertEq(finalUserBalance, initialUserBalance, "User should have received their tokens back directly");
-        
+
         // Verify unlocked balance is still 0 (since tokens were transferred directly)
-        uint256 unlockedBalance = localAori.getUnlockedBalances(userA, address(inputToken));
+        uint256 unlockedBalance = localLens.getUnlockedBalances(userA, address(inputToken));
         assertEq(unlockedBalance, 0, "Unlocked balance should remain 0 with direct transfer");
 
         // Now pause the contract
@@ -176,7 +173,7 @@ contract PausedTests is TestUtils {
     }
 
     /**
-     * @notice Test emergency withdrawal of tokens
+     * @notice Test emergency withdrawal of tokens using adminTransfer
      */
     function testEmergencyWithdraw() public {
         // Send tokens to the contract first
@@ -185,8 +182,8 @@ contract PausedTests is TestUtils {
         // Get balance before emergency withdrawal
         uint256 adminBalanceBefore = inputToken.balanceOf(admin);
 
-        // Execute emergency withdrawal
-        localAori.emergencyWithdraw(address(inputToken), 5e18);
+        // Execute emergency withdrawal directly on Aori
+        localAori.emergencyWithdraw(address(inputToken), 5e18, admin);
 
         // Check balance after emergency withdrawal
         uint256 adminBalanceAfter = inputToken.balanceOf(admin);
@@ -203,8 +200,9 @@ contract PausedTests is TestUtils {
         // Get balance before emergency withdrawal
         uint256 adminBalanceBefore = address(admin).balance;
 
-        // Execute emergency withdrawal (amount is ignored for ETH)
-        localAori.emergencyWithdraw(address(0), 0);
+        // Execute emergency withdrawal using native token address
+        address NATIVE_TOKEN = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+        localAori.emergencyWithdraw(NATIVE_TOKEN, 1 ether, admin);
 
         // Check balance after emergency withdrawal
         uint256 adminBalanceAfter = address(admin).balance;
@@ -221,36 +219,36 @@ contract PausedTests is TestUtils {
         // Non-admin cannot use emergency withdraw
         vm.prank(nonAdmin);
         vm.expectRevert();
-        localAori.emergencyWithdraw(address(inputToken), 5e18);
+        localAori.emergencyWithdraw(address(inputToken), 5e18, nonAdmin);
     }
 
     /**
      * @notice Test emergency withdrawal from user balance while maintaining accounting consistency
      */
-    function testEmergencyWithdrawFromUserBalance() public {
+    function testemergencyWithdrawFromBalanceBalance() public {
         // Setup: Create and deposit an order to establish user balance
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
         // Approve and deposit tokens
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
-        
+
         vm.prank(solver);
         localAori.deposit(order, signature);
 
         // Verify locked balance was created
-        uint256 lockedBefore = localAori.getLockedBalances(userA, address(inputToken));
+        uint256 lockedBefore = localLens.getLockedBalances(userA, address(inputToken));
         assertEq(lockedBefore, order.inputAmount, "User should have locked tokens");
 
         // Test emergency withdraw from locked balance
         address recipient = makeAddr("emergency-recipient");
         uint256 withdrawAmount = order.inputAmount / 2;
-        
+
         uint256 recipientBalanceBefore = inputToken.balanceOf(recipient);
-        
-        // Emergency withdraw from user's locked balance
-        localAori.emergencyWithdraw(
+
+        // Emergency withdraw from user's locked balance through AoriAdmin
+        localAori.emergencyWithdrawFromBalance(
             address(inputToken),
             withdrawAmount,
             userA,
@@ -259,9 +257,9 @@ contract PausedTests is TestUtils {
         );
 
         // Verify balances updated correctly
-        uint256 lockedAfter = localAori.getLockedBalances(userA, address(inputToken));
+        uint256 lockedAfter = localLens.getLockedBalances(userA, address(inputToken));
         uint256 recipientBalanceAfter = inputToken.balanceOf(recipient);
-        
+
         assertEq(lockedAfter, lockedBefore - withdrawAmount, "User's locked balance should decrease");
         assertEq(recipientBalanceAfter, recipientBalanceBefore + withdrawAmount, "Recipient should receive tokens");
     }
@@ -271,7 +269,7 @@ contract PausedTests is TestUtils {
      */
     function testEmergencyWithdrawFromUnlockedBalance() public {
         // Use a different approach - create unlocked balance directly using the swap function
-        IAori.Order memory swapOrder = createValidOrder();
+        Order memory swapOrder = createValidOrder();
         swapOrder.offerer = userA;
         swapOrder.srcEid = localEid;
         swapOrder.dstEid = localEid; // Single chain swap to avoid cross-chain restrictions
@@ -290,17 +288,17 @@ contract PausedTests is TestUtils {
         localAori.fill(swapOrder);
 
         // Verify solver has unlocked balance
-        uint256 unlockedBefore = localAori.getUnlockedBalances(solver, address(inputToken));
+        uint256 unlockedBefore = localLens.getUnlockedBalances(solver, address(inputToken));
         assertEq(unlockedBefore, swapOrder.inputAmount, "Solver should have unlocked tokens");
 
         // Test emergency withdraw from unlocked balance
         address recipient = makeAddr("emergency-recipient-2");
         uint256 withdrawAmount = swapOrder.inputAmount / 2;
-        
+
         uint256 recipientBalanceBefore = inputToken.balanceOf(recipient);
-        
-        // Emergency withdraw from solver's unlocked balance
-        localAori.emergencyWithdraw(
+
+        // Emergency withdraw from solver's unlocked balance through AoriAdmin
+        localAori.emergencyWithdrawFromBalance(
             address(inputToken),
             withdrawAmount,
             solver,
@@ -309,9 +307,9 @@ contract PausedTests is TestUtils {
         );
 
         // Verify balances updated correctly
-        uint256 unlockedAfter = localAori.getUnlockedBalances(solver, address(inputToken));
+        uint256 unlockedAfter = localLens.getUnlockedBalances(solver, address(inputToken));
         uint256 recipientBalanceAfter = inputToken.balanceOf(recipient);
-        
+
         assertEq(unlockedAfter, unlockedBefore - withdrawAmount, "Solver's unlocked balance should decrease");
         assertEq(recipientBalanceAfter, recipientBalanceBefore + withdrawAmount, "Recipient should receive tokens");
     }
@@ -319,26 +317,20 @@ contract PausedTests is TestUtils {
     /**
      * @notice Test that only admin can use the overloaded emergency withdraw
      */
-    function testEmergencyWithdrawFromUserBalanceOnlyAdmin() public {
+    function testemergencyWithdrawFromBalanceBalanceOnlyAdmin() public {
         // Setup user balance first
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         bytes memory signature = signOrder(order);
 
         vm.prank(userA);
         inputToken.approve(address(localAori), order.inputAmount);
-        
+
         vm.prank(solver);
         localAori.deposit(order, signature);
 
         // Non-admin cannot use overloaded emergency withdraw
         vm.prank(nonAdmin);
         vm.expectRevert();
-        localAori.emergencyWithdraw(
-            address(inputToken),
-            order.inputAmount,
-            userA,
-            true,
-            nonAdmin
-        );
+        localAori.emergencyWithdrawFromBalance(address(inputToken), order.inputAmount, userA, true, nonAdmin);
     }
 }

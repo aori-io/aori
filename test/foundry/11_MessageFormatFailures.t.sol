@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity 0.8.34;
 
 /**
  * MessageFormatFailuresTest - Tests failures related to message formats in the Aori cross-chain protocol
@@ -15,9 +15,11 @@ pragma solidity 0.8.28;
  * This test file focuses on edge cases and failure conditions related to the LayerZero cross-chain messaging
  * system used by Aori, including payload format violations, authorization issues, and fee-related failures.
  */
-import {IAori} from "../../contracts/IAori.sol";
-import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
-import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
+import { IAori } from "../../contracts/interfaces/IAori.sol";
+import "../../contracts/types/AoriErrors.sol";
+import { Origin } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
+import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import "./TestUtils.sol";
 
 /**
@@ -44,13 +46,9 @@ contract MessageFormatFailuresTest is TestUtils {
         bytes32 guid = keccak256("mock-guid");
 
         vm.prank(address(endpoints[localEid]));
-        vm.expectRevert(bytes("Payload too short for settlement"));
+        vm.expectRevert(abi.encodeWithSelector(InvalidPayloadLength.selector, 23, 21));
         localAori.lzReceive(
-            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),
-            guid,
-            invalidPayload,
-            address(0),
-            bytes("")
+            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1), guid, invalidPayload, address(0), bytes("")
         );
     }
 
@@ -71,13 +69,10 @@ contract MessageFormatFailuresTest is TestUtils {
         bytes32 guid = keccak256("mock-guid");
 
         vm.prank(address(endpoints[localEid]));
-        vm.expectRevert(bytes("Invalid payload length for settlement"));
+        // Fill count is 2, so expected length is 23 + (2 * 32) = 87, but actual is 55
+        vm.expectRevert(abi.encodeWithSelector(InvalidPayloadLength.selector, 87, 55));
         localAori.lzReceive(
-            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),
-            guid,
-            invalidPayload,
-            address(0),
-            bytes("")
+            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1), guid, invalidPayload, address(0), bytes("")
         );
     }
 
@@ -94,13 +89,9 @@ contract MessageFormatFailuresTest is TestUtils {
         bytes32 guid = keccak256("mock-guid");
 
         vm.prank(address(endpoints[remoteEid]));
-        vm.expectRevert(bytes("Invalid cancellation payload length"));
+        vm.expectRevert(abi.encodeWithSelector(InvalidPayloadLength.selector, 33, 1));
         remoteAori.lzReceive(
-            Origin(localEid, bytes32(uint256(uint160(address(localAori)))), 1),
-            guid,
-            invalidPayload,
-            address(0),
-            bytes("")
+            Origin(localEid, bytes32(uint256(uint160(address(localAori)))), 1), guid, invalidPayload, address(0), bytes("")
         );
     }
 
@@ -122,9 +113,7 @@ contract MessageFormatFailuresTest is TestUtils {
 
         // Using a generic expectRevert without specific message
         vm.expectRevert();
-        localAori.lzReceive(
-            Origin(remoteEid, bytes32(uint256(uint160(fakePeer))), 1), guid, payload, address(0), bytes("")
-        );
+        localAori.lzReceive(Origin(remoteEid, bytes32(uint256(uint160(fakePeer))), 1), guid, payload, address(0), bytes(""));
     }
 
     /**
@@ -145,9 +134,7 @@ contract MessageFormatFailuresTest is TestUtils {
 
         // Using a generic expectRevert without specific message
         vm.expectRevert();
-        localAori.lzReceive(
-            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1), guid, payload, address(0), bytes("")
-        );
+        localAori.lzReceive(Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1), guid, payload, address(0), bytes(""));
     }
 
     /**
@@ -157,7 +144,7 @@ contract MessageFormatFailuresTest is TestUtils {
         vm.chainId(remoteEid);
 
         // Create a valid order and fill it
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
 
         // Warp to after the order start time
         vm.warp(order.startTime + 10);

@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity 0.8.34;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -23,7 +23,7 @@ contract MockHook {
         targetToken = address(0);
     }
 
-    function handleHook(address tokenToReturn, uint256 expectedAmount) external {
+    function handleHook(address tokenToReturn, uint256 expectedAmount) external payable {
         if (tokenToReturn == NATIVE_TOKEN) {
             // Handle native token
             uint256 available = address(this).balance;

@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity 0.8.34;
 
 /**
  * ExtremeOrderParametersTest - Tests extreme edge cases for order parameters in the Aori contract
@@ -15,8 +15,10 @@ pragma solidity 0.8.28;
  * such as maximum/minimum token amounts and time windows, while maintaining proper whitelist enforcement.
  * These edge cases are important to test the robustness of the contract's validation logic.
  */
-import {IAori} from "../../contracts/IAori.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
+import { IAori } from "../../contracts/interfaces/IAori.sol";
 import "./TestUtils.sol";
+import "../../contracts/types/AoriErrors.sol";
 
 /**
  * @title ExtremeOrderParametersTest
@@ -39,7 +41,7 @@ contract ExtremeOrderParametersTest is TestUtils {
      * while maintaining proper whitelist-based solver restrictions
      */
     function testMaxValueOrder() public {
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -49,7 +51,8 @@ contract ExtremeOrderParametersTest is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp + 1 days),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         bytes memory signature = signOrder(order);
@@ -62,11 +65,7 @@ contract ExtremeOrderParametersTest is TestUtils {
         localAori.deposit(order, signature);
 
         // Verify that the locked balance increased correctly
-        assertEq(
-            localAori.getLockedBalances(userA, address(inputToken)),
-            order.inputAmount,
-            "Locked balance incorrect after deposit"
-        );
+        assertEq(localLens.getLockedBalances(userA, address(inputToken)), order.inputAmount, "Locked balance incorrect after deposit");
 
         // Test fill with max values
         vm.chainId(remoteEid);
@@ -88,7 +87,7 @@ contract ExtremeOrderParametersTest is TestUtils {
      * while maintaining proper whitelist-based solver restrictions
      */
     function testMinValueOrder() public {
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -98,7 +97,8 @@ contract ExtremeOrderParametersTest is TestUtils {
             startTime: uint32(uint32(block.timestamp)),
             endTime: uint32(uint32(block.timestamp) + 1 days),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         bytes memory signature = signOrder(order);
@@ -132,7 +132,7 @@ contract ExtremeOrderParametersTest is TestUtils {
     function testShortDurationOrder() public {
         vm.warp(1000); // Set a starting time
 
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -142,7 +142,8 @@ contract ExtremeOrderParametersTest is TestUtils {
             startTime: 1000, // Exactly current timestamp
             endTime: 1001, // Just 1 second duration
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         bytes memory signature = signOrder(order);
@@ -173,7 +174,7 @@ contract ExtremeOrderParametersTest is TestUtils {
      * while maintaining proper whitelist-based solver restrictions
      */
     function testLongDurationOrder() public {
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -183,7 +184,8 @@ contract ExtremeOrderParametersTest is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: type(uint32).max, // Maximum possible end time
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         bytes memory signature = signOrder(order);
@@ -215,7 +217,7 @@ contract ExtremeOrderParametersTest is TestUtils {
      * removing a solver from the whitelist prevents it from performing operations
      */
     function testWhitelistEnforcement() public {
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: userA,
             recipient: userA,
             inputToken: address(inputToken),
@@ -225,7 +227,8 @@ contract ExtremeOrderParametersTest is TestUtils {
             startTime: uint32(uint32(block.timestamp)),
             endTime: uint32(uint32(block.timestamp) + 1 days),
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         bytes memory signature = signOrder(order);
@@ -238,7 +241,7 @@ contract ExtremeOrderParametersTest is TestUtils {
 
         // Non-whitelisted solver should fail to deposit
         vm.prank(solver);
-        vm.expectRevert("Invalid solver");
+        vm.expectRevert(InvalidSolver.selector);
         localAori.deposit(order, signature);
 
         // Add solver back to whitelist
@@ -259,7 +262,7 @@ contract ExtremeOrderParametersTest is TestUtils {
         outputToken.approve(address(remoteAori), order.outputAmount);
 
         vm.prank(solver);
-        vm.expectRevert("Invalid solver");
+        vm.expectRevert(InvalidSolver.selector);
         remoteAori.fill(order);
 
         // Add solver back to whitelist

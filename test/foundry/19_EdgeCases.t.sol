@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity 0.8.34;
 
 /**
  * @title EdgeCasesTest
@@ -19,12 +19,14 @@ pragma solidity 0.8.28;
  * - The test verifies different security edge cases that could potentially be exploited
  * - Custom mock contracts are used to test specific attack vectors and edge cases
  */
-import {TestUtils} from "./TestUtils.sol";
-import {IAori} from "../../contracts/Aori.sol";
+import { TestUtils } from "./TestUtils.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
+import { IAori } from "../../contracts/Aori.sol";
 import "../Mock/MockRevertingToken.sol";
 import "../Mock/MockFeeOnTransferToken.sol";
 import "../Mock/MockAttacker.sol";
 import "../Mock/MockHook.sol";
+import "../../contracts/types/AoriErrors.sol";
 
 /**
  * @notice Tests various edge cases and security scenarios in the Aori protocol
@@ -86,7 +88,7 @@ contract EdgeCasesTest is TestUtils {
     // Test EIP712 signature manipulation
     function testSignatureManipulation() public {
         vm.chainId(localEid);
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: maker,
             recipient: maker,
             inputToken: address(inputToken),
@@ -96,7 +98,8 @@ contract EdgeCasesTest is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp) + 3600,
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         // Generate a valid signature
@@ -107,7 +110,7 @@ contract EdgeCasesTest is TestUtils {
         bytes32 modifiedS = bytes32(uint256(s) ^ 1);
         bytes memory manipulatedSignature = abi.encodePacked(r, modifiedS, v);
 
-        vm.expectRevert("InvalidSignature");
+        vm.expectRevert(InvalidSignature.selector);
         vm.prank(solver);
         localAori.deposit(order, manipulatedSignature);
     }
@@ -115,7 +118,7 @@ contract EdgeCasesTest is TestUtils {
     // Test fee-on-transfer tokens
     function testFeeOnTransferToken() public {
         vm.chainId(localEid);
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: maker,
             recipient: maker,
             inputToken: address(feeToken),
@@ -125,25 +128,24 @@ contract EdgeCasesTest is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp) + 3600,
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         bytes32 digest = _getOrderDigest(order);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(makerPrivateKey, digest);
         bytes memory signature = abi.encodePacked(r, s, v);
 
-        // The deposit will succeed but the actual amount locked will be less than order.inputAmount
+        // The deposit must revert because the balance-delta check detects the transfer fee
+        vm.expectRevert(TransferAmountMismatch.selector);
         vm.prank(solver);
         localAori.deposit(order, signature);
-
-        uint256 lockedBalance = localAori.getLockedBalances(maker, address(feeToken));
-        assertEq(lockedBalance, 10 ether, "Locked balance should match input amount");
     }
 
     // Test reverting token transfer in hook
     function testRevertingTokenInHook() public {
         vm.chainId(localEid);
-        IAori.Order memory order = IAori.Order({
+        Order memory order = Order({
             offerer: maker,
             recipient: maker,
             inputToken: address(revertingToken),
@@ -153,17 +155,18 @@ contract EdgeCasesTest is TestUtils {
             startTime: uint32(block.timestamp),
             endTime: uint32(block.timestamp) + 3600,
             srcEid: localEid,
-            dstEid: remoteEid
+            dstEid: remoteEid,
+            options: defaultOrderOptions()
         });
 
         bytes32 digest = _getOrderDigest(order);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(makerPrivateKey, digest);
         bytes memory signature = abi.encodePacked(r, s, v);
 
-        IAori.SrcHook memory data = IAori.SrcHook({
+        SrcHook memory data = SrcHook({
             hookAddress: address(mockHook),
             preferredToken: address(inputToken),
-            minPreferedTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
+            minPreferredTokenAmountOut: 1000, // Arbitrary minimum amount for conversion
             instructions: abi.encodeWithSelector(MockHook.handleHook.selector, address(inputToken), 1 ether)
         });
 
@@ -176,9 +179,21 @@ contract EdgeCasesTest is TestUtils {
     }
 
     // Helper function to generate EIP712 digest for signing
-    function _getOrderDigest(IAori.Order memory order) internal view returns (bytes32) {
+    function _getOrderDigest(
+        Order memory order
+    ) internal view returns (bytes32) {
+        bytes32 OPTIONS_TYPEHASH = keccak256("Options(uint16 feeMbps,uint16 slippageMbps,address feeRecipient,address srcSolver,address dstSolver)");
         bytes32 ORDER_TYPEHASH = keccak256(
-            "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,address outputToken,uint32 startTime,uint32 endTime,uint32 srcEid,uint32 dstEid,address offerer,address recipient)"
+            "Order(uint128 inputAmount,uint128 outputAmount,address inputToken,"
+            "uint32 startTime,uint32 endTime,uint32 srcEid,address outputToken,uint32 dstEid,address offerer,address recipient," "Options options)"
+            "Options(uint16 feeMbps,uint16 slippageMbps,address feeRecipient,address srcSolver,address dstSolver)"
+        );
+
+        // Hash options first
+        bytes32 optionsHash = keccak256(
+            abi.encode(
+                OPTIONS_TYPEHASH, order.options.feeMbps, order.options.slippageMbps, order.options.feeRecipient, order.options.srcSolver, order.options.dstSolver
+            )
         );
 
         bytes32 structHash = keccak256(
@@ -187,13 +202,14 @@ contract EdgeCasesTest is TestUtils {
                 order.inputAmount,
                 order.outputAmount,
                 order.inputToken,
-                order.outputToken,
                 order.startTime,
                 order.endTime,
                 order.srcEid,
+                order.outputToken,
                 order.dstEid,
                 order.offerer,
-                order.recipient
+                order.recipient,
+                optionsHash
             )
         );
 
@@ -201,7 +217,7 @@ contract EdgeCasesTest is TestUtils {
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,address verifyingContract)"),
                 keccak256(bytes("Aori")),
-                keccak256(bytes("0.3.1")),
+                keccak256(bytes("0.4.0")),
                 address(localAori)
             )
         );

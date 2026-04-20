@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity 0.8.34;
 
 /**
  * CrossChainAndWhitelistTests - Tests cross-chain functionality and solver whitelist features
@@ -18,10 +18,12 @@ pragma solidity 0.8.28;
  * solver whitelisting. It simulates cross-chain communication by using LayerZero's test helpers
  * and manually constructing the settlement and cancellation payloads.
  */
-import {IAori} from "../../contracts/Aori.sol";
-import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
-import {OptionsBuilder} from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
+import { IAori } from "../../contracts/Aori.sol";
+import { Origin } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
+import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
 import "./TestUtils.sol";
+import "../../contracts/types/AoriErrors.sol";
 
 /**
  * @title CrossChainAndWhitelistTests
@@ -49,7 +51,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         vm.chainId(localEid);
 
         // Create a valid order
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
 
         // Sign and deposit the order
         bytes memory signature = signOrder(order);
@@ -59,7 +61,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
 
         // Non-whitelisted solver should fail to deposit
         vm.startPrank(nonWhitelistedSolver);
-        vm.expectRevert("Invalid solver");
+        vm.expectRevert(InvalidSolver.selector);
         localAori.deposit(order, signature);
         vm.stopPrank();
 
@@ -77,7 +79,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         vm.chainId(localEid);
 
         // Create a valid order
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
 
         // Sign and deposit the order
         bytes memory signature = signOrder(order);
@@ -90,7 +92,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         localAori.deposit(order, signature);
 
         // Check locked balance
-        uint256 lockedBalance = localAori.getLockedBalances(userA, address(inputToken));
+        uint256 lockedBalance = localLens.getLockedBalances(userA, address(inputToken));
         assertEq(lockedBalance, order.inputAmount);
 
         // Switch to destination chain
@@ -106,11 +108,11 @@ contract CrossChainAndWhitelistTests is TestUtils {
 
         // Prepare settlement
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(uint128(GAS_LIMIT), 0);
-        uint256 fee = remoteAori.quote(localEid, uint8(PayloadType.Settlement), options, false, localEid, solver);
+        uint256 fee = remoteAori.quote(localEid, uint8(PayloadType.Settlement), options, false, localEid, solver).nativeFee;
 
         // Send settlement
         vm.deal(solver, fee);
-        remoteAori.settle{value: fee}(localEid, solver, options);
+        remoteAori.settle{ value: fee }(localEid, solver, options);
         vm.stopPrank();
 
         // Switch back to source chain to simulate receiving the settlement
@@ -133,7 +135,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         settlementPayload[22] = bytes1(uint8(uint16(fillCount)));
 
         // Order hash
-        bytes32 orderHash = localAori.hash(order);
+        bytes32 orderHash = keccak256(abi.encode(order));
         for (uint256 i = 0; i < 32; i++) {
             settlementPayload[23 + i] = orderHash[i];
         }
@@ -141,15 +143,11 @@ contract CrossChainAndWhitelistTests is TestUtils {
         // Simulate receipt of settlement message
         vm.prank(address(endpoints[localEid]));
         localAori.lzReceive(
-            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),
-            guid,
-            settlementPayload,
-            address(0),
-            bytes("")
+            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1), guid, settlementPayload, address(0), bytes("")
         );
 
         // Verify that funds were unlocked for the solver
-        uint256 unlockedBalance = localAori.getUnlockedBalances(solver, address(inputToken));
+        uint256 unlockedBalance = localLens.getUnlockedBalances(solver, address(inputToken));
         assertEq(unlockedBalance, order.inputAmount);
     }
 
@@ -163,7 +161,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         uint256 initialUserBalance = inputToken.balanceOf(userA);
 
         // Create a valid SINGLE-CHAIN order (not cross-chain)
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         order.dstEid = localEid; // Make it single-chain to allow source chain cancellation
 
         // Sign and deposit the order
@@ -177,27 +175,27 @@ contract CrossChainAndWhitelistTests is TestUtils {
         localAori.deposit(order, signature);
 
         // Check locked balance
-        uint256 lockedBalance = localAori.getLockedBalances(userA, address(inputToken));
+        uint256 lockedBalance = localLens.getLockedBalances(userA, address(inputToken));
         assertEq(lockedBalance, order.inputAmount);
 
         // Advance time past order expiry
         vm.warp(order.endTime + 1);
 
         // Whitelisted solver cancels the order
-        bytes32 orderHash = localAori.hash(order);
+        bytes32 orderHash = keccak256(abi.encode(order));
         vm.prank(solver);
         localAori.cancel(orderHash);
 
         // Verify tokens were transferred directly back to the offerer
         uint256 finalUserBalance = inputToken.balanceOf(userA);
         assertEq(finalUserBalance, initialUserBalance, "User should have received their tokens back directly");
-        
+
         // Verify locked balance is now 0
-        uint256 lockedAfter = localAori.getLockedBalances(userA, address(inputToken));
+        uint256 lockedAfter = localLens.getLockedBalances(userA, address(inputToken));
         assertEq(lockedAfter, 0, "Locked balance should be zero after cancellation");
-        
+
         // Verify unlocked balance remains 0 (since tokens were transferred directly)
-        uint256 unlockedBalance = localAori.getUnlockedBalances(userA, address(inputToken));
+        uint256 unlockedBalance = localLens.getUnlockedBalances(userA, address(inputToken));
         assertEq(unlockedBalance, 0, "Unlocked balance should remain 0 with direct transfer");
     }
 
@@ -209,7 +207,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         vm.chainId(localEid);
 
         // Create a valid SINGLE-CHAIN order (not cross-chain)
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
         order.dstEid = localEid; // Make it single-chain to allow source chain cancellation
 
         // Sign and deposit the order
@@ -222,15 +220,15 @@ contract CrossChainAndWhitelistTests is TestUtils {
         vm.prank(solver);
         localAori.deposit(order, signature);
 
-        // Advance time past order expiry 
+        // Advance time past order expiry
         vm.warp(order.endTime + 1);
 
         // Non-whitelisted solver tries to cancel - should fail
-        bytes32 orderHash = localAori.hash(order);
-        
+        bytes32 orderHash = keccak256(abi.encode(order));
+
         // Place expectRevert directly before the call that should revert
         vm.prank(nonWhitelistedSolver);
-        vm.expectRevert("Only solver or offerer (after expiry) can cancel");
+        vm.expectRevert(UnauthorizedCancel.selector);
         localAori.cancel(orderHash);
     }
 
@@ -240,10 +238,10 @@ contract CrossChainAndWhitelistTests is TestUtils {
     function testQuoteFeeCalculation() public view {
         // Create options for quoting
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(uint128(GAS_LIMIT), 0);
-        
+
         // Get a fee quote
-        uint256 fee = localAori.quote(remoteEid, uint8(PayloadType.Settlement), options, false, localEid, solver);
-        
+        uint256 fee = localAori.quote(remoteEid, uint8(PayloadType.Settlement), options, false, localEid, solver).nativeFee;
+
         // The fee should be non-zero
         assertGt(fee, 0, "Fee should be greater than zero");
     }
@@ -255,7 +253,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         vm.chainId(localEid);
 
         // Create a valid order
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
 
         // Sign and deposit the order
         bytes memory signature = signOrder(order);
@@ -282,17 +280,15 @@ contract CrossChainAndWhitelistTests is TestUtils {
         // Stay on remote chain where the fill happened
         // Try to cancel from the same chain where the fill occurred
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(uint128(GAS_LIMIT), 0);
-        uint256 fee = remoteAori.quote(localEid, uint8(PayloadType.Cancellation), options, false, localEid, userA);
+        uint256 fee = remoteAori.quote(localEid, uint8(PayloadType.Cancellation), options, false, localEid, userA).nativeFee;
 
         // Try to cancel after fill - should revert
         vm.deal(userA, fee);
         vm.prank(userA);
-        bytes32 orderHash = localAori.hash(order);
+        bytes32 orderHash = keccak256(abi.encode(order));
         // Add a check to verify the order state is actually Filled
-        assertEq(
-            uint8(remoteAori.orderStatus(orderHash)), uint8(IAori.OrderStatus.Filled), "Order should be in filled state"
-        );
-        vm.expectRevert("Order not active");
+        assertEq(uint8(remoteAori.orderStatus(orderHash)), uint8(OrderStatus.Filled), "Order should be in filled state");
+        vm.expectRevert(abi.encodeWithSelector(OrderAlreadyProcessed.selector, OrderStatus.Filled));
         remoteAori.cancel(orderHash, order, defaultOptions());
     }
 
@@ -303,7 +299,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         vm.chainId(localEid);
 
         // Create a valid order
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
 
         // Sign and deposit the order
         bytes memory signature = signOrder(order);
@@ -323,19 +319,15 @@ contract CrossChainAndWhitelistTests is TestUtils {
 
         // Cancel the order from the destination chain
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(uint128(GAS_LIMIT), 0);
-        uint256 cancelFee = remoteAori.quote(localEid, uint8(PayloadType.Cancellation), options, false, localEid, userA);
+        uint256 cancelFee = remoteAori.quote(localEid, uint8(PayloadType.Cancellation), options, false, localEid, userA).nativeFee;
 
         vm.deal(userA, cancelFee);
         vm.startPrank(userA);
-        bytes32 orderHash = localAori.hash(order);
-        remoteAori.cancel{value: cancelFee}(orderHash, order, options);
+        bytes32 orderHash = keccak256(abi.encode(order));
+        remoteAori.cancel{ value: cancelFee }(orderHash, order, options);
         vm.stopPrank();
 
-        assertEq(
-            uint8(remoteAori.orderStatus(orderHash)),
-            uint256(IAori.OrderStatus.Cancelled),
-            "Order should be in cancelled state"
-        );
+        assertEq(uint8(remoteAori.orderStatus(orderHash)), uint256(OrderStatus.Cancelled), "Order should be in cancelled state");
 
         // Simulate receiving the cancellation message on source chain
         vm.chainId(localEid);
@@ -359,7 +351,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         // Try to fill the cancelled order - should revert
         vm.startPrank(solver);
         outputToken.approve(address(remoteAori), order.outputAmount);
-        vm.expectRevert("Order not active");
+        vm.expectRevert(abi.encodeWithSelector(OrderAlreadyProcessed.selector, OrderStatus.Cancelled));
         remoteAori.fill(order);
         vm.stopPrank();
     }
@@ -374,7 +366,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         // Create an invalid payload with an unsupported type (not 0 for settlement or 1 for cancellation)
         bytes memory invalidPayload = new bytes(33); // Same length as a cancellation payload
         invalidPayload[0] = 0x02; // Set unsupported payload type (2)
-        
+
         // Fill the rest with some dummy data
         bytes32 dummyOrderHash = keccak256("dummy-order-hash");
         for (uint256 i = 0; i < 32; i++) {
@@ -387,11 +379,7 @@ contract CrossChainAndWhitelistTests is TestUtils {
         // Use generic expectRevert without message since Solidity panics are difficult to match exactly
         vm.expectRevert();
         localAori.lzReceive(
-            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),
-            guid,
-            invalidPayload,
-            address(0),
-            bytes("")
+            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1), guid, invalidPayload, address(0), bytes("")
         );
     }
 }

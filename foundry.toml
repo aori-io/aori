@@ -1,11 +1,13 @@
 [profile.default]
-solc-version = '0.8.28'
+solc-version = '0.8.34'
 src = 'contracts'
 out = 'out'
 test = 'test/foundry'
 cache_path = 'cache/foundry'
 verbosity = 3
 via_ir = true
+optimizer = true
+optimizer_runs = 100
 libs = [
     # We provide a set of useful contract utilities
     # in the lib directory of @layerzerolabs/toolbox-foundry:
@@ -17,7 +19,7 @@ libs = [
 remappings = [
     # Due to a misconfiguration of solidity-bytes-utils, an outdated version
     # of forge-std is being dragged in
-    # 
+    #
     # To remedy this, we'll remap the ds-test and forge-std imports to our own versions
     'ds-test/=node_modules/@layerzerolabs/toolbox-foundry/lib/ds-test',
     'forge-std/=node_modules/@layerzerolabs/toolbox-foundry/lib/forge-std',
@@ -25,9 +27,40 @@ remappings = [
     '@openzeppelin/=node_modules/@openzeppelin/',
     'solady/=node_modules/solady/',
     '@aori/=contracts/',
+    '@permit2/=node_modules/@layerzerolabs/toolbox-foundry/lib/permit2/',
 ]
 
 [fuzz]
 runs = 1000
 
 gas_reports = ["contracts/Aori.sol"]
+
+[fmt]
+line_length = 140
+tab_width = 4
+bracket_spacing = true
+int_types = "long"
+multiline_func_header = "params_first"
+quote_style = "double"
+number_underscore = "preserve"
+single_line_statement_blocks = "preserve"
+override_spacing = false
+wrap_comments = false
+ignore = ["contracts/Aori.sol", "contracts/interfaces/IAori.sol", "contracts/types/AoriErrors.sol", "contracts/types/AoriTypes.sol"]
+# Extra size optimizations
+[profile.default.optimizer_details]
+yul = true
+constantOptimizer = true
+[profile.default.optimizer_details.yulDetails]
+stackAllocation = true
+
+# Etherscan API configuration for contract verification
+[etherscan]
+ethereum = { key = "${ETHERSCAN_API_KEY}", url = "https://api.etherscan.io/api" }
+base = { key = "${BASESCAN_API_KEY}", url = "https://api.basescan.org/api" }
+optimism = { key = "${OPTIMISM_ETHERSCAN_API_KEY}", url = "https://api-optimistic.etherscan.io/api" }
+arbitrum = { key = "${ARBISCAN_API_KEY}", url = "https://api.arbiscan.io/api" }
+bsc = { key = "${BSCSCAN_API_KEY}", url = "https://api.bscscan.com/api" }
+plasma = { key = "${ETHERSCAN_API_KEY}", url = "https://api.plasmascan.to/api" }
+monad = { key = "${ETHERSCAN_API_KEY}", url = "https://api.monadscan.com/api" }
+stable = { key = "${ETHERSCAN_API_KEY}", url = "https://api.stablescan.xyz/api" }

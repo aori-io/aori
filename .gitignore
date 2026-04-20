@@ -1,5 +1,7 @@
 .env
-broadcast
+# Track mainnet deployments, ignore dry runs and old timestamped broadcast files
+broadcast/**/dry-run/
+broadcast/**/run-[0-9]*.json
 node_modules
 .DS_Store
 coverage
@@ -29,3 +31,5 @@ pnpm-error.log
 # Editor and OS files
 .idea
 .vscode
+_docs
+docs/plans/

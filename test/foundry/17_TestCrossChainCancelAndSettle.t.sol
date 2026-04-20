@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity 0.8.34;
 
 /**
  * @title CrossChainCancelAndSettleTest
@@ -18,9 +18,10 @@ pragma solidity 0.8.28;
  * - The tests focus on the entire flow from deposit to cancellation to final token withdrawal
  * - Cancellation permissions are tested to ensure only authorized actors can cancel orders
  */
-import {TestUtils} from "./TestUtils.sol";
-import {IAori} from "../../contracts/Aori.sol";
-import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
+import { TestUtils } from "./TestUtils.sol";
+import { Order, OrderStatus, SrcHook, DstHook, Balance } from "../../contracts/types/AoriTypes.sol";
+import { IAori } from "../../contracts/Aori.sol";
+import { Origin } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
 
 /**
  * @notice Tests cross-chain cancellation and settlement flows in the Aori protocol
@@ -39,7 +40,7 @@ contract CrossChainCancelAndSettleTest is TestUtils {
     function testDestinationCancelBySolver() public {
         // PHASE 1: Deposit on Source Chain
         vm.chainId(localEid);
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
 
         // Advance to startTime
         vm.warp(order.startTime + 1);
@@ -58,24 +59,20 @@ contract CrossChainCancelAndSettleTest is TestUtils {
         vm.chainId(remoteEid);
 
         // Set up the order on the destination chain
-        bytes32 orderHash = remoteAori.hash(order);
-        remoteAori.orders(orderHash); // This will create the order in storage
+        bytes32 orderHash = keccak256(abi.encode(order));
+        remoteLens.orders(orderHash); // This will create the order in storage
 
         // Calculate LZ message fee
         bytes memory options = defaultOptions();
-        uint256 fee = remoteAori.quote(localEid, 1, options, false, localEid, solver);
+        uint256 fee = remoteAori.quote(localEid, 1, options, false, localEid, solver).nativeFee;
         vm.deal(solver, fee);
 
         // Cancel as whitelisted solver before endTime
         vm.prank(solver);
-        remoteAori.cancel{value: fee}(orderHash, order, options);
+        remoteAori.cancel{ value: fee }(orderHash, order, options);
 
         // Verify order is cancelled
-        assertEq(
-            uint256(remoteAori.orderStatus(orderHash)),
-            uint8(IAori.OrderStatus.Cancelled),
-            "Order not cancelled on destination chain"
-        );
+        assertEq(uint256(remoteAori.orderStatus(orderHash)), uint8(OrderStatus.Cancelled), "Order not cancelled on destination chain");
     }
 
     /**
@@ -84,10 +81,10 @@ contract CrossChainCancelAndSettleTest is TestUtils {
     function testDestinationCancelByUser() public {
         // Store user's initial token balance
         uint256 initialUserBalance = inputToken.balanceOf(userA);
-        
+
         // PHASE 1: Deposit on Source Chain
         vm.chainId(localEid);
-        IAori.Order memory order = createValidOrder();
+        Order memory order = createValidOrder();
 
         // Advance to startTime
         vm.warp(order.startTime + 1);
@@ -103,27 +100,27 @@ contract CrossChainCancelAndSettleTest is TestUtils {
         localAori.deposit(order, signature);
 
         // Verify the order is locked
-        uint256 lockedBalance = localAori.getLockedBalances(userA, address(inputToken));
+        uint256 lockedBalance = localLens.getLockedBalances(userA, address(inputToken));
         assertEq(lockedBalance, order.inputAmount, "Locked balance not increased correctly");
 
         // PHASE 2: Cancel on Destination Chain
         vm.chainId(remoteEid);
 
         // Set up the order on the destination chain
-        bytes32 orderHash = remoteAori.hash(order);
-        remoteAori.orders(orderHash); // This will create the order in storage
+        bytes32 orderHash = keccak256(abi.encode(order));
+        remoteLens.orders(orderHash); // This will create the order in storage
 
         // Warp past endTime
         vm.warp(order.endTime + 1);
 
         // Calculate LZ message fee
         bytes memory options = defaultOptions();
-        uint256 fee = remoteAori.quote(localEid, 1, options, false, localEid, userA);
+        uint256 fee = remoteAori.quote(localEid, 1, options, false, localEid, userA).nativeFee;
         vm.deal(userA, fee);
 
         // Cancel as offerer after endTime
         vm.prank(userA);
-        remoteAori.cancel{value: fee}(orderHash, order, options);
+        remoteAori.cancel{ value: fee }(orderHash, order, options);
 
         // PHASE 3: Simulate LZ message delivery to Source Chain
         vm.chainId(localEid);
@@ -141,17 +138,13 @@ contract CrossChainCancelAndSettleTest is TestUtils {
         bytes32 guid = keccak256("mock-guid");
         vm.prank(address(endpoints[localEid]));
         localAori.lzReceive(
-            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1),
-            guid,
-            cancellationPayload,
-            address(0),
-            bytes("")
+            Origin(remoteEid, bytes32(uint256(uint160(address(remoteAori)))), 1), guid, cancellationPayload, address(0), bytes("")
         );
 
         // PHASE 4: Verification
         // The order should now be cancelled on the source chain, with tokens transferred directly back to user
-        uint256 lockedAfter = localAori.getLockedBalances(userA, address(inputToken));
-        uint256 unlockedAfter = localAori.getUnlockedBalances(userA, address(inputToken));
+        uint256 lockedAfter = localLens.getLockedBalances(userA, address(inputToken));
+        uint256 unlockedAfter = localLens.getUnlockedBalances(userA, address(inputToken));
         uint256 finalUserBalance = inputToken.balanceOf(userA);
 
         assertEq(lockedAfter, 0, "Order should be unlocked after remote cancellation");

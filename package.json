@@ -2,24 +2,31 @@
   "name": "aori",
   "version": "0.3.1",
   "private": true,
-  "license": "MIT",
+  "license": "BUSL-1.1",
   "scripts": {
     "clean": "rm -rf artifacts cache out",
     "compile": "forge build",
-    "compile:forge": "forge build",
-    "compile:hardhat": "hardhat compile",
     "lint": "$npm_execpath run lint:js && $npm_execpath run lint:sol",
     "lint:fix": "eslint --fix '**/*.{js,ts,json}' && prettier --write . && solhint 'contracts/**/*.sol' --fix --noPrompt",
     "lint:js": "eslint '**/*.{js,ts,json}' && prettier --check .",
     "lint:sol": "solhint 'contracts/**/*.sol'",
     "test": "forge test",
-    "test:forge": "forge test",
-    "hardhat:deploy": "npx hardhat lz:deploy",
-    "hardhat:wire": "npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts"
+    "deploy:testnet": "./deploy/deploy.sh testnet --broadcast",
+    "deploy:testnet:dry": "./deploy/deploy.sh testnet",
+    "deploy:testnet:peers": "./deploy/deploy.sh testnet --configure-peers",
+    "deploy:testnet:full": "./deploy/deploy.sh testnet --full",
+    "deploy:mainnet": "./deploy/deploy.sh mainnet --broadcast",
+    "deploy:mainnet:dry": "./deploy/deploy.sh mainnet",
+    "deploy:mainnet:peers": "./deploy/deploy.sh mainnet --configure-peers",
+    "deploy:mainnet:full": "./deploy/deploy.sh mainnet --full",
+    "upgrade:testnet": "./deploy/deploy.sh testnet --upgrade --broadcast",
+    "upgrade:testnet:dry": "./deploy/deploy.sh testnet --upgrade",
+    "upgrade:mainnet": "./deploy/deploy.sh mainnet --upgrade --broadcast",
+    "upgrade:mainnet:dry": "./deploy/deploy.sh mainnet --upgrade",
+    "verify": "forge script script/DeployMultichain.s.sol:VerifyDeployments"
   },
   "resolutions": {
-    "ethers": "^5.7.2",
-    "hardhat-deploy": "^0.12.1"
+    "ethers": "^5.7.2"
   },
   "devDependencies": {
     "@babel/core": "^7.23.9",
@@ -30,30 +37,23 @@
     "@layerzerolabs/lz-evm-v1-0.7": "^3.0.12",
     "@layerzerolabs/lz-v2-utilities": "^3.0.12",
     "@layerzerolabs/oapp-evm": "^0.3.0",
+    "@layerzerolabs/oapp-evm-upgradeable": "^0.1.3",
     "@layerzerolabs/prettier-config-next": "^2.3.39",
     "@layerzerolabs/solhint-config": "^3.0.12",
     "@layerzerolabs/test-devtools-evm-foundry": "~6.0.0",
     "@layerzerolabs/toolbox-foundry": "~0.1.9",
-    "@layerzerolabs/toolbox-hardhat": "~0.6.6",
-    "@nomicfoundation/hardhat-ethers": "^3.0.5",
-    "@nomiclabs/hardhat-ethers": "^2.2.3",
+    "@layerzerolabs/toolbox-hardhat": "^0.6.13",
+    "@nomicfoundation/hardhat-ethers": "^3.1.3",
     "@openzeppelin/contracts": "^5.0.2",
     "@openzeppelin/contracts-upgradeable": "^5.0.2",
     "@rushstack/eslint-patch": "^1.7.0",
-    "@tenderly/hardhat-tenderly": "^1.0.0",
-    "@types/chai": "^4.3.11",
-    "@types/mocha": "^10.0.6",
     "@types/node": "~18.18.14",
-    "chai": "^4.4.1",
     "concurrently": "~9.1.0",
     "dotenv": "^16.4.7",
     "eslint": "^9.0.0",
     "eslint-plugin-jest-extended": "~2.0.0",
-    "ethers": "^5.7.2",
-    "hardhat": "^2.22.10",
-    "hardhat-contract-sizer": "^2.10.0",
-    "hardhat-deploy": "^0.12.1",
-    "mocha": "^10.2.0",
+    "ethers": "^5.8.0",
+    "hardhat": "^2.28.3",
     "prettier": "^3.2.5",
     "solady": "^0.1.12",
     "solhint": "^4.1.1",
@@ -66,13 +66,11 @@
   },
   "pnpm": {
     "overrides": {
-      "ethers": "^5.7.2",
-      "hardhat-deploy": "^0.12.1"
+      "ethers": "^5.7.2"
     }
   },
   "overrides": {
-    "ethers": "^5.7.2",
-    "hardhat-deploy": "^0.12.1"
+    "ethers": "^5.7.2"
   },
   "packageManager": "pnpm@10.6.5+sha1.da220e966c2db3275efb5928cf8f3592681b106b"
 }
