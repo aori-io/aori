@@ -522,6 +522,9 @@ contract SettlementTests is TestUtils {
         uint256 attackerBalanceBefore = testLocalLens.getUnlockedBalances(attacker, address(inputToken));
         uint256 offererLockedBefore = testLocalLens.getLockedBalances(userA, address(inputToken));
 
+        vm.expectEmit(true, false, false, false, address(testLocalAori));
+        emit IAori.SettleFailed(orderId);
+
         vm.chainId(localEid);
         vm.prank(address(endpoints[localEid]));
         testLocalAori.lzReceive(
@@ -602,6 +605,9 @@ contract SettlementTests is TestUtils {
             uint16(1),
             orderId
         );
+
+        vm.expectEmit(true, false, false, false, address(testLocalAori));
+        emit IAori.SettleFailed(orderId);
 
         vm.chainId(localEid);
         vm.prank(address(endpoints[localEid]));
